@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: memory-card-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: memory_card
+      POSTGRES_USER: memory_card
+      POSTGRES_PASSWORD: memory_card
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U memory_card -d memory_card"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:

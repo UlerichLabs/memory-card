@@ -1,0 +1,20 @@
+{
+  "name": "memory-card",
+  "private": true,
+  "version": "0.0.0",
+  "packageManager": "npm@10.8.2",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "db:migrate": "turbo run db:migrate --filter=@memory-card/db"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.31.4",
+    "turbo": "^2.5.4",
+    "typescript": "^5.8.3"
+  }
+}

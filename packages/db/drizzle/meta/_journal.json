@@ -1,0 +1,62 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1780317323805,
+      "tag": "0000_cold_imperial_guard",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1780321200000,
+      "tag": "0001_update_dificuldade_scale",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1780324800000,
+      "tag": "0002_add_usuarios",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1782052200711,
+      "tag": "0003_flat_boomerang",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1782073939052,
+      "tag": "0004_sprint_3_4_jogos_igdb",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1782562495412,
+      "tag": "0005_chubby_mad_thinker",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1782562994814,
+      "tag": "0006_heavy_invisible_woman",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1782569218040,
+      "tag": "0007_absent_natasha_romanoff",
+      "breakpoints": true
+    }
+  ]
+}
