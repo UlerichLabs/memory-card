@@ -1,1 +1,0 @@
-ALTER TABLE "jogos_zerados" RENAME COLUMN "condicao_zeramento" TO "review";
