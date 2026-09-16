@@ -1,0 +1,10 @@
+DROP TABLE favoritos;
+DROP TABLE conquistas;
+DROP TABLE desafio_itens;
+DROP TABLE desafios;
+DROP TABLE campanhas;
+DROP TABLE jogos_zerados;
+DROP TABLE usuarios;
+DROP TYPE tipo_favorito;
+DROP TYPE tipo_desafio;
+DROP TYPE dificuldade;
