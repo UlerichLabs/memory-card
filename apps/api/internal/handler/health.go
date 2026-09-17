@@ -16,6 +16,9 @@ type Pinger interface {
 
 func Health(database Pinger) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// Apenas este endpoint público permite leitura por outras origens.
+		// Não habilita CORS ou credenciais nas futuras rotas autenticadas.
+		c.Header("Access-Control-Allow-Origin", "*")
 		ctx, cancel := context.WithTimeout(c.Request.Context(), 2*time.Second)
 		defer cancel()
 		if err := database.Ping(ctx); err != nil {
