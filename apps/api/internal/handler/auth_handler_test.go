@@ -169,18 +169,61 @@ func TestAuthHandler_Register_ErrosDeValidacao(t *testing.T) {
 func TestAuthHandler_Register_CorpoInvalido(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	mockSvc := &mockCadastroService{}
-	h := NewAuthHandler(mockSvc)
-	router := gin.New()
-	router.POST("/api/v1/auth/register", h.Register)
+	tests := []struct {
+		name           string
+		acceptLanguage string
+		wantCodigo     string
+		wantMensagem   string
+	}{
+		{
+			name:           "corpo invalido pt-BR default",
+			acceptLanguage: "",
+			wantCodigo:     "auth.register.invalid_input",
+			wantMensagem:   "Dados de entrada inválidos.",
+		},
+		{
+			name:           "corpo invalido en",
+			acceptLanguage: "en-US",
+			wantCodigo:     "auth.register.invalid_input",
+			wantMensagem:   "Invalid input data.",
+		},
+	}
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/register", bytes.NewBufferString("{invalido"))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			mockSvc := &mockCadastroService{}
+			h := NewAuthHandler(mockSvc)
+			router := gin.New()
+			router.POST("/api/v1/auth/register", h.Register)
 
-	router.ServeHTTP(w, req)
+			req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/register", bytes.NewBufferString("{invalido"))
+			req.Header.Set("Content-Type", "application/json")
+			if tc.acceptLanguage != "" {
+				req.Header.Set("Accept-Language", tc.acceptLanguage)
+			}
+			w := httptest.NewRecorder()
 
-	if w.Code != http.StatusBadRequest {
-		t.Fatalf("status = %d, esperado %d", w.Code, http.StatusBadRequest)
+			router.ServeHTTP(w, req)
+
+			if w.Code != http.StatusBadRequest {
+				t.Fatalf("status = %d, esperado %d", w.Code, http.StatusBadRequest)
+			}
+
+			var errResp struct {
+				Error struct {
+					Codigo   string `json:"codigo"`
+					Mensagem string `json:"mensagem"`
+				} `json:"error"`
+			}
+			if err := json.Unmarshal(w.Body.Bytes(), &errResp); err != nil {
+				t.Fatalf("falha ao decodificar JSON: %v", err)
+			}
+			if errResp.Error.Codigo != tc.wantCodigo {
+				t.Errorf("codigo = %q, esperado %q", errResp.Error.Codigo, tc.wantCodigo)
+			}
+			if errResp.Error.Mensagem != tc.wantMensagem {
+				t.Errorf("mensagem = %q, esperado %q", errResp.Error.Mensagem, tc.wantMensagem)
+			}
+		})
 	}
 }
