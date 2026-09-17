@@ -1,8 +1,6 @@
 services:
   postgres:
-    image: postgres:16
-    container_name: memory-card-postgres
-    restart: unless-stopped
+    image: postgres:16-alpine
     environment:
       POSTGRES_DB: memory_card
       POSTGRES_USER: memory_card
@@ -12,8 +10,42 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U memory_card -d memory_card"]
-      interval: 10s
+      test: ["CMD-SHELL", "pg_isready -U memory_card"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ./apps/api
+    environment:
+      DATABASE_URL: "postgres://memory_card:memory_card@postgres:5432/memory_card?sslmode=disable"
+      IGDB_CLIENT_ID: "${IGDB_CLIENT_ID}"
+      IGDB_CLIENT_SECRET: "${IGDB_CLIENT_SECRET}"
+      JWT_SECRET: "${JWT_SECRET}"
+      PORT: 8080
+    ports:
+      # 8080 no host está ocupada pelo FlowLoop.
+      - "18080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+      args:
+        # Vite incorpora esta URL pública ao bundle durante o build.
+        VITE_API_URL: "${VITE_API_URL:-http://localhost:18080}"
+    ports:
+      - "5173:80"
+    depends_on:
+      - api
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/"]
+      interval: 5s
       timeout: 5s
       retries: 5
 

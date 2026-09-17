@@ -1,1 +1,0 @@
-ALTER TABLE "desafios" RENAME COLUMN "concluida_em" TO "data_conclusao";
