@@ -14,6 +14,7 @@ Convencoes de como a API Go se comunica com o frontend React. Objetivo: previsib
 - Zero verbo na URL (`/api/v1/criar-jogo`) - o metodo HTTP ja e o verbo (`POST /api/v1/jogos`)
 - Zero resposta de sucesso e erro com formatos de JSON diferentes entre endpoints - schema de erro e unico e consistente em toda a API
 - Zero status HTTP generico (200 para tudo, 500 para tudo) quando existe um status mais especifico e correto
+- Zero formato de `codigo` de erro divergente do padrao definido abaixo - e a MESMA string usada como chave de traducao pela skill `backend-i18n`, nunca dois formatos diferentes
 
 ## Formato de resposta - sucesso
 
@@ -37,13 +38,13 @@ Listas paginadas:
 ```json
 {
   "error": {
-    "codigo": "EMAIL_JA_CADASTRADO",
+    "codigo": "auth.register.email_taken",
     "mensagem": "Este email ja esta em uso."
   }
 }
 ```
 
-`codigo` e uma chave estavel (para o frontend tratar programaticamente ou usar como chave de traducao), `mensagem` e o texto legivel no idioma do usuario. Ver skill `backend-i18n` para como `mensagem` se relaciona com o idioma do usuario.
+`codigo` segue SEMPRE o formato dotted lowercase `<dominio>.<contexto>.<caso>` (ex: `auth.register.email_taken`, `auth.login.invalid_credentials`) - e uma chave estavel que o frontend pode tratar programaticamente, e e a MESMA chave que a skill `backend-i18n` usa para resolver a traducao. Nunca usar outro formato - um unico padrao em toda a API. `mensagem` e sempre o texto ja traduzido no idioma do usuario, nunca a chave crua.
 
 ## Status HTTP - referencia obrigatoria
 
@@ -71,4 +72,5 @@ Query params `pagina` (default 1) e `por_pagina` (default 20, maximo 100) em tod
 2. O metodo HTTP e o verbo certo (GET/POST/PUT/PATCH/DELETE), sem verbo na URL?
 3. A resposta de sucesso segue o envelope `{ "data": ... }`?
 4. Os erros possiveis desse endpoint estao mapeados para status HTTP especificos (ver tabela)?
-5. Se e uma lista que pode crescer, tem paginacao?
+5. O campo `codigo` do erro segue o formato dotted lowercase `<dominio>.<contexto>.<caso>`, identico a chave usada em `backend-i18n`?
+6. Se e uma lista que pode crescer, tem paginacao?
