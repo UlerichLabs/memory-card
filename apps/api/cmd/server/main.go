@@ -16,6 +16,7 @@ import (
 
 	"github.com/UlerichLabs/memory-card/apps/api/internal/config"
 	"github.com/UlerichLabs/memory-card/apps/api/internal/handler"
+	"github.com/UlerichLabs/memory-card/apps/api/internal/middleware"
 	"github.com/UlerichLabs/memory-card/apps/api/internal/repository"
 	"github.com/UlerichLabs/memory-card/apps/api/internal/repository/db"
 	"github.com/UlerichLabs/memory-card/apps/api/internal/service"
@@ -32,6 +33,14 @@ func run() error {
 	cfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("carregar configuração: %w", err)
+	}
+	authCfg, err := config.LoadAuth()
+	if err != nil {
+		return fmt.Errorf("carregar auth: %w", err)
+	}
+	tokens, err := service.NewAuthToken(authCfg.Secret, authCfg.AccessTTL, authCfg.RefreshTTL)
+	if err != nil {
+		return fmt.Errorf("configurar tokens: %w", err)
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -59,10 +68,20 @@ func run() error {
 	cadastroService := service.NewCadastroService(usuarioRepo)
 	authHandler := handler.NewAuthHandler(cadastroService)
 
+	loginService, err := service.NewLoginService(usuarioRepo, tokens)
+	if err != nil {
+		return fmt.Errorf("configurar login: %w", err)
+	}
+	loginHandler := handler.NewLoginHandler(loginService)
+
 	healthService := service.NewHealthService(pool)
 	healthHandler := handler.NewHealthHandler(healthService)
 	router.GET("/api/v1/health", healthHandler.Check)
-	router.POST("/api/v1/auth/register", authHandler.Register)
+	publicas := router.Group("/api/v1/auth")
+	publicas.POST("/register", authHandler.Register)
+	publicas.POST("/login", loginHandler.Login)
+	publicas.POST("/refresh", loginHandler.Refresh)
+	middleware.GrupoPrivado(router, tokens)
 	server := &http.Server{
 		Addr:              ":" + cfg.Port,
 		Handler:           router,

@@ -2,7 +2,11 @@ package repository
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 
 	"github.com/UlerichLabs/memory-card/apps/api/internal/repository/db"
 )
@@ -54,4 +58,20 @@ func (r *SQLUsuarioRepository) Criar(ctx context.Context, nome, email, senhaHash
 		Idioma:    row.Idioma,
 		CreatedAt: createdAt,
 	}, nil
+}
+
+type CredenciaisUsuario struct {
+	Usuario
+	SenhaHash string `json:"-"`
+}
+
+func (r *SQLUsuarioRepository) BuscarPorEmail(ctx context.Context, email string) (*CredenciaisUsuario, error) {
+	row, err := r.queries.BuscarUsuarioPorEmail(ctx, email)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("buscar usuario: %w", err)
+	}
+	return &CredenciaisUsuario{Usuario: Usuario{ID: row.ID, Nome: row.Nome, Email: row.Email, Idioma: row.Idioma, CreatedAt: row.CreatedAt.Time}, SenhaHash: row.SenhaHash}, nil
 }

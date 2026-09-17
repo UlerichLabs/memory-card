@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -18,6 +19,7 @@ type CadastroServicer interface {
 
 type AuthHandler struct {
 	service CadastroServicer
+	login   LoginServicer
 }
 
 func NewAuthHandler(service CadastroServicer) *AuthHandler {
@@ -82,4 +84,60 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{
 		"data": usuario,
 	})
+}
+
+type LoginServicer interface {
+	Login(ctx context.Context, email, senha string) (*service.LoginResult, error)
+	Refresh(ctx context.Context, token string) (*service.RefreshResult, error)
+}
+
+func NewLoginHandler(login LoginServicer) *AuthHandler {
+	return &AuthHandler{login: login}
+}
+
+func (h *AuthHandler) Login(c *gin.Context) {
+	var req struct {
+		Email string `json:"email"`
+		Senha string `json:"senha"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		authError(c, http.StatusBadRequest, "auth.login.invalid_input")
+		return
+	}
+	result, err := h.login.Login(c.Request.Context(), req.Email, req.Senha)
+	if err != nil {
+		if errors.Is(err, service.ErrCredenciaisInvalidas) {
+			authError(c, http.StatusUnauthorized, "auth.login.invalid_credentials")
+		} else {
+			slog.ErrorContext(c.Request.Context(), "falha no login", "error", err)
+			authError(c, http.StatusInternalServerError, "server.internal_error")
+		}
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": result})
+}
+
+func (h *AuthHandler) Refresh(c *gin.Context) {
+	var req struct {
+		RefreshToken string `json:"refresh_token"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		authError(c, http.StatusUnauthorized, "auth.session.expired")
+		return
+	}
+	result, err := h.login.Refresh(c.Request.Context(), req.RefreshToken)
+	if err != nil {
+		if errors.Is(err, service.ErrSessaoExpirada) {
+			authError(c, http.StatusUnauthorized, "auth.session.expired")
+		} else {
+			slog.ErrorContext(c.Request.Context(), "falha no refresh", "error", err)
+			authError(c, http.StatusInternalServerError, "server.internal_error")
+		}
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": result})
+}
+
+func authError(c *gin.Context, status int, codigo string) {
+	c.JSON(status, gin.H{"error": gin.H{"codigo": codigo, "mensagem": i18n.T(c.GetHeader("Accept-Language"), codigo)}})
 }
