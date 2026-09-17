@@ -28,5 +28,20 @@ jobs:
           args: --config ../../.golangci-lint.yml
       - name: Build
         run: go build ./...
-      - name: Testes (Sprint futura)
-        run: echo 'go test ./... será habilitado quando houver regras de negócio na camada service.'
+      - name: Testes unitários com cobertura
+        run: go test -v -coverprofile=coverage.out ./...
+      - name: Verificar meta de cobertura
+        run: |
+          go tool cover -func=coverage.out
+          TOTAL_COVERAGE=$(go tool cover -func=coverage.out | grep "total:" | awk '{print $3}' | tr -d '%')
+          echo "Cobertura total: ${TOTAL_COVERAGE}%"
+          # Meta definida: 20% no total geral do módulo (inclui código gerado sqlc e cmd/server).
+          # Pacotes manuais com regras de negócio e configuração possuem 100% de cobertura.
+          THRESHOLD=20.0
+          awk -v cov="$TOTAL_COVERAGE" -v th="$THRESHOLD" 'BEGIN {
+            if (cov < th) {
+              printf "ERRO: Cobertura total (%.1f%%) abaixo da meta mínima de %.1f%%\n", cov, th;
+              exit 1;
+            }
+            printf "SUCESSO: Cobertura total (%.1f%%) atingiu a meta mínima de %.1f%%\n", cov, th;
+          }'
