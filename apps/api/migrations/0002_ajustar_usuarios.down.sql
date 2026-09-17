@@ -1,0 +1,2 @@
+ALTER TABLE usuarios DROP COLUMN IF EXISTS idioma;
+ALTER TABLE usuarios ALTER COLUMN username SET NOT NULL;

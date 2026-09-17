@@ -1,0 +1,7 @@
+{
+  "auth.register.email_taken": "This email is already in use.",
+  "auth.register.weak_password": "Password must be at least 8 characters long, including an uppercase letter, a number, and a special character.",
+  "auth.register.invalid_email": "Please enter a valid email address.",
+  "auth.register.invalid_input": "Invalid input data.",
+  "server.internal_error": "Internal server error."
+}
