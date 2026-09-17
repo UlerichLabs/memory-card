@@ -113,12 +113,86 @@ make test-coverage-html
 # Executar linters e checagens estáticas
 make lint
 make vet
+
+# Executar testes E2E (com Testcontainers e PostgreSQL real)
+make test-e2e
 ```
 
 Ou diretamente no diretório `apps/api`:
 
 ```bash
+# Testes unitários rápidos (sem Docker)
 go test -v ./...
 go test -v -coverprofile=coverage.out ./...
 go tool cover -func=coverage.out
+
+# Testes E2E (com Docker / Testcontainers)
+go test -v -tags=e2e ./...
 ```
+
+---
+
+## 5. Testes E2E com Testcontainers (MEMOR-20)
+
+Os testes de ponta a ponta (E2E) validam a integração completa: **Requisição HTTP real (TCP) → Roteamento e Middleware Gin → Handler → Service → Repositório SQL real → PostgreSQL**.
+
+### 5.1 Isolamento de Testes: Build Tag `//go:build e2e`
+
+Para garantir que a suite de testes unitários execute de forma instantânea (em milissegundos) e sem dependência do daemon do Docker:
+- Todos os arquivos de testes E2E e helpers de infraestrutura de teste contêm a diretiva de compilação `//go:build e2e`.
+- O comando padrão `go test ./...` ignora completamente esses arquivos e pacotes.
+- Para executar os testes E2E, utiliza-se a flag explícita `-tags=e2e`:
+  ```bash
+  go test -v -tags=e2e ./tests/e2e/...
+  ```
+
+### 5.2 Helper de Setup: `testutil.SetupPostgres(t)`
+
+O pacote [`internal/testutil`](../apps/api/internal/testutil/postgres.go) encapsula o ciclo de vida do banco para testes:
+
+1. **Container PostgreSQL Isolado**: Sobe uma instância do `postgres:16-alpine` (mesma versão de produção definida no `docker-compose.yml`) com porta mapeada dinamicamente.
+2. **Migrações Automáticas**: Executa as migrações SQL do projeto via `golang-migrate` utilizando o sistema de arquivos embutido `migrations.FS` (`embed.FS`). Isso garante que o schema do banco de teste sempre esteja 100% atualizado com a versão de produção, sem dependência de paths relativos no disco.
+3. **Pool de Conexões `*pgxpool.Pool`**: Retorna um pool pronto para uso pelas camadas de repositório da aplicação ou consultas de asserção direta.
+4. **Teardown Automático**: Registra via `t.Cleanup(func() { ... })` o fechamento do pool e a destruição (`Terminate`) do container Docker, garantindo limpeza mesmo em caso de `panic` ou falha de asserção.
+5. **Compatibilidade Ampla**: Configura `TESTCONTAINERS_RYUK_DISABLED=true` por padrão caso não especificado, garantindo compatibilidade com distribuições Linux com SELinux (Fedora/RHEL) e runners restritos de CI.
+
+### 5.3 Padrão Canônico para Futuros Fluxos E2E (MEMOR-21+)
+
+Para as próximas histórias (autenticação, cadastro, gestão de coleções e jogos), todo teste E2E deve seguir a estrutura demonstrada em [`tests/e2e/example_e2e_test.go`](../apps/api/tests/e2e/example_e2e_test.go):
+
+```go
+//go:build e2e
+
+package e2e
+
+func TestE2E_NomeDoRecurso_Cenario(t *testing.T) {
+    // 1. Setup do banco PostgreSQL real e isolado
+    pg := testutil.SetupPostgres(t)
+
+    // 2. Wiring dos componentes reais da aplicação (sem mocks)
+    repo := repository.NewAlgumRepository(pg.Pool)
+    svc := service.NewAlgumService(repo)
+    h := handler.NewAlgumHandler(svc)
+
+    router := gin.New()
+    router.POST("/api/v1/recurso", h.Criar)
+
+    // 3. Subida do servidor HTTP real
+    server := httptest.NewServer(router)
+    defer server.Close()
+
+    // 4. Execução da chamada HTTP real
+    resp, err := http.Post(server.URL+"/api/v1/recurso", "application/json", body)
+    // asserções de HTTP (Status, Body, Headers)...
+
+    // 5. Asserção direta no banco PostgreSQL
+    // SELECT direto via pg.Pool validando que o registro foi persistido corretamente
+}
+```
+
+### 5.4 Integração no CI (GitHub Actions)
+
+No arquivo [`.github/workflows/ci.yml`](../.github/workflows/ci.yml), os testes E2E rodam em um job dedicado (`api-e2e`):
+- O job `api` (unitário, lint, build, cobertura) roda primeiro e fornece feedback em segundos.
+- O job `api-e2e` roda em seguida (`needs: api`), executando os testes com Docker e Testcontainers.
+- Os testes E2E não exigem meta de cobertura de código (métrica exclusiva dos testes unitários).
