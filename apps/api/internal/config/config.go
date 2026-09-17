@@ -7,6 +7,7 @@ import (
 	"strconv"
 )
 
+// Config armazena as variáveis de ambiente necessárias para inicialização da API.
 type Config struct {
 	DatabaseURL      string
 	Port             string
@@ -15,6 +16,7 @@ type Config struct {
 	IGDBClientSecret string
 }
 
+// Load lê e valida as variáveis de ambiente necessárias para a aplicação.
 func Load() (Config, error) {
 	cfg := Config{
 		DatabaseURL:      os.Getenv("DATABASE_URL"),

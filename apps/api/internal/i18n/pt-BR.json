@@ -1,0 +1,7 @@
+{
+  "auth.register.email_taken": "Este email já está em uso.",
+  "auth.register.weak_password": "A senha deve ter no mínimo 8 caracteres, incluindo maiúscula, número e caractere especial.",
+  "auth.register.invalid_email": "Informe um email válido.",
+  "auth.register.invalid_input": "Dados de entrada inválidos.",
+  "server.internal_error": "Erro interno do servidor."
+}

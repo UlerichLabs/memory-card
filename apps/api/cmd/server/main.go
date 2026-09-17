@@ -16,6 +16,9 @@ import (
 
 	"github.com/UlerichLabs/memory-card/apps/api/internal/config"
 	"github.com/UlerichLabs/memory-card/apps/api/internal/handler"
+	"github.com/UlerichLabs/memory-card/apps/api/internal/repository"
+	"github.com/UlerichLabs/memory-card/apps/api/internal/repository/db"
+	"github.com/UlerichLabs/memory-card/apps/api/internal/service"
 )
 
 func main() {
@@ -50,7 +53,16 @@ func run() error {
 	if err := router.SetTrustedProxies(nil); err != nil {
 		return fmt.Errorf("configurar proxies: %w", err)
 	}
-	router.GET("/api/v1/health", handler.Health(pool))
+
+	queries := db.New(pool)
+	usuarioRepo := repository.NewUsuarioRepository(queries)
+	cadastroService := service.NewCadastroService(usuarioRepo)
+	authHandler := handler.NewAuthHandler(cadastroService)
+
+	healthService := service.NewHealthService(pool)
+	healthHandler := handler.NewHealthHandler(healthService)
+	router.GET("/api/v1/health", healthHandler.Check)
+	router.POST("/api/v1/auth/register", authHandler.Register)
 	server := &http.Server{
 		Addr:              ":" + cfg.Port,
 		Handler:           router,
