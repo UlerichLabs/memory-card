@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react'
+import { useState, type CSSProperties } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Disc3, Search, Bell, User, ChevronDown, LogOut } from 'lucide-react'
 import { Menu } from '@base-ui/react/menu'
@@ -32,6 +32,7 @@ export function Topbar() {
   const navigate = useNavigate()
   const { sessao, logout } = useAuthStore()
   const nomeUsuario = sessao?.usuario?.nome ?? 'Jogador'
+  const [menuUsuarioAberto, setMenuUsuarioAberto] = useState(false)
 
   async function handleLogout() {
     await logout()
@@ -86,11 +87,12 @@ export function Topbar() {
             <Bell className="h-4 w-4" aria-hidden="true" />
           </button>
 
-          <Menu.Root>
+          <Menu.Root open={menuUsuarioAberto} onOpenChange={setMenuUsuarioAberto}>
             <Menu.Trigger
               type="button"
-              className="flex cursor-pointer items-center gap-2 text-[13px] text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none"
+              className="group flex cursor-pointer items-center gap-2 text-[13px] text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none"
               aria-label="Perfil do usuário"
+              aria-expanded={menuUsuarioAberto}
             >
               <div className="flex h-7 w-7 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface-alt)]">
                 <User className="h-3.5 w-3.5 text-[var(--text-secondary)]" aria-hidden="true" />
@@ -98,20 +100,23 @@ export function Topbar() {
               <span className="hidden font-medium text-[var(--text-primary)] sm:inline">
                 {nomeUsuario}
               </span>
-              <ChevronDown className="h-3.5 w-3.5 text-[var(--text-faint)]" aria-hidden="true" />
+              <ChevronDown
+                className="h-3.5 w-3.5 text-[var(--text-faint)] transition-transform duration-200 ease-in-out group-data-[popup-open]:rotate-180"
+                aria-hidden="true"
+              />
             </Menu.Trigger>
 
             <Menu.Portal>
               <Menu.Positioner
                 side="bottom"
                 align="end"
-                sideOffset={8}
+                sideOffset={0}
                 className="z-50 outline-none"
                 style={{ zIndex: 50 }}
               >
                 <Menu.Popup
                   style={dropdownTheme}
-                  className="z-50 w-[190px] rounded-[10px] border border-[#24262C] bg-[#1A1B20] p-1.5 shadow-2xl shadow-black/60 outline-none"
+                  className="z-50 min-w-[var(--anchor-width)] origin-top overflow-hidden rounded-b-[10px] rounded-t-none border border-t-0 border-[#24262C] bg-[#1A1B20] p-1.5 shadow-2xl shadow-black/60 outline-none transition-[max-height,opacity] duration-200 ease-in-out data-[ending-style]:max-h-0 data-[ending-style]:opacity-0 data-[starting-style]:max-h-0 data-[starting-style]:opacity-0 data-[open]:max-h-[400px] data-[open]:opacity-100"
                 >
                   <Menu.Item
                     className="flex w-full cursor-pointer select-none items-center gap-2.5 rounded-[6px] px-3.5 py-2.5 text-[13px] font-medium text-[#EDEDED] outline-none transition-colors hover:bg-[#1D1F25] focus:bg-[#1D1F25] data-highlighted:bg-[#1D1F25]"
