@@ -143,6 +143,45 @@ func TestE2E_LoginSessao(t *testing.T) {
 		result = authRequest[apiErrorResponse](t, server, http.MethodPost, "/api/v1/auth/refresh", body, "", http.StatusUnauthorized)
 		assertAuthError(t, result, "auth.session.expired", "Sessão expirada. Faça login novamente.")
 	})
+
+	t.Run("fluxo completo de logout e novo login", func(t *testing.T) {
+		novoPayload := map[string]string{"nome": "Usuario E2E Logout", "email": "e2e-logout@example.com", "senha": "SenhaForte@123"}
+		novoCadastro := authRequest[authDataResponse[repository.Usuario]](t, server, http.MethodPost, "/api/v1/auth/register", novoPayload, "", http.StatusCreated).Data
+		novoSessao := authRequest[authDataResponse[service.LoginResult]](t, server, http.MethodPost, "/api/v1/auth/login", novoPayload, "", http.StatusOK).Data
+
+		perfil := authRequest[authDataResponse[repository.Usuario]](t, server, http.MethodGet, "/api/v1/me", nil, novoSessao.AccessToken, http.StatusOK).Data
+		if perfil.ID != novoCadastro.ID || perfil.Email != novoCadastro.Email {
+			t.Fatal("perfil nao corresponde ao usuario autenticado")
+		}
+
+		logoutBody := map[string]string{"refresh_token": novoSessao.RefreshToken}
+
+		semToken := authRequest[apiErrorResponse](t, server, http.MethodPost, "/api/v1/auth/logout", logoutBody, "", http.StatusUnauthorized)
+		assertAuthError(t, semToken, "auth.session.unauthorized", "Não autorizado. Faça login novamente.")
+
+		tokenInvalido := authRequest[apiErrorResponse](t, server, http.MethodPost, "/api/v1/auth/logout", logoutBody, "token-invalido", http.StatusUnauthorized)
+		assertAuthError(t, tokenInvalido, "auth.session.unauthorized", "Não autorizado. Faça login novamente.")
+
+		authRequest[struct{}](t, server, http.MethodPost, "/api/v1/auth/logout", logoutBody, novoSessao.AccessToken, http.StatusNoContent)
+
+		refreshRevogado := authRequest[apiErrorResponse](t, server, http.MethodPost, "/api/v1/auth/refresh", logoutBody, "", http.StatusUnauthorized)
+		assertAuthError(t, refreshRevogado, "auth.session.expired", "Sessão expirada. Faça login novamente.")
+
+		posLogoutSessao := authRequest[authDataResponse[service.LoginResult]](t, server, http.MethodPost, "/api/v1/auth/login", novoPayload, "", http.StatusOK).Data
+		if posLogoutSessao.AccessToken == "" || posLogoutSessao.RefreshToken == "" || posLogoutSessao.RefreshToken == novoSessao.RefreshToken {
+			t.Fatal("novo login apos logout nao retornou novos tokens validos")
+		}
+
+		perfilPosLogout := authRequest[authDataResponse[repository.Usuario]](t, server, http.MethodGet, "/api/v1/me", nil, posLogoutSessao.AccessToken, http.StatusOK).Data
+		if perfilPosLogout.ID != novoCadastro.ID {
+			t.Fatal("usuario bloqueado ou perfil incorreto apos novo login")
+		}
+
+		renovacaoValida := authRequest[authDataResponse[service.RefreshResult]](t, server, http.MethodPost, "/api/v1/auth/refresh", map[string]string{"refresh_token": posLogoutSessao.RefreshToken}, "", http.StatusOK).Data
+		if renovacaoValida.AccessToken == "" || renovacaoValida.AccessToken == posLogoutSessao.AccessToken {
+			t.Fatal("refresh do novo login falhou")
+		}
+	})
 	for _, tc := range []struct{ name, token string }{
 		{"expirado", expirarTokenE2E(t, sessao.AccessToken, secret, "access")},
 		{"malformado", "invalido"},
