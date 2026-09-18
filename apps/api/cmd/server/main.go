@@ -38,6 +38,10 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("carregar auth: %w", err)
 	}
+	corsOrigins, err := config.LoadCORS()
+	if err != nil {
+		return fmt.Errorf("carregar CORS: %w", err)
+	}
 	tokens, err := service.NewAuthToken(authCfg.Secret, authCfg.AccessTTL, authCfg.RefreshTTL)
 	if err != nil {
 		return fmt.Errorf("configurar tokens: %w", err)
@@ -58,7 +62,7 @@ func run() error {
 
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
-	router.Use(gin.Logger(), gin.Recovery())
+	router.Use(gin.Logger(), gin.Recovery(), middleware.CORS(corsOrigins))
 	if err := router.SetTrustedProxies(nil); err != nil {
 		return fmt.Errorf("configurar proxies: %w", err)
 	}
