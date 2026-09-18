@@ -46,6 +46,33 @@ func (q *Queries) BuscarUsuarioPorEmail(ctx context.Context, email string) (Busc
 	return i, err
 }
 
+const buscarUsuarioPorID = `-- name: BuscarUsuarioPorID :one
+SELECT id, nome, email, idioma, created_at
+FROM usuarios
+WHERE id = $1
+`
+
+type BuscarUsuarioPorIDRow struct {
+	ID        int32
+	Nome      string
+	Email     string
+	Idioma    string
+	CreatedAt pgtype.Timestamp
+}
+
+func (q *Queries) BuscarUsuarioPorID(ctx context.Context, id int32) (BuscarUsuarioPorIDRow, error) {
+	row := q.db.QueryRow(ctx, buscarUsuarioPorID, id)
+	var i BuscarUsuarioPorIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.Nome,
+		&i.Email,
+		&i.Idioma,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const criarUsuario = `-- name: CriarUsuario :one
 INSERT INTO usuarios (
     nome,
