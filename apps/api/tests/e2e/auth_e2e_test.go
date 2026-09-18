@@ -46,7 +46,8 @@ func TestE2E_LoginSessao(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	login, err := service.NewLoginService(repo, tokens)
+	revogados := repository.NewTokenRevogadoRepository(db.New(pg.Pool))
+	login, err := service.NewLoginService(repo, tokens, revogados)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -56,7 +57,9 @@ func TestE2E_LoginSessao(t *testing.T) {
 	router.POST("/api/v1/auth/login", loginHandler.Login)
 	router.POST("/api/v1/auth/refresh", loginHandler.Refresh)
 	meHandler := handler.NewMeHandler(service.NewPerfilService(repo))
-	middleware.GrupoPrivado(router, tokens).GET("/me", meHandler.Me)
+	privadas := middleware.GrupoPrivado(router, tokens)
+	privadas.GET("/me", meHandler.Me)
+	privadas.POST("/auth/logout", handler.NewLogoutHandler(service.NewLogoutService(tokens, revogados)).Logout)
 	server := httptest.NewServer(router)
 	t.Cleanup(server.Close)
 
@@ -106,6 +109,40 @@ func TestE2E_LoginSessao(t *testing.T) {
 		}
 	})
 
+	t.Run("logout revoga apenas o refresh informado e limpa revogacoes expiradas", func(t *testing.T) {
+		body := map[string]string{"refresh_token": sessao.RefreshToken}
+		semSessao := authRequest[apiErrorResponse](t, server, http.MethodPost, "/api/v1/auth/logout", body, "", http.StatusUnauthorized)
+		assertAuthError(t, semSessao, "auth.session.unauthorized", "Não autorizado. Faça login novamente.")
+		outraSessao := authRequest[authDataResponse[service.LoginResult]](t, server, http.MethodPost, "/api/v1/auth/login", payload, "", http.StatusOK).Data
+		claims := validarTokenE2E(t, sessao.RefreshToken, secret, "refresh")
+		for range 2 {
+			authRequest[struct{}](t, server, http.MethodPost, "/api/v1/auth/logout", body, sessao.AccessToken, http.StatusNoContent)
+		}
+		var expiraEm time.Time
+		if err := pg.Pool.QueryRow(context.Background(), "SELECT expira_em FROM tokens_revogados WHERE jti = $1", claims.ID).Scan(&expiraEm); err != nil {
+			t.Fatal(err)
+		}
+		if !expiraEm.Equal(claims.ExpiresAt.Time) {
+			t.Fatal("expiracao persistida incorreta")
+		}
+		result := authRequest[apiErrorResponse](t, server, http.MethodPost, "/api/v1/auth/refresh", body, "", http.StatusUnauthorized)
+		assertAuthError(t, result, "auth.session.expired", "Sessão expirada. Faça login novamente.")
+		expiradoJTI := uuid.NewString()
+		if err := revogados.Revogar(context.Background(), expiradoJTI, time.Now().Add(-time.Hour)); err != nil {
+			t.Fatal(err)
+		}
+		renovada := authRequest[authDataResponse[service.RefreshResult]](t, server, http.MethodPost, "/api/v1/auth/refresh", map[string]string{"refresh_token": outraSessao.RefreshToken}, "", http.StatusOK).Data
+		validarTokenE2E(t, renovada.AccessToken, secret, "access")
+		var existe bool
+		if err := pg.Pool.QueryRow(context.Background(), "SELECT EXISTS(SELECT 1 FROM tokens_revogados WHERE jti = $1)", expiradoJTI).Scan(&existe); err != nil {
+			t.Fatal(err)
+		}
+		if existe {
+			t.Fatal("revogacao expirada nao foi removida")
+		}
+		result = authRequest[apiErrorResponse](t, server, http.MethodPost, "/api/v1/auth/refresh", body, "", http.StatusUnauthorized)
+		assertAuthError(t, result, "auth.session.expired", "Sessão expirada. Faça login novamente.")
+	})
 	for _, tc := range []struct{ name, token string }{
 		{"expirado", expirarTokenE2E(t, sessao.AccessToken, secret, "access")},
 		{"malformado", "invalido"},
@@ -165,6 +202,12 @@ func authRequest[T any](t *testing.T, server *httptest.Server, method, path stri
 		t.Fatal("resposta expoe credenciais")
 	}
 	var result T
+	if status == http.StatusNoContent {
+		if len(raw) != 0 {
+			t.Fatal("204 deve ter corpo vazio")
+		}
+		return result
+	}
 	if err := json.Unmarshal(raw, &result); err != nil {
 		t.Fatal(err)
 	}

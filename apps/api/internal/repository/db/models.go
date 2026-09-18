@@ -221,6 +221,11 @@ type JogosZerado struct {
 	UpdatedAt         pgtype.Timestamp
 }
 
+type TokensRevogado struct {
+	Jti      string
+	ExpiraEm pgtype.Timestamptz
+}
+
 type Usuario struct {
 	ID           int32
 	Nome         string

@@ -53,7 +53,9 @@ func TestAuthHandler_LoginRefresh(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			svc, err := service.NewLoginService(loginRepositoryMock{tc.usuario, tc.repoErr}, tokens)
+			svc, err := service.NewLoginService(loginRepositoryMock{tc.usuario, tc.repoErr}, tokens, revogacaoRepositoryMock{consultar: func(context.Context, string) (bool, error) {
+				return false, nil
+			}})
 			if err != nil {
 				t.Fatal(err)
 			}

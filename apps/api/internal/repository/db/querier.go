@@ -17,7 +17,10 @@ type Querier interface {
 	CriarUsuario(ctx context.Context, arg CriarUsuarioParams) (CriarUsuarioRow, error)
 	ExcluirJogoZerado(ctx context.Context, arg ExcluirJogoZeradoParams) error
 	ExisteUsuarioComEmail(ctx context.Context, email string) (bool, error)
+	LimparTokensRevogadosExpirados(ctx context.Context) error
 	ListarJogosZerados(ctx context.Context, arg ListarJogosZeradosParams) ([]JogosZerado, error)
+	RevogarToken(ctx context.Context, arg RevogarTokenParams) error
+	TokenEstaRevogado(ctx context.Context, jti string) (bool, error)
 }
 
 var _ Querier = (*Queries)(nil)
