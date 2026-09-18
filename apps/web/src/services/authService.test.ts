@@ -101,4 +101,21 @@ describe('authService', () => {
       expect((err as AuthApiError).codigo).toBe('fallback')
     }
   })
+
+  it('envia POST para /api/v1/auth/logout com Authorization e refresh_token no corpo', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 204,
+    })
+    globalThis.fetch = mockFetch
+
+    await authService.logout('access-token', 'refresh-token')
+
+    expect(mockFetch).toHaveBeenCalledTimes(1)
+    const [url, options] = mockFetch.mock.calls[0]
+    expect(url).toContain('/api/v1/auth/logout')
+    expect(options.method).toBe('POST')
+    expect(options.headers.get('Authorization')).toBe('Bearer access-token')
+    expect(JSON.parse(options.body)).toEqual({ refresh_token: 'refresh-token' })
+  })
 })

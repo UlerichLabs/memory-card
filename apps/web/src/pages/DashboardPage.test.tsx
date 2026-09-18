@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, afterEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import userEvent from '@testing-library/user-event'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from '@/store/authStore'
 import * as authStoreModule from '@/store/authStore'
 import { DashboardPage } from './DashboardPage'
@@ -56,11 +57,54 @@ describe('DashboardPage', () => {
       login: vi.fn(),
       request: vi.fn(),
       refresh: vi.fn(),
+      logout: vi.fn(),
     })
 
     renderDashboard()
     expect(screen.getAllByText('Felipe Gamer').length).toBeGreaterThanOrEqual(1)
     expect(screen.getByText(/Bem-vindo de volta,/)).toHaveTextContent('Felipe Gamer')
+  })
+
+  it('abre o dropdown do usuário ao clicar e exibe opções Conta e Sair', async () => {
+    const user = userEvent.setup()
+    renderDashboard()
+    const trigger = screen.getByRole('button', { name: 'Perfil do usuário' })
+    await user.click(trigger)
+    expect(await screen.findByRole('menuitem', { name: /conta/i })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: /sair/i })).toBeInTheDocument()
+  })
+
+  it('redireciona para /login ao clicar em Sair', async () => {
+    const logoutMock = vi.fn().mockResolvedValue(undefined)
+    vi.spyOn(authStoreModule, 'useAuthStore').mockReturnValue({
+      sessao: {
+        access_token: 'token',
+        refresh_token: 'refresh',
+        usuario: { id: 1, nome: 'Lucas', email: 'lucas@example.com', idioma: 'pt-BR', created_at: '' },
+      },
+      login: vi.fn(),
+      request: vi.fn(),
+      refresh: vi.fn(),
+      logout: logoutMock,
+    })
+
+    const user = userEvent.setup()
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <Routes>
+          <Route path="/" element={<DashboardPage />} />
+          <Route path="/login" element={<div>Tela de Login</div>} />
+        </Routes>
+      </MemoryRouter>
+    )
+
+    const trigger = screen.getByRole('button', { name: 'Perfil do usuário' })
+    await user.click(trigger)
+    const botaoSair = await screen.findByRole('menuitem', { name: /sair/i })
+    await user.click(botaoSair)
+
+    expect(logoutMock).toHaveBeenCalledTimes(1)
+    expect(await screen.findByText('Tela de Login')).toBeInTheDocument()
   })
 
   it('renderiza todos os 8 blocos do dashboard na tela', () => {
