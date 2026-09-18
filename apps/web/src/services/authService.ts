@@ -67,6 +67,12 @@ export const authService = {
   login: (payload: LoginPayload) => post<SessaoDTO>('/auth/login', payload),
   refresh: (refreshToken: string) =>
     post<Pick<SessaoDTO, 'access_token'>>('/auth/refresh', { refresh_token: refreshToken }),
+  logout: (accessToken: string, refreshToken: string) =>
+    authService.authenticatedRequest<void>('/auth/logout', accessToken, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    }),
   authenticatedRequest<T>(path: string, accessToken: string, options: RequestInit = {}) {
     const headers = new Headers(options.headers)
     headers.set('Authorization', `Bearer ${accessToken}`)

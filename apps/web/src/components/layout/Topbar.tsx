@@ -1,5 +1,6 @@
-import { Link, useLocation } from 'react-router-dom'
-import { Disc3, Search, Bell, User, ChevronDown } from 'lucide-react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Disc3, Search, Bell, User, ChevronDown, LogOut } from 'lucide-react'
+import { Menu } from '@base-ui/react/menu'
 import { useAuthStore } from '@/store/authStore'
 
 const navLinks = [
@@ -13,8 +14,14 @@ const navLinks = [
 
 export function Topbar() {
   const { pathname } = useLocation()
-  const { sessao } = useAuthStore()
+  const navigate = useNavigate()
+  const { sessao, logout } = useAuthStore()
   const nomeUsuario = sessao?.usuario?.nome ?? 'Jogador'
+
+  async function handleLogout() {
+    await logout()
+    navigate('/login', { replace: true })
+  }
 
   return (
     <header className="sticky top-0 z-50 h-[60px] border-b border-[var(--border)] bg-[var(--bg-surface)]/95 backdrop-blur">
@@ -64,18 +71,42 @@ export function Topbar() {
             <Bell className="h-4 w-4" aria-hidden="true" />
           </button>
 
-          <div
-            className="flex items-center gap-2 text-[13px] text-[var(--text-secondary)]"
-            aria-label="Perfil do usuário"
-          >
-            <div className="flex h-7 w-7 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface-alt)]">
-              <User className="h-3.5 w-3.5 text-[var(--text-secondary)]" aria-hidden="true" />
-            </div>
-            <span className="hidden font-medium text-[var(--text-primary)] sm:inline">
-              {nomeUsuario}
-            </span>
-            <ChevronDown className="h-3.5 w-3.5 text-[var(--text-faint)]" aria-hidden="true" />
-          </div>
+          <Menu.Root>
+            <Menu.Trigger
+              type="button"
+              className="flex cursor-pointer items-center gap-2 text-[13px] text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
+              aria-label="Perfil do usuário"
+            >
+              <div className="flex h-7 w-7 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface-alt)]">
+                <User className="h-3.5 w-3.5 text-[var(--text-secondary)]" aria-hidden="true" />
+              </div>
+              <span className="hidden font-medium text-[var(--text-primary)] sm:inline">
+                {nomeUsuario}
+              </span>
+              <ChevronDown className="h-3.5 w-3.5 text-[var(--text-faint)]" aria-hidden="true" />
+            </Menu.Trigger>
+
+            <Menu.Portal>
+              <Menu.Positioner align="end" sideOffset={8} className="z-50">
+                <Menu.Popup className="min-w-[140px] rounded-[10px] border border-[var(--border)] bg-[var(--bg-surface)] p-1 shadow-lg">
+                  <Menu.Item
+                    className="flex w-full cursor-pointer select-none items-center gap-2 rounded-[6px] px-3 py-2 text-[13px] text-[var(--text-primary)] outline-none hover:bg-[var(--bg-surface-alt)] focus:bg-[var(--bg-surface-alt)]"
+                    onClick={() => navigate('/conta')}
+                  >
+                    <User className="h-3.5 w-3.5 text-[var(--text-secondary)]" aria-hidden="true" />
+                    <span>Conta</span>
+                  </Menu.Item>
+                  <Menu.Item
+                    className="flex w-full cursor-pointer select-none items-center gap-2 rounded-[6px] px-3 py-2 text-[13px] text-[var(--danger)] outline-none hover:bg-[var(--bg-surface-alt)] focus:bg-[var(--bg-surface-alt)]"
+                    onClick={handleLogout}
+                  >
+                    <LogOut className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span>Sair</span>
+                  </Menu.Item>
+                </Menu.Popup>
+              </Menu.Positioner>
+            </Menu.Portal>
+          </Menu.Root>
 
           <button
             type="button"
