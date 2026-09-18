@@ -68,7 +68,8 @@ func run() error {
 	cadastroService := service.NewCadastroService(usuarioRepo)
 	authHandler := handler.NewAuthHandler(cadastroService)
 
-	loginService, err := service.NewLoginService(usuarioRepo, tokens)
+	revogadosRepo := repository.NewTokenRevogadoRepository(queries)
+	loginService, err := service.NewLoginService(usuarioRepo, tokens, revogadosRepo)
 	if err != nil {
 		return fmt.Errorf("configurar login: %w", err)
 	}
@@ -82,7 +83,10 @@ func run() error {
 	publicas.POST("/login", loginHandler.Login)
 	publicas.POST("/refresh", loginHandler.Refresh)
 	meHandler := handler.NewMeHandler(service.NewPerfilService(usuarioRepo))
-	middleware.GrupoPrivado(router, tokens).GET("/me", meHandler.Me)
+	privadas := middleware.GrupoPrivado(router, tokens)
+	privadas.GET("/me", meHandler.Me)
+	logoutHandler := handler.NewLogoutHandler(service.NewLogoutService(tokens, revogadosRepo))
+	privadas.POST("/auth/logout", logoutHandler.Logout)
 	server := &http.Server{
 		Addr:              ":" + cfg.Port,
 		Handler:           router,

@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/UlerichLabs/memory-card/apps/api/internal/i18n"
+	"github.com/UlerichLabs/memory-card/apps/api/internal/middleware"
 	"github.com/UlerichLabs/memory-card/apps/api/internal/repository"
 	"github.com/UlerichLabs/memory-card/apps/api/internal/service"
 )
@@ -20,6 +21,7 @@ type CadastroServicer interface {
 type AuthHandler struct {
 	service CadastroServicer
 	login   LoginServicer
+	logout  LogoutServicer
 }
 
 func NewAuthHandler(service CadastroServicer) *AuthHandler {
@@ -139,5 +141,41 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 }
 
 func authError(c *gin.Context, status int, codigo string) {
-	c.JSON(status, gin.H{"error": gin.H{"codigo": codigo, "mensagem": i18n.T(c.GetHeader("Accept-Language"), codigo)}})
+	lang := c.GetHeader("Accept-Language")
+	if usuario, ok := middleware.UsuarioDoContexto(c.Request.Context()); ok {
+		lang = usuario.Idioma
+	}
+	c.JSON(status, gin.H{"error": gin.H{"codigo": codigo, "mensagem": i18n.T(lang, codigo)}})
+}
+
+type LogoutServicer interface {
+	Logout(ctx context.Context, subject, token string) error
+}
+
+func NewLogoutHandler(logout LogoutServicer) *AuthHandler {
+	return &AuthHandler{logout: logout}
+}
+
+func (h *AuthHandler) Logout(c *gin.Context) {
+	var req struct {
+		RefreshToken string `json:"refresh_token"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		authError(c, http.StatusUnauthorized, "auth.session.expired")
+		return
+	}
+	usuario, _ := middleware.UsuarioDoContexto(c.Request.Context())
+	if err := h.logout.Logout(c.Request.Context(), usuario.ID, req.RefreshToken); err != nil {
+		switch {
+		case errors.Is(err, service.ErrSessaoExpirada):
+			authError(c, http.StatusUnauthorized, "auth.session.expired")
+		case errors.Is(err, service.ErrTokenInvalido):
+			authError(c, http.StatusUnauthorized, "auth.session.unauthorized")
+		default:
+			slog.ErrorContext(c.Request.Context(), "falha no logout", "error", err)
+			authError(c, http.StatusInternalServerError, "server.internal_error")
+		}
+		return
+	}
+	c.Status(http.StatusNoContent)
 }

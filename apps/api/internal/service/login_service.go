@@ -25,6 +25,7 @@ type LoginService struct {
 	repo      LoginRepository
 	tokens    *AuthToken
 	dummyHash []byte
+	revogados TokenRevogadoRepository
 }
 
 type LoginResult struct {
@@ -37,12 +38,12 @@ type RefreshResult struct {
 	AccessToken string `json:"access_token"`
 }
 
-func NewLoginService(repo LoginRepository, tokens *AuthToken) (*LoginService, error) {
+func NewLoginService(repo LoginRepository, tokens *AuthToken, revogados TokenRevogadoRepository) (*LoginService, error) {
 	hash, err := bcrypt.GenerateFromPassword([]byte(uuid.NewString()), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, fmt.Errorf("gerar hash auxiliar: %w", err)
 	}
-	return &LoginService{repo: repo, tokens: tokens, dummyHash: hash}, nil
+	return &LoginService{repo: repo, tokens: tokens, dummyHash: hash, revogados: revogados}, nil
 }
 
 func (svc *LoginService) Login(ctx context.Context, email, senha string) (*LoginResult, error) {
@@ -84,6 +85,13 @@ func (svc *LoginService) Refresh(ctx context.Context, raw string) (*RefreshResul
 	claims, err := svc.tokens.validar(raw, "refresh")
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrSessaoExpirada, err)
+	}
+	revogado, err := svc.revogados.EstaRevogado(ctx, claims.ID)
+	if err != nil {
+		return nil, fmt.Errorf("verificar refresh token revogado: %w", err)
+	}
+	if revogado {
+		return nil, ErrSessaoExpirada
 	}
 	access, err := svc.tokens.emitir(claims.Subject, claims.Idioma, "access", svc.tokens.accessTTL)
 	if err != nil {
