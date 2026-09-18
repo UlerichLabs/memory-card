@@ -12,6 +12,7 @@ type Querier interface {
 	AtualizarJogoZerado(ctx context.Context, arg AtualizarJogoZeradoParams) (JogosZerado, error)
 	BuscarJogoPorID(ctx context.Context, arg BuscarJogoPorIDParams) (JogosZerado, error)
 	BuscarUsuarioPorEmail(ctx context.Context, email string) (BuscarUsuarioPorEmailRow, error)
+	BuscarUsuarioPorID(ctx context.Context, id int32) (BuscarUsuarioPorIDRow, error)
 	CriarJogoZerado(ctx context.Context, arg CriarJogoZeradoParams) (JogosZerado, error)
 	CriarUsuario(ctx context.Context, arg CriarUsuarioParams) (CriarUsuarioRow, error)
 	ExcluirJogoZerado(ctx context.Context, arg ExcluirJogoZeradoParams) error

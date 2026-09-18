@@ -75,3 +75,14 @@ func (r *SQLUsuarioRepository) BuscarPorEmail(ctx context.Context, email string)
 	}
 	return &CredenciaisUsuario{Usuario: Usuario{ID: row.ID, Nome: row.Nome, Email: row.Email, Idioma: row.Idioma, CreatedAt: row.CreatedAt.Time}, SenhaHash: row.SenhaHash}, nil
 }
+
+func (r *SQLUsuarioRepository) BuscarPorID(ctx context.Context, id int32) (*Usuario, error) {
+	row, err := r.queries.BuscarUsuarioPorID(ctx, id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("buscar perfil: %w", err)
+	}
+	return &Usuario{ID: row.ID, Nome: row.Nome, Email: row.Email, Idioma: row.Idioma, CreatedAt: row.CreatedAt.Time}, nil
+}

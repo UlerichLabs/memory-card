@@ -81,7 +81,8 @@ func run() error {
 	publicas.POST("/register", authHandler.Register)
 	publicas.POST("/login", loginHandler.Login)
 	publicas.POST("/refresh", loginHandler.Refresh)
-	middleware.GrupoPrivado(router, tokens)
+	meHandler := handler.NewMeHandler(service.NewPerfilService(usuarioRepo))
+	middleware.GrupoPrivado(router, tokens).GET("/me", meHandler.Me)
 	server := &http.Server{
 		Addr:              ":" + cfg.Port,
 		Handler:           router,
