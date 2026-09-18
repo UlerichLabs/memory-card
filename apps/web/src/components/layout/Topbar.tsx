@@ -14,6 +14,9 @@ const navLinks = [
 ]
 
 const dropdownTheme = {
+  backgroundColor: '#1A1B20',
+  color: '#EDEDED',
+  borderColor: '#24262C',
   '--bg-surface': '#1A1B20',
   '--bg-surface-alt': '#1D1F25',
   '--border': '#24262C',
@@ -99,23 +102,29 @@ export function Topbar() {
             </Menu.Trigger>
 
             <Menu.Portal>
-              <Menu.Positioner side="bottom" align="end" sideOffset={8} className="z-50 outline-none">
+              <Menu.Positioner
+                side="bottom"
+                align="end"
+                sideOffset={8}
+                className="z-50 outline-none"
+                style={{ zIndex: 50 }}
+              >
                 <Menu.Popup
                   style={dropdownTheme}
-                  className="w-[190px] rounded-[10px] border border-[var(--border)] bg-[var(--bg-surface)] p-1.5 shadow-2xl shadow-black/60 outline-none"
+                  className="z-50 w-[190px] rounded-[10px] border border-[#24262C] bg-[#1A1B20] p-1.5 shadow-2xl shadow-black/60 outline-none"
                 >
                   <Menu.Item
-                    className="flex w-full cursor-pointer select-none items-center gap-2.5 rounded-[6px] px-3.5 py-2.5 text-[13px] font-medium text-[var(--text-primary)] outline-none transition-colors hover:bg-[var(--bg-surface-alt)] focus:bg-[var(--bg-surface-alt)] data-highlighted:bg-[var(--bg-surface-alt)]"
+                    className="flex w-full cursor-pointer select-none items-center gap-2.5 rounded-[6px] px-3.5 py-2.5 text-[13px] font-medium text-[#EDEDED] outline-none transition-colors hover:bg-[#1D1F25] focus:bg-[#1D1F25] data-highlighted:bg-[#1D1F25]"
                     onClick={() => navigate('/conta')}
                   >
-                    <User className="h-4 w-4 text-[var(--text-secondary)]" aria-hidden="true" />
+                    <User className="h-4 w-4 text-[#9A9CA5]" aria-hidden="true" />
                     <span>Conta</span>
                   </Menu.Item>
                   <Menu.Item
-                    className="flex w-full cursor-pointer select-none items-center gap-2.5 rounded-[6px] px-3.5 py-2.5 text-[13px] font-medium text-[var(--danger)] outline-none transition-colors hover:bg-[var(--bg-surface-alt)] focus:bg-[var(--bg-surface-alt)] data-highlighted:bg-[var(--bg-surface-alt)]"
+                    className="flex w-full cursor-pointer select-none items-center gap-2.5 rounded-[6px] px-3.5 py-2.5 text-[13px] font-medium text-[#E05A4E] outline-none transition-colors hover:bg-[#1D1F25] focus:bg-[#1D1F25] data-highlighted:bg-[#1D1F25]"
                     onClick={handleLogout}
                   >
-                    <LogOut className="h-4 w-4 text-[var(--danger)]" aria-hidden="true" />
+                    <LogOut className="h-4 w-4 text-[#E05A4E]" aria-hidden="true" />
                     <span>Sair</span>
                   </Menu.Item>
                 </Menu.Popup>
