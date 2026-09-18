@@ -1,4 +1,4 @@
-import { Trophy, Clock, Gamepad2, Calendar } from 'lucide-react'
+import { Trophy, Clock, CircleSlash, Star } from 'lucide-react'
 import type { EstatisticasGerais } from '@/mocks/dashboardData'
 
 interface StatsRowProps {
@@ -8,28 +8,28 @@ interface StatsRowProps {
 export function StatsRow({ estatisticas }: StatsRowProps) {
   const cards = [
     {
-      label: 'Jogos Zerados',
+      label: 'Jogos zerados',
       valor: estatisticas.totalJogosZerados.toString(),
       subtexto: 'Total histórico',
       icone: Trophy,
     },
     {
-      label: 'Horas Jogadas',
+      label: 'Horas jogadas',
       valor: `${estatisticas.totalHorasJogadas.toLocaleString('pt-BR')}h`,
       subtexto: 'Tempo registrado',
       icone: Clock,
     },
     {
-      label: 'Média por Jogo',
-      valor: `${estatisticas.mediaHorasPorJogo.toFixed(1)}h`,
-      subtexto: 'Duração média',
-      icone: Gamepad2,
+      label: 'Abandonados',
+      valor: estatisticas.totalAbandonados.toString(),
+      subtexto: 'Descontinuados',
+      icone: CircleSlash,
     },
     {
-      label: 'Zerados este Ano',
-      valor: estatisticas.jogosZeradosAnoAtual.toString(),
-      subtexto: 'Ano vigente',
-      icone: Calendar,
+      label: 'Nota média',
+      valor: estatisticas.notaMedia.toFixed(1),
+      subtexto: 'Avaliação geral',
+      icone: Star,
     },
   ]
 

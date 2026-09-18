@@ -1,8 +1,7 @@
 import type { CSSProperties } from 'react'
-import { Link } from 'react-router-dom'
-import { Disc3, User } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { mockDashboardData } from '@/mocks/dashboardData'
+import { Topbar } from '@/components/layout/Topbar'
 import { StatsRow } from '@/components/dashboard/StatsRow'
 import { GameOfTheYearCard } from '@/components/dashboard/GameOfTheYearCard'
 import { LifeGamesGrid } from '@/components/dashboard/LifeGamesGrid'
@@ -48,51 +47,29 @@ export function DashboardPage() {
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
       />
 
-      <header className="sticky top-0 z-50 border-b border-[var(--border)] bg-[var(--bg-surface)]/95 backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-8">
-            <Link to="/" className="flex items-center gap-2 font-bold tracking-tight text-[var(--text-primary)]">
-              <Disc3 className="h-5 w-5 text-[var(--accent)]" aria-hidden="true" />
-              <span>Memory Card</span>
-            </Link>
-
-            <nav aria-label="Navegação Principal" className="flex items-center gap-6 text-[13px]">
-              <Link
-                to="/"
-                className="border-b-2 border-[var(--accent)] py-4 font-semibold text-[var(--accent)]"
-              >
-                Dashboard
-              </Link>
-              <Link
-                to="/biblioteca"
-                className="py-4 font-medium text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
-              >
-                Biblioteca
-              </Link>
-            </nav>
-          </div>
-
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-7 w-7 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface-alt)]">
-              <User className="h-3.5 w-3.5 text-[var(--text-secondary)]" aria-hidden="true" />
-            </div>
-            <span className="hidden text-[13px] font-medium text-[var(--text-secondary)] sm:inline">
-              {nomeUsuario}
-            </span>
-          </div>
-        </div>
-      </header>
+      <Topbar />
 
       <main className="mx-auto max-w-7xl space-y-8 px-4 py-6 sm:px-6 lg:px-8">
+        <div>
+          <p className="text-[14px] text-[var(--text-secondary)]">
+            Bem-vindo de volta, <strong className="font-bold text-[var(--text-primary)]">{nomeUsuario}</strong>
+          </p>
+        </div>
+
         <StatsRow estatisticas={mockDashboardData.estatisticas} />
         <GameOfTheYearCard jogoDoAno={mockDashboardData.jogoDoAno} />
         <LifeGamesGrid jogos={mockDashboardData.jogosDaVida} />
-        <ActiveChallenges desafios={mockDashboardData.desafiosAtivos} />
-        <ActivityHeatmap atividade={mockDashboardData.atividadeAno} />
-        <RecentlyCompleted jogos={mockDashboardData.zeradosRecentemente} />
-        <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2">
-          <PlatformBreakdown plataformas={mockDashboardData.distribuicaoPlataformas} />
-          <TopGenres generos={mockDashboardData.principaisGeneros} />
+
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
+          <div className="space-y-8 lg:col-span-7 xl:col-span-8">
+            <RecentlyCompleted jogos={mockDashboardData.zeradosRecentemente} />
+            <ActivityHeatmap atividade={mockDashboardData.atividadeAno} />
+          </div>
+          <div className="space-y-8 lg:col-span-5 xl:col-span-4 [&_section[aria-label='Desafios Ativos']_>_div]:lg:grid-cols-1">
+            <ActiveChallenges desafios={mockDashboardData.desafiosAtivos} />
+            <PlatformBreakdown plataformas={mockDashboardData.distribuicaoPlataformas} />
+            <TopGenres generos={mockDashboardData.principaisGeneros} />
+          </div>
         </div>
       </main>
     </div>

@@ -1,8 +1,10 @@
 export interface EstatisticasGerais {
   totalJogosZerados: number
   totalHorasJogadas: number
-  mediaHorasPorJogo: number
-  jogosZeradosAnoAtual: number
+  totalAbandonados: number
+  notaMedia: number
+  mediaHorasPorJogo?: number
+  jogosZeradosAnoAtual?: number
 }
 
 export interface JogoResumo {
@@ -120,6 +122,8 @@ export const mockDashboardData: DashboardData = {
   estatisticas: {
     totalJogosZerados: 128,
     totalHorasJogadas: 2450,
+    totalAbandonados: 14,
+    notaMedia: 8.2,
     mediaHorasPorJogo: 19.1,
     jogosZeradosAnoAtual: 24,
   },
