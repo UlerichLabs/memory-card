@@ -23,6 +23,8 @@ services:
       IGDB_CLIENT_ID: "${IGDB_CLIENT_ID}"
       IGDB_CLIENT_SECRET: "${IGDB_CLIENT_SECRET}"
       JWT_SECRET: "${JWT_SECRET}"
+      JWT_ACCESS_TTL: "${JWT_ACCESS_TTL}"
+      JWT_REFRESH_TTL: "${JWT_REFRESH_TTL}"
       PORT: 8080
     ports:
       # 8080 no host está ocupada pelo FlowLoop.
