@@ -2,7 +2,7 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from '@/store/authStore'
 import { PrivateRoute } from '@/components/auth/PrivateRoute'
 import { LoginPage } from '@/pages/auth/LoginPage'
-import { HomePage } from '@/pages/HomePage'
+import { DashboardPage } from '@/pages/DashboardPage'
 import { CadastroPage } from '@/pages/auth/CadastroPage'
 
 export function AppRoutes() {
@@ -11,7 +11,7 @@ export function AppRoutes() {
       <AuthProvider>
         <Routes>
           <Route element={<PrivateRoute />}>
-            <Route path="/" element={<HomePage />} />
+            <Route path="/" element={<DashboardPage />} />
           </Route>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/cadastro" element={<CadastroPage />} />
