@@ -11,14 +11,21 @@ import (
 type Querier interface {
 	AtualizarJogoZerado(ctx context.Context, arg AtualizarJogoZeradoParams) (JogosZerado, error)
 	BuscarJogoPorID(ctx context.Context, arg BuscarJogoPorIDParams) (JogosZerado, error)
+	BuscarTokenResetSenha(ctx context.Context, tokenHash string) (TokensResetSenha, error)
 	BuscarUsuarioPorEmail(ctx context.Context, email string) (BuscarUsuarioPorEmailRow, error)
 	BuscarUsuarioPorID(ctx context.Context, id int32) (BuscarUsuarioPorIDRow, error)
+	ConsumirTokenResetEAtualizarSenha(ctx context.Context, arg ConsumirTokenResetEAtualizarSenhaParams) (int32, error)
 	CriarJogoZerado(ctx context.Context, arg CriarJogoZeradoParams) (JogosZerado, error)
+	CriarTokenResetSenha(ctx context.Context, arg CriarTokenResetSenhaParams) error
 	CriarUsuario(ctx context.Context, arg CriarUsuarioParams) (CriarUsuarioRow, error)
 	ExcluirJogoZerado(ctx context.Context, arg ExcluirJogoZeradoParams) error
 	ExisteUsuarioComEmail(ctx context.Context, email string) (bool, error)
 	LimparTokensRevogadosExpirados(ctx context.Context) error
 	ListarJogosZerados(ctx context.Context, arg ListarJogosZeradosParams) ([]JogosZerado, error)
+	ListarRefreshTokensAtivosPorUsuario(ctx context.Context, usuarioID int32) ([]TokensRefreshAtivo, error)
+	RegistrarRefreshTokenAtivo(ctx context.Context, arg RegistrarRefreshTokenAtivoParams) error
+	RegistrarSolicitacaoResetSenha(ctx context.Context, email string) (int16, error)
+	RemoverRefreshTokensAtivosPorUsuario(ctx context.Context, usuarioID int32) error
 	RevogarToken(ctx context.Context, arg RevogarTokenParams) error
 	TokenEstaRevogado(ctx context.Context, jti string) (bool, error)
 }

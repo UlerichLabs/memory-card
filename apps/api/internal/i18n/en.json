@@ -7,5 +7,11 @@
   "auth.login.invalid_credentials": "Invalid email or password.",
   "auth.session.unauthorized": "Unauthorized. Please log in again.",
   "auth.session.expired": "Session expired. Please log in again.",
-  "auth.login.invalid_input": "Invalid input data."
+  "auth.login.invalid_input": "Invalid input data.",
+  "auth.password_reset.request_accepted": "If this email is registered, you will receive instructions shortly.",
+  "auth.password_reset.token_expired": "This recovery link has expired. Request a new one.",
+  "auth.password_reset.token_used": "This recovery link has already been used. Request a new one if needed.",
+  "auth.password_reset.weak_password": "Password must be at least 8 characters long, including an uppercase letter, a number, and a special character.",
+  "auth.password_reset.rate_limited": "Too many attempts. Try again in 1 hour.",
+  "auth.password_reset.invalid_token": "This recovery link is invalid. Request a new one."
 }

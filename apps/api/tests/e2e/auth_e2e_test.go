@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strconv"
 	"testing"
 	"time"
@@ -37,6 +38,95 @@ type authDataResponse[T any] struct {
 	Data T `json:"data"`
 }
 
+type emailCapturado struct {
+	link string
+}
+
+func (email *emailCapturado) EnviarRecuperacaoSenha(ctx context.Context, destinatario, link string) error {
+	email.link = link
+	return nil
+}
+
+func TestE2E_RecuperacaoSenha(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	pg := testutil.SetupPostgres(t)
+	queries := db.New(pg.Pool)
+	usuarios := repository.NewUsuarioRepository(queries)
+	resetRepo := repository.NewRecuperacaoSenhaRepository(queries)
+	revogados := repository.NewTokenRevogadoRepository(queries)
+	tokens, err := service.NewAuthToken(uuid.NewString(), 15*time.Minute, 168*time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	login, err := service.NewLoginService(usuarios, tokens, revogados, resetRepo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	email := &emailCapturado{}
+	reset := service.NewRecuperacaoSenhaService("https://app.memorycard.test/redefinir-senha", usuarios, resetRepo, revogados, email)
+	router := gin.New()
+	router.POST("/api/v1/auth/register", handler.NewAuthHandler(service.NewCadastroService(usuarios)).Register)
+	loginHandler := handler.NewLoginHandler(login)
+	router.POST("/api/v1/auth/login", loginHandler.Login)
+	router.POST("/api/v1/auth/refresh", loginHandler.Refresh)
+	resetHandler := handler.NewRecuperacaoSenhaHandler(reset)
+	router.POST("/api/v1/auth/solicitar-reset", resetHandler.SolicitarReset)
+	router.GET("/api/v1/auth/validar-token-reset", resetHandler.ValidarTokenReset)
+	router.POST("/api/v1/auth/redefinir-senha", resetHandler.RedefinirSenha)
+	server := httptest.NewServer(router)
+	t.Cleanup(server.Close)
+
+	payload := map[string]string{"nome": "Usuario Reset", "email": "reset@example.com", "senha": "SenhaForte@123"}
+	authRequest[authDataResponse[repository.Usuario]](t, server, http.MethodPost, "/api/v1/auth/register", payload, "", http.StatusCreated)
+	sessao := authRequest[authDataResponse[service.LoginResult]](t, server, http.MethodPost, "/api/v1/auth/login", map[string]string{"email": payload["email"], "senha": payload["senha"]}, "", http.StatusOK).Data
+	outraSessao := authRequest[authDataResponse[service.LoginResult]](t, server, http.MethodPost, "/api/v1/auth/login", map[string]string{"email": payload["email"], "senha": payload["senha"]}, "", http.StatusOK).Data
+
+	solicitacao := authRequest[authDataResponse[struct {
+		Mensagem string `json:"mensagem"`
+	}]](t, server, http.MethodPost, "/api/v1/auth/solicitar-reset", map[string]string{"email": payload["email"]}, "", http.StatusOK).Data
+	if solicitacao.Mensagem != "Se este e-mail estiver cadastrado, você receberá as instruções em breve." || email.link == "" {
+		t.Fatal("solicitacao de reset nao retornou resposta generica e link")
+	}
+	parsed, err := url.Parse(email.link)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rawToken := parsed.Query().Get("token")
+	if rawToken == "" {
+		t.Fatal("email nao contem token")
+	}
+	var tokenHash string
+	if err := pg.Pool.QueryRow(context.Background(), "SELECT token_hash FROM tokens_reset_senha WHERE usuario_id = $1", sessao.Usuario.ID).Scan(&tokenHash); err != nil {
+		t.Fatal(err)
+	}
+	if tokenHash == rawToken || len(tokenHash) != 64 {
+		t.Fatal("token de reset foi armazenado sem hash")
+	}
+	authRequest[authDataResponse[struct{}]](t, server, http.MethodGet, "/api/v1/auth/validar-token-reset?token="+url.QueryEscape(rawToken), nil, "", http.StatusOK)
+	authRequest[authDataResponse[struct{}]](t, server, http.MethodPost, "/api/v1/auth/redefinir-senha", map[string]string{"token": rawToken, "senha": "SenhaNova@123"}, "", http.StatusOK)
+
+	antigaSenha := authRequest[apiErrorResponse](t, server, http.MethodPost, "/api/v1/auth/login", map[string]string{"email": payload["email"], "senha": payload["senha"]}, "", http.StatusUnauthorized)
+	assertAuthError(t, antigaSenha, "auth.login.invalid_credentials", "Email ou senha inválidos.")
+	novaSessao := authRequest[authDataResponse[service.LoginResult]](t, server, http.MethodPost, "/api/v1/auth/login", map[string]string{"email": payload["email"], "senha": "SenhaNova@123"}, "", http.StatusOK).Data
+	if novaSessao.RefreshToken == "" {
+		t.Fatal("nova senha nao permitiu login")
+	}
+	for _, refresh := range []string{sessao.RefreshToken, outraSessao.RefreshToken} {
+		resultado := authRequest[apiErrorResponse](t, server, http.MethodPost, "/api/v1/auth/refresh", map[string]string{"refresh_token": refresh}, "", http.StatusUnauthorized)
+		assertAuthError(t, resultado, "auth.session.expired", "Sessão expirada. Faça login novamente.")
+	}
+	utilizado := authRequest[apiErrorResponse](t, server, http.MethodGet, "/api/v1/auth/validar-token-reset?token="+url.QueryEscape(rawToken), nil, "", http.StatusConflict)
+	assertAuthError(t, utilizado, "auth.password_reset.token_used", "Este link já foi utilizado. Solicite um novo se necessário.")
+
+	for range 3 {
+		authRequest[authDataResponse[struct {
+			Mensagem string `json:"mensagem"`
+		}]](t, server, http.MethodPost, "/api/v1/auth/solicitar-reset", map[string]string{"email": "limite@example.com"}, "", http.StatusOK)
+	}
+	limite := authRequest[apiErrorResponse](t, server, http.MethodPost, "/api/v1/auth/solicitar-reset", map[string]string{"email": "limite@example.com"}, "", http.StatusTooManyRequests)
+	assertAuthError(t, limite, "auth.password_reset.rate_limited", "Muitas tentativas. Tente novamente em 1 hora.")
+}
+
 func TestE2E_LoginSessao(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	pg := testutil.SetupPostgres(t)
@@ -47,7 +137,7 @@ func TestE2E_LoginSessao(t *testing.T) {
 		t.Fatal(err)
 	}
 	revogados := repository.NewTokenRevogadoRepository(db.New(pg.Pool))
-	login, err := service.NewLoginService(repo, tokens, revogados)
+	login, err := service.NewLoginService(repo, tokens, revogados, repository.NewRecuperacaoSenhaRepository(db.New(pg.Pool)))
 	if err != nil {
 		t.Fatal(err)
 	}

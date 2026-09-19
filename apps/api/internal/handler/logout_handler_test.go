@@ -30,6 +30,10 @@ func (mock revogacaoRepositoryMock) Revogar(context.Context, string, time.Time) 
 	return errors.New("revogacao inesperada")
 }
 
+func (mock revogacaoRepositoryMock) RegistrarRefreshToken(context.Context, string, int32, time.Time) error {
+	return nil
+}
+
 type logoutServiceMock struct {
 	logout func(context.Context, string, string) error
 }

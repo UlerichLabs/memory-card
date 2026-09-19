@@ -12,6 +12,7 @@ import (
 type tokenRevogadoRepoMock struct {
 	revogar   func(context.Context, string, time.Time) error
 	consultar func(context.Context, string) (bool, error)
+	registrar func(context.Context, string, int32, time.Time) error
 }
 
 func (mock tokenRevogadoRepoMock) Revogar(ctx context.Context, jti string, expiraEm time.Time) error {
@@ -20,6 +21,13 @@ func (mock tokenRevogadoRepoMock) Revogar(ctx context.Context, jti string, expir
 
 func (mock tokenRevogadoRepoMock) EstaRevogado(ctx context.Context, jti string) (bool, error) {
 	return mock.consultar(ctx, jti)
+}
+
+func (mock tokenRevogadoRepoMock) RegistrarRefreshToken(ctx context.Context, jti string, usuarioID int32, expiraEm time.Time) error {
+	if mock.registrar == nil {
+		return nil
+	}
+	return mock.registrar(ctx, jti, usuarioID, expiraEm)
 }
 
 func TestLogout_Cenarios(t *testing.T) {
@@ -123,7 +131,7 @@ func TestRefresh_Revogacao(t *testing.T) {
 				}
 				return tc.revogado, tc.repoErr
 			}}
-			svc, err := NewLoginService(nil, tokens, repo)
+			svc, err := NewLoginService(nil, tokens, repo, repo)
 			if err != nil {
 				t.Fatal(err)
 			}
