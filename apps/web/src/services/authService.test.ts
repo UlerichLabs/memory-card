@@ -118,4 +118,24 @@ describe('authService', () => {
     expect(options.headers.get('Authorization')).toBe('Bearer access-token')
     expect(JSON.parse(options.body)).toEqual({ refresh_token: 'refresh-token' })
   })
+
+  it('envia solicitações de recuperação de senha para os endpoints e payloads corretos', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ data: {} }),
+    })
+    globalThis.fetch = mockFetch
+
+    await authService.solicitarReset({ email: 'lucas@example.com' })
+    await authService.validarTokenReset('token+/=')
+    await authService.redefinirSenha({ token: 'token+/=', senha: 'SenhaForte@123' })
+
+    expect(mockFetch.mock.calls[0][0]).toContain('/api/v1/auth/solicitar-reset')
+    expect(JSON.parse(mockFetch.mock.calls[0][1].body)).toEqual({ email: 'lucas@example.com' })
+    expect(mockFetch.mock.calls[1][0]).toContain('/api/v1/auth/validar-token-reset?token=token%2B%2F%3D')
+    expect(mockFetch.mock.calls[1][1].method).toBe('GET')
+    expect(mockFetch.mock.calls[2][0]).toContain('/api/v1/auth/redefinir-senha')
+    expect(JSON.parse(mockFetch.mock.calls[2][1].body)).toEqual({ token: 'token+/=', senha: 'SenhaForte@123' })
+  })
 })

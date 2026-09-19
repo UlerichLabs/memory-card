@@ -26,18 +26,11 @@ export function validarCadastroForm(data: CadastroFormData): CadastroValidationE
     errors.nome = VALIDATION_MESSAGES.nomeObrigatorio
   }
 
-  if (!data.email.trim() || !EMAIL_REGEX.test(data.email.trim())) {
+  if (!validarEmail(data.email)) {
     errors.email = VALIDATION_MESSAGES.emailInvalido
   }
 
-  const senha = data.senha
-  const senhaValida =
-    senha.length >= 8 &&
-    SENHA_MAIUSCULA_REGEX.test(senha) &&
-    SENHA_NUMERO_REGEX.test(senha) &&
-    SENHA_ESPECIAL_REGEX.test(senha)
-
-  if (!senhaValida) {
+  if (!validarSenha(data.senha)) {
     errors.senha = VALIDATION_MESSAGES.senhaFraca
   }
 
@@ -46,4 +39,15 @@ export function validarCadastroForm(data: CadastroFormData): CadastroValidationE
   }
 
   return errors
+}
+
+export function validarEmail(email: string): boolean {
+  return !!email.trim() && EMAIL_REGEX.test(email.trim())
+}
+
+export function validarSenha(senha: string): boolean {
+  return senha.length >= 8 &&
+    SENHA_MAIUSCULA_REGEX.test(senha) &&
+    SENHA_NUMERO_REGEX.test(senha) &&
+    SENHA_ESPECIAL_REGEX.test(senha)
 }
