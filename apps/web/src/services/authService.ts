@@ -13,12 +13,18 @@ export interface UsuarioDTO {
 }
 
 export type LoginPayload = Pick<CadastroPayload, 'email' | 'senha'>
+export interface SolicitarResetPayload {
+  email: string
+}
+export interface RedefinirSenhaPayload {
+  token: string
+  senha: string
+}
 export interface SessaoDTO {
   access_token: string
   refresh_token: string
   usuario: UsuarioDTO
 }
-
 export class AuthApiError extends Error {
   readonly codigo: string
   readonly status?: number
@@ -62,9 +68,20 @@ function post<T>(path: string, payload: unknown): Promise<T> {
   })
 }
 
+function get<T>(path: string): Promise<T> {
+  return request(path, {
+    method: 'GET',
+    headers: { Accept: 'application/json' },
+  })
+}
+
 export const authService = {
   cadastrar: (payload: CadastroPayload) => post<UsuarioDTO>('/auth/register', payload),
   login: (payload: LoginPayload) => post<SessaoDTO>('/auth/login', payload),
+  solicitarReset: (payload: SolicitarResetPayload) => post<void>('/auth/solicitar-reset', payload),
+  validarTokenReset: (token: string) =>
+    get<void>(`/auth/validar-token-reset?token=${encodeURIComponent(token)}`),
+  redefinirSenha: (payload: RedefinirSenhaPayload) => post<void>('/auth/redefinir-senha', payload),
   refresh: (refreshToken: string) =>
     post<Pick<SessaoDTO, 'access_token'>>('/auth/refresh', { refresh_token: refreshToken }),
   logout: (accessToken: string, refreshToken: string) =>
