@@ -221,6 +221,26 @@ type JogosZerado struct {
 	UpdatedAt         pgtype.Timestamp
 }
 
+type LimitesSolicitacaoResetSenha struct {
+	Email            string
+	JanelaIniciadaEm pgtype.Timestamptz
+	Quantidade       int16
+}
+
+type TokensRefreshAtivo struct {
+	Jti       string
+	UsuarioID int32
+	ExpiraEm  pgtype.Timestamptz
+}
+
+type TokensResetSenha struct {
+	ID        int32
+	UsuarioID int32
+	TokenHash string
+	ExpiraEm  pgtype.Timestamptz
+	UsadoEm   pgtype.Timestamptz
+}
+
 type TokensRevogado struct {
 	Jti      string
 	ExpiraEm pgtype.Timestamptz

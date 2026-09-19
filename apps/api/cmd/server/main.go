@@ -38,6 +38,10 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("carregar auth: %w", err)
 	}
+	emailCfg, err := config.LoadEmail()
+	if err != nil {
+		return fmt.Errorf("carregar email: %w", err)
+	}
 	corsOrigins, err := config.LoadCORS()
 	if err != nil {
 		return fmt.Errorf("carregar CORS: %w", err)
@@ -69,15 +73,24 @@ func run() error {
 
 	queries := db.New(pool)
 	usuarioRepo := repository.NewUsuarioRepository(queries)
+	resetRepo := repository.NewRecuperacaoSenhaRepository(queries)
 	cadastroService := service.NewCadastroService(usuarioRepo)
 	authHandler := handler.NewAuthHandler(cadastroService)
 
 	revogadosRepo := repository.NewTokenRevogadoRepository(queries)
-	loginService, err := service.NewLoginService(usuarioRepo, tokens, revogadosRepo)
+	loginService, err := service.NewLoginService(usuarioRepo, tokens, revogadosRepo, resetRepo)
 	if err != nil {
 		return fmt.Errorf("configurar login: %w", err)
 	}
 	loginHandler := handler.NewLoginHandler(loginService)
+	var emailSender service.EmailSender
+	if emailCfg.Modo == "smtp" {
+		emailSender = service.NewSMTPEmailSender(emailCfg.SMTPHost, emailCfg.SMTPPort, emailCfg.SMTPUser, emailCfg.SMTPPassword, emailCfg.SMTPFrom)
+	} else {
+		emailSender = service.NewLogEmailSender()
+	}
+	resetService := service.NewRecuperacaoSenhaService(emailCfg.ResetURL, usuarioRepo, resetRepo, revogadosRepo, emailSender)
+	resetHandler := handler.NewRecuperacaoSenhaHandler(resetService)
 
 	healthService := service.NewHealthService(pool)
 	healthHandler := handler.NewHealthHandler(healthService)
@@ -86,6 +99,9 @@ func run() error {
 	publicas.POST("/register", authHandler.Register)
 	publicas.POST("/login", loginHandler.Login)
 	publicas.POST("/refresh", loginHandler.Refresh)
+	publicas.POST("/solicitar-reset", resetHandler.SolicitarReset)
+	publicas.GET("/validar-token-reset", resetHandler.ValidarTokenReset)
+	publicas.POST("/redefinir-senha", resetHandler.RedefinirSenha)
 	meHandler := handler.NewMeHandler(service.NewPerfilService(usuarioRepo))
 	privadas := middleware.GrupoPrivado(router, tokens)
 	privadas.GET("/me", meHandler.Me)

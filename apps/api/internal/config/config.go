@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -15,6 +16,48 @@ type Config struct {
 	JWTSecret        string
 	IGDBClientID     string
 	IGDBClientSecret string
+}
+
+type EmailConfig struct {
+	Modo         string
+	SMTPHost     string
+	SMTPPort     int
+	SMTPUser     string
+	SMTPPassword string
+	SMTPFrom     string
+	ResetURL     string
+}
+
+func LoadEmail() (EmailConfig, error) {
+	cfg := EmailConfig{
+		Modo:         strings.ToLower(strings.TrimSpace(os.Getenv("EMAIL_SENDER_MODE"))),
+		SMTPHost:     strings.TrimSpace(os.Getenv("SMTP_HOST")),
+		SMTPUser:     strings.TrimSpace(os.Getenv("SMTP_USER")),
+		SMTPPassword: os.Getenv("SMTP_PASSWORD"),
+		SMTPFrom:     strings.TrimSpace(os.Getenv("SMTP_FROM")),
+		ResetURL:     strings.TrimSpace(os.Getenv("PASSWORD_RESET_URL")),
+	}
+	if cfg.Modo == "" {
+		cfg.Modo = "log"
+	}
+	if cfg.ResetURL == "" {
+		cfg.ResetURL = "http://localhost:5173/redefinir-senha"
+	}
+	if cfg.Modo != "smtp" && cfg.Modo != "log" {
+		return EmailConfig{}, fmt.Errorf("EMAIL_SENDER_MODE deve ser smtp ou log")
+	}
+	if cfg.Modo == "log" {
+		return cfg, nil
+	}
+	port, err := strconv.Atoi(os.Getenv("SMTP_PORT"))
+	if err != nil || port < 1 || port > 65535 {
+		return EmailConfig{}, fmt.Errorf("SMTP_PORT deve ser uma porta válida")
+	}
+	cfg.SMTPPort = port
+	if cfg.SMTPHost == "" || cfg.SMTPUser == "" || cfg.SMTPPassword == "" || cfg.SMTPFrom == "" {
+		return EmailConfig{}, fmt.Errorf("SMTP_HOST, SMTP_USER, SMTP_PASSWORD e SMTP_FROM são obrigatórios no modo smtp")
+	}
+	return cfg, nil
 }
 
 // Load lê e valida as variáveis de ambiente necessárias para a aplicação.

@@ -7,5 +7,11 @@
   "auth.login.invalid_credentials": "Email ou senha inválidos.",
   "auth.session.unauthorized": "Não autorizado. Faça login novamente.",
   "auth.session.expired": "Sessão expirada. Faça login novamente.",
-  "auth.login.invalid_input": "Dados de entrada inválidos."
+  "auth.login.invalid_input": "Dados de entrada inválidos.",
+  "auth.password_reset.request_accepted": "Se este e-mail estiver cadastrado, você receberá as instruções em breve.",
+  "auth.password_reset.token_expired": "Este link de recuperação expirou. Solicite um novo.",
+  "auth.password_reset.token_used": "Este link já foi utilizado. Solicite um novo se necessário.",
+  "auth.password_reset.weak_password": "A senha deve ter no mínimo 8 caracteres, incluindo maiúscula, número e caractere especial.",
+  "auth.password_reset.rate_limited": "Muitas tentativas. Tente novamente em 1 hora.",
+  "auth.password_reset.invalid_token": "Este link de recuperação é inválido. Solicite um novo."
 }

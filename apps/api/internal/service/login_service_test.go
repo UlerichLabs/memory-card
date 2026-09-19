@@ -28,7 +28,7 @@ func setupLogin(t *testing.T, repo LoginRepository) (*LoginService, *AuthToken) 
 	}
 	svc, err := NewLoginService(repo, tokens, tokenRevogadoRepoMock{consultar: func(context.Context, string) (bool, error) {
 		return false, nil
-	}})
+	}}, tokenRevogadoRepoMock{})
 	if err != nil {
 		t.Fatal(err)
 	}

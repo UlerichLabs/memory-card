@@ -22,6 +22,7 @@ type AuthHandler struct {
 	service CadastroServicer
 	login   LoginServicer
 	logout  LogoutServicer
+	reset   ResetSenhaServicer
 }
 
 func NewAuthHandler(service CadastroServicer) *AuthHandler {
@@ -178,4 +179,73 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 		return
 	}
 	c.Status(http.StatusNoContent)
+}
+
+type ResetSenhaServicer interface {
+	Solicitar(ctx context.Context, email string) error
+	ValidarToken(ctx context.Context, token string) error
+	RedefinirSenha(ctx context.Context, token, senha string) error
+}
+
+func NewRecuperacaoSenhaHandler(reset ResetSenhaServicer) *AuthHandler {
+	return &AuthHandler{reset: reset}
+}
+
+func (h *AuthHandler) SolicitarReset(c *gin.Context) {
+	var req struct {
+		Email string `json:"email"`
+	}
+	if err := c.ShouldBindJSON(&req); err == nil {
+		if err := h.reset.Solicitar(c.Request.Context(), req.Email); err != nil {
+			if errors.Is(err, service.ErrLimiteSolicitacoesReset) {
+				authError(c, http.StatusTooManyRequests, "auth.password_reset.rate_limited")
+				return
+			}
+			slog.ErrorContext(c.Request.Context(), "falha ao solicitar reset de senha", "error", err)
+			authError(c, http.StatusInternalServerError, "server.internal_error")
+			return
+		}
+	}
+	lang := c.GetHeader("Accept-Language")
+	c.JSON(http.StatusOK, gin.H{"data": gin.H{"mensagem": i18n.T(lang, "auth.password_reset.request_accepted")}})
+}
+
+func (h *AuthHandler) ValidarTokenReset(c *gin.Context) {
+	if err := h.reset.ValidarToken(c.Request.Context(), c.Query("token")); err != nil {
+		handleResetError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": gin.H{}})
+}
+
+func (h *AuthHandler) RedefinirSenha(c *gin.Context) {
+	var req struct {
+		Token string `json:"token"`
+		Senha string `json:"senha"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		authError(c, http.StatusBadRequest, "auth.password_reset.invalid_token")
+		return
+	}
+	if err := h.reset.RedefinirSenha(c.Request.Context(), req.Token, req.Senha); err != nil {
+		handleResetError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": gin.H{}})
+}
+
+func handleResetError(c *gin.Context, err error) {
+	switch {
+	case errors.Is(err, service.ErrSenhaFraca):
+		authError(c, http.StatusBadRequest, "auth.password_reset.weak_password")
+	case errors.Is(err, service.ErrTokenResetExpirado):
+		authError(c, http.StatusGone, "auth.password_reset.token_expired")
+	case errors.Is(err, service.ErrTokenResetUtilizado):
+		authError(c, http.StatusConflict, "auth.password_reset.token_used")
+	case errors.Is(err, service.ErrTokenResetInvalido):
+		authError(c, http.StatusBadRequest, "auth.password_reset.invalid_token")
+	default:
+		slog.ErrorContext(c.Request.Context(), "falha no fluxo de reset de senha", "error", err)
+		authError(c, http.StatusInternalServerError, "server.internal_error")
+	}
 }
