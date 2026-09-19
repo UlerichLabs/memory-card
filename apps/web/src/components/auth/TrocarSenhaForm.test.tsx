@@ -64,6 +64,16 @@ describe('TrocarSenhaForm', () => {
     expect(authService.trocarSenha).not.toHaveBeenCalled()
   })
 
+  it('valida nova senha igual à atual sem chamar a API', async () => {
+    const user = setup()
+    await autenticar(user)
+    await preencher(user, 'SenhaAtual@123')
+    await user.click(screen.getByRole('button', { name: 'Alterar senha' }))
+
+    expect(screen.getByRole('alert')).toHaveTextContent('A nova senha deve ser diferente da atual.')
+    expect(authService.trocarSenha).not.toHaveBeenCalled()
+  })
+
   it('envia dados, mostra sucesso e limpa o formulário', async () => {
     const user = setup()
     await autenticar(user)

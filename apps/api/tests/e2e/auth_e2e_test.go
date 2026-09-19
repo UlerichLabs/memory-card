@@ -194,6 +194,8 @@ func TestE2E_TrocaSenha(t *testing.T) {
 	outraSessao := authRequest[authDataResponse[service.LoginResult]](t, server, http.MethodPost, "/api/v1/auth/login", map[string]string{"email": payload["email"], "senha": payload["senha"]}, "", http.StatusOK).Data
 	semAutenticacao := authRequest[apiErrorResponse](t, server, http.MethodPost, "/api/v1/auth/trocar-senha", map[string]string{"senha_atual": payload["senha"], "nova_senha": "SenhaNova@123"}, "", http.StatusUnauthorized)
 	assertAuthError(t, semAutenticacao, "auth.session.unauthorized", "Não autorizado. Faça login novamente.")
+	tokenInvalido := authRequest[apiErrorResponse](t, server, http.MethodPost, "/api/v1/auth/trocar-senha", map[string]string{"senha_atual": payload["senha"], "nova_senha": "SenhaNova@123"}, "token-invalido", http.StatusUnauthorized)
+	assertAuthError(t, tokenInvalido, "auth.session.unauthorized", "Não autorizado. Faça login novamente.")
 	incorreta := authRequest[apiErrorResponse](t, server, http.MethodPost, "/api/v1/auth/trocar-senha", map[string]string{"senha_atual": "Incorreta@123", "nova_senha": "SenhaNova@123"}, sessao.AccessToken, http.StatusBadRequest)
 	assertAuthError(t, incorreta, "auth.password_change.current_password_invalid", "Senha atual incorreta.")
 	fraca := authRequest[apiErrorResponse](t, server, http.MethodPost, "/api/v1/auth/trocar-senha", map[string]string{"senha_atual": payload["senha"], "nova_senha": "fraca"}, sessao.AccessToken, http.StatusBadRequest)
