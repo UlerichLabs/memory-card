@@ -87,6 +87,12 @@ func TestE2E_RecuperacaoSenha(t *testing.T) {
 	if solicitacao.Mensagem != "Se este e-mail estiver cadastrado, você receberá as instruções em breve." || email.link == "" {
 		t.Fatal("solicitacao de reset nao retornou resposta generica e link")
 	}
+	inexistente := authRequest[authDataResponse[struct {
+		Mensagem string `json:"mensagem"`
+	}]](t, server, http.MethodPost, "/api/v1/auth/solicitar-reset", map[string]string{"email": "ausente@example.com"}, "", http.StatusOK).Data
+	if inexistente != solicitacao {
+		t.Fatal("resposta para email inexistente difere da solicitacao aceita")
+	}
 	parsed, err := url.Parse(email.link)
 	if err != nil {
 		t.Fatal(err)
@@ -102,6 +108,29 @@ func TestE2E_RecuperacaoSenha(t *testing.T) {
 	if tokenHash == rawToken || len(tokenHash) != 64 {
 		t.Fatal("token de reset foi armazenado sem hash")
 	}
+	authRequest[authDataResponse[struct {
+		Mensagem string `json:"mensagem"`
+	}]](t, server, http.MethodPost, "/api/v1/auth/solicitar-reset", map[string]string{"email": payload["email"]}, "", http.StatusOK)
+	parsed, err = url.Parse(email.link)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tokenSenhaFraca := parsed.Query().Get("token")
+	senhaFraca := authRequest[apiErrorResponse](t, server, http.MethodPost, "/api/v1/auth/redefinir-senha", map[string]string{"token": tokenSenhaFraca, "senha": "fraca"}, "", http.StatusBadRequest)
+	assertAuthError(t, senhaFraca, "auth.password_reset.weak_password", "A senha deve ter no mínimo 8 caracteres, incluindo maiúscula, número e caractere especial.")
+	authRequest[authDataResponse[struct {
+		Mensagem string `json:"mensagem"`
+	}]](t, server, http.MethodPost, "/api/v1/auth/solicitar-reset", map[string]string{"email": payload["email"]}, "", http.StatusOK)
+	parsed, err = url.Parse(email.link)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tokenExpirado := parsed.Query().Get("token")
+	if _, err := pg.Pool.Exec(context.Background(), `UPDATE tokens_reset_senha SET expira_em = CURRENT_TIMESTAMP - INTERVAL '1 minute' WHERE id = (SELECT id FROM tokens_reset_senha WHERE usuario_id = $1 ORDER BY id DESC LIMIT 1)`, sessao.Usuario.ID); err != nil {
+		t.Fatal(err)
+	}
+	expirado := authRequest[apiErrorResponse](t, server, http.MethodGet, "/api/v1/auth/validar-token-reset?token="+url.QueryEscape(tokenExpirado), nil, "", http.StatusGone)
+	assertAuthError(t, expirado, "auth.password_reset.token_expired", "Este link de recuperação expirou. Solicite um novo.")
 	authRequest[authDataResponse[struct{}]](t, server, http.MethodGet, "/api/v1/auth/validar-token-reset?token="+url.QueryEscape(rawToken), nil, "", http.StatusOK)
 	authRequest[authDataResponse[struct{}]](t, server, http.MethodPost, "/api/v1/auth/redefinir-senha", map[string]string{"token": rawToken, "senha": "SenhaNova@123"}, "", http.StatusOK)
 
@@ -115,7 +144,7 @@ func TestE2E_RecuperacaoSenha(t *testing.T) {
 		resultado := authRequest[apiErrorResponse](t, server, http.MethodPost, "/api/v1/auth/refresh", map[string]string{"refresh_token": refresh}, "", http.StatusUnauthorized)
 		assertAuthError(t, resultado, "auth.session.expired", "Sessão expirada. Faça login novamente.")
 	}
-	utilizado := authRequest[apiErrorResponse](t, server, http.MethodGet, "/api/v1/auth/validar-token-reset?token="+url.QueryEscape(rawToken), nil, "", http.StatusConflict)
+	utilizado := authRequest[apiErrorResponse](t, server, http.MethodPost, "/api/v1/auth/redefinir-senha", map[string]string{"token": rawToken, "senha": "SenhaNova@123"}, "", http.StatusConflict)
 	assertAuthError(t, utilizado, "auth.password_reset.token_used", "Este link já foi utilizado. Solicite um novo se necessário.")
 
 	for range 3 {
@@ -125,6 +154,12 @@ func TestE2E_RecuperacaoSenha(t *testing.T) {
 	}
 	limite := authRequest[apiErrorResponse](t, server, http.MethodPost, "/api/v1/auth/solicitar-reset", map[string]string{"email": "limite@example.com"}, "", http.StatusTooManyRequests)
 	assertAuthError(t, limite, "auth.password_reset.rate_limited", "Muitas tentativas. Tente novamente em 1 hora.")
+	if _, err := pg.Pool.Exec(context.Background(), "UPDATE limites_solicitacao_reset_senha SET janela_iniciada_em = CURRENT_TIMESTAMP - INTERVAL '1 hour' WHERE email = $1", "limite@example.com"); err != nil {
+		t.Fatal(err)
+	}
+	authRequest[authDataResponse[struct {
+		Mensagem string `json:"mensagem"`
+	}]](t, server, http.MethodPost, "/api/v1/auth/solicitar-reset", map[string]string{"email": "limite@example.com"}, "", http.StatusOK)
 }
 
 func TestE2E_LoginSessao(t *testing.T) {
