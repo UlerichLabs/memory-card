@@ -23,6 +23,7 @@ type AuthHandler struct {
 	login   LoginServicer
 	logout  LogoutServicer
 	reset   ResetSenhaServicer
+	troca   TrocaSenhaServicer
 }
 
 func NewAuthHandler(service CadastroServicer) *AuthHandler {
@@ -151,6 +152,45 @@ func authError(c *gin.Context, status int, codigo string) {
 
 type LogoutServicer interface {
 	Logout(ctx context.Context, subject, token string) error
+}
+
+type TrocaSenhaServicer interface {
+	Trocar(ctx context.Context, subject, senhaAtual, novaSenha string) error
+}
+
+func NewTrocaSenhaHandler(troca TrocaSenhaServicer) *AuthHandler {
+	return &AuthHandler{troca: troca}
+}
+
+func (h *AuthHandler) TrocarSenha(c *gin.Context) {
+	var req struct {
+		SenhaAtual string `json:"senha_atual"`
+		NovaSenha  string `json:"nova_senha"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		authError(c, http.StatusBadRequest, "auth.password_change.invalid_input")
+		return
+	}
+	usuario, ok := middleware.UsuarioDoContexto(c.Request.Context())
+	if !ok {
+		authError(c, http.StatusUnauthorized, "auth.session.unauthorized")
+		return
+	}
+	if err := h.troca.Trocar(c.Request.Context(), usuario.ID, req.SenhaAtual, req.NovaSenha); err != nil {
+		switch {
+		case errors.Is(err, service.ErrSenhaAtualIncorreta):
+			authError(c, http.StatusBadRequest, "auth.password_change.current_password_invalid")
+		case errors.Is(err, service.ErrSenhaFraca):
+			authError(c, http.StatusBadRequest, "auth.password_change.weak_password")
+		case errors.Is(err, service.ErrNovaSenhaIgualAtual):
+			authError(c, http.StatusBadRequest, "auth.password_change.same_password")
+		default:
+			slog.ErrorContext(c.Request.Context(), "falha na troca de senha", "error", err)
+			authError(c, http.StatusInternalServerError, "server.internal_error")
+		}
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": gin.H{"mensagem": i18n.T(c.GetHeader("Accept-Language"), "auth.password_change.success")}})
 }
 
 func NewLogoutHandler(logout LogoutServicer) *AuthHandler {

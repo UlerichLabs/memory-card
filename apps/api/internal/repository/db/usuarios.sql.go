@@ -11,6 +11,57 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const atualizarSenhaUsuario = `-- name: AtualizarSenhaUsuario :exec
+UPDATE usuarios
+SET senha_hash = $2
+WHERE id = $1
+`
+
+type AtualizarSenhaUsuarioParams struct {
+	ID        int32
+	SenhaHash string
+}
+
+func (q *Queries) AtualizarSenhaUsuario(ctx context.Context, arg AtualizarSenhaUsuarioParams) error {
+	_, err := q.db.Exec(ctx, atualizarSenhaUsuario, arg.ID, arg.SenhaHash)
+	return err
+}
+
+const buscarCredenciaisUsuarioPorID = `-- name: BuscarCredenciaisUsuarioPorID :one
+SELECT id, nome, email, senha_hash, username, avatar_url, bio, idioma, created_at
+FROM usuarios
+WHERE id = $1
+`
+
+type BuscarCredenciaisUsuarioPorIDRow struct {
+	ID        int32
+	Nome      string
+	Email     string
+	SenhaHash string
+	Username  pgtype.Text
+	AvatarUrl pgtype.Text
+	Bio       pgtype.Text
+	Idioma    string
+	CreatedAt pgtype.Timestamp
+}
+
+func (q *Queries) BuscarCredenciaisUsuarioPorID(ctx context.Context, id int32) (BuscarCredenciaisUsuarioPorIDRow, error) {
+	row := q.db.QueryRow(ctx, buscarCredenciaisUsuarioPorID, id)
+	var i BuscarCredenciaisUsuarioPorIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.Nome,
+		&i.Email,
+		&i.SenhaHash,
+		&i.Username,
+		&i.AvatarUrl,
+		&i.Bio,
+		&i.Idioma,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const buscarUsuarioPorEmail = `-- name: BuscarUsuarioPorEmail :one
 SELECT id, nome, email, senha_hash, username, avatar_url, bio, idioma, created_at
 FROM usuarios

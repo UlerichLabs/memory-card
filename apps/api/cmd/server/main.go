@@ -107,6 +107,8 @@ func run() error {
 	privadas.GET("/me", meHandler.Me)
 	logoutHandler := handler.NewLogoutHandler(service.NewLogoutService(tokens, revogadosRepo))
 	privadas.POST("/auth/logout", logoutHandler.Logout)
+	trocaSenhaHandler := handler.NewTrocaSenhaHandler(service.NewTrocaSenhaService(usuarioRepo, resetRepo, revogadosRepo))
+	privadas.POST("/auth/trocar-senha", trocaSenhaHandler.TrocarSenha)
 	server := &http.Server{
 		Addr:              ":" + cfg.Port,
 		Handler:           router,

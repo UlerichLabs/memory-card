@@ -13,5 +13,10 @@
   "auth.password_reset.token_used": "This recovery link has already been used. Request a new one if needed.",
   "auth.password_reset.weak_password": "Password must be at least 8 characters long, including an uppercase letter, a number, and a special character.",
   "auth.password_reset.rate_limited": "Too many attempts. Try again in 1 hour.",
-  "auth.password_reset.invalid_token": "This recovery link is invalid. Request a new one."
+  "auth.password_reset.invalid_token": "This recovery link is invalid. Request a new one.",
+  "auth.password_change.invalid_input": "Invalid input data.",
+  "auth.password_change.current_password_invalid": "Current password is incorrect.",
+  "auth.password_change.weak_password": "Password must be at least 8 characters long, including an uppercase letter, a number, and a special character.",
+  "auth.password_change.same_password": "The new password must be different from the current password.",
+  "auth.password_change.success": "Password changed successfully."
 }

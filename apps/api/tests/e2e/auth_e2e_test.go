@@ -162,6 +162,68 @@ func TestE2E_RecuperacaoSenha(t *testing.T) {
 	}]](t, server, http.MethodPost, "/api/v1/auth/solicitar-reset", map[string]string{"email": "limite@example.com"}, "", http.StatusOK)
 }
 
+func TestE2E_TrocaSenha(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	pg := testutil.SetupPostgres(t)
+	queries := db.New(pg.Pool)
+	usuarios := repository.NewUsuarioRepository(queries)
+	resetRepo := repository.NewRecuperacaoSenhaRepository(queries)
+	revogados := repository.NewTokenRevogadoRepository(queries)
+	tokens, err := service.NewAuthToken(uuid.NewString(), 15*time.Minute, 168*time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	login, err := service.NewLoginService(usuarios, tokens, revogados, resetRepo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	troca := service.NewTrocaSenhaService(usuarios, resetRepo, revogados)
+	router := gin.New()
+	router.POST("/api/v1/auth/register", handler.NewAuthHandler(service.NewCadastroService(usuarios)).Register)
+	loginHandler := handler.NewLoginHandler(login)
+	router.POST("/api/v1/auth/login", loginHandler.Login)
+	router.POST("/api/v1/auth/refresh", loginHandler.Refresh)
+	privadas := middleware.GrupoPrivado(router, tokens)
+	privadas.POST("/auth/trocar-senha", handler.NewTrocaSenhaHandler(troca).TrocarSenha)
+	server := httptest.NewServer(router)
+	t.Cleanup(server.Close)
+
+	payload := map[string]string{"nome": "Usuario Troca", "email": "troca@example.com", "senha": "SenhaAtual@123"}
+	authRequest[authDataResponse[repository.Usuario]](t, server, http.MethodPost, "/api/v1/auth/register", payload, "", http.StatusCreated)
+	sessao := authRequest[authDataResponse[service.LoginResult]](t, server, http.MethodPost, "/api/v1/auth/login", map[string]string{"email": payload["email"], "senha": payload["senha"]}, "", http.StatusOK).Data
+	outraSessao := authRequest[authDataResponse[service.LoginResult]](t, server, http.MethodPost, "/api/v1/auth/login", map[string]string{"email": payload["email"], "senha": payload["senha"]}, "", http.StatusOK).Data
+	semAutenticacao := authRequest[apiErrorResponse](t, server, http.MethodPost, "/api/v1/auth/trocar-senha", map[string]string{"senha_atual": payload["senha"], "nova_senha": "SenhaNova@123"}, "", http.StatusUnauthorized)
+	assertAuthError(t, semAutenticacao, "auth.session.unauthorized", "Não autorizado. Faça login novamente.")
+	incorreta := authRequest[apiErrorResponse](t, server, http.MethodPost, "/api/v1/auth/trocar-senha", map[string]string{"senha_atual": "Incorreta@123", "nova_senha": "SenhaNova@123"}, sessao.AccessToken, http.StatusBadRequest)
+	assertAuthError(t, incorreta, "auth.password_change.current_password_invalid", "Senha atual incorreta.")
+	fraca := authRequest[apiErrorResponse](t, server, http.MethodPost, "/api/v1/auth/trocar-senha", map[string]string{"senha_atual": payload["senha"], "nova_senha": "fraca"}, sessao.AccessToken, http.StatusBadRequest)
+	assertAuthError(t, fraca, "auth.password_change.weak_password", "A senha deve ter no mínimo 8 caracteres, incluindo maiúscula, número e caractere especial.")
+	iguala := authRequest[apiErrorResponse](t, server, http.MethodPost, "/api/v1/auth/trocar-senha", map[string]string{"senha_atual": payload["senha"], "nova_senha": payload["senha"]}, sessao.AccessToken, http.StatusBadRequest)
+	assertAuthError(t, iguala, "auth.password_change.same_password", "A nova senha deve ser diferente da atual.")
+	sucesso := authRequest[authDataResponse[struct {
+		Mensagem string `json:"mensagem"`
+	}]](t, server, http.MethodPost, "/api/v1/auth/trocar-senha", map[string]string{"senha_atual": payload["senha"], "nova_senha": "SenhaNova@123"}, sessao.AccessToken, http.StatusOK)
+	if sucesso.Data.Mensagem != "Senha alterada com sucesso." {
+		t.Fatal(sucesso.Data.Mensagem)
+	}
+	var senhaHash string
+	if err := pg.Pool.QueryRow(context.Background(), "SELECT senha_hash FROM usuarios WHERE email = $1", payload["email"]).Scan(&senhaHash); err != nil {
+		t.Fatal(err)
+	}
+	if bcrypt.CompareHashAndPassword([]byte(senhaHash), []byte("SenhaNova@123")) != nil {
+		t.Fatal("nova senha nao foi persistida")
+	}
+	authRequest[apiErrorResponse](t, server, http.MethodPost, "/api/v1/auth/login", map[string]string{"email": payload["email"], "senha": payload["senha"]}, "", http.StatusUnauthorized)
+	novaSessao := authRequest[authDataResponse[service.LoginResult]](t, server, http.MethodPost, "/api/v1/auth/login", map[string]string{"email": payload["email"], "senha": "SenhaNova@123"}, "", http.StatusOK).Data
+	if novaSessao.RefreshToken == "" {
+		t.Fatal("novo login nao emitiu refresh token")
+	}
+	for _, refresh := range []string{sessao.RefreshToken, outraSessao.RefreshToken} {
+		resultado := authRequest[apiErrorResponse](t, server, http.MethodPost, "/api/v1/auth/refresh", map[string]string{"refresh_token": refresh}, "", http.StatusUnauthorized)
+		assertAuthError(t, resultado, "auth.session.expired", "Sessão expirada. Faça login novamente.")
+	}
+}
+
 func TestE2E_LoginSessao(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	pg := testutil.SetupPostgres(t)

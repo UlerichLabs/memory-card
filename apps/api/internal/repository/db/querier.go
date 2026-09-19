@@ -10,6 +10,8 @@ import (
 
 type Querier interface {
 	AtualizarJogoZerado(ctx context.Context, arg AtualizarJogoZeradoParams) (JogosZerado, error)
+	AtualizarSenhaUsuario(ctx context.Context, arg AtualizarSenhaUsuarioParams) error
+	BuscarCredenciaisUsuarioPorID(ctx context.Context, id int32) (BuscarCredenciaisUsuarioPorIDRow, error)
 	BuscarJogoPorID(ctx context.Context, arg BuscarJogoPorIDParams) (JogosZerado, error)
 	BuscarTokenResetSenha(ctx context.Context, tokenHash string) (TokensResetSenha, error)
 	BuscarUsuarioPorEmail(ctx context.Context, email string) (BuscarUsuarioPorEmailRow, error)

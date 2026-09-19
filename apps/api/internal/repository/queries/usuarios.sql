@@ -22,3 +22,13 @@ WHERE email = $1;
 SELECT id, nome, email, idioma, created_at
 FROM usuarios
 WHERE id = $1;
+
+-- name: BuscarCredenciaisUsuarioPorID :one
+SELECT id, nome, email, senha_hash, username, avatar_url, bio, idioma, created_at
+FROM usuarios
+WHERE id = $1;
+
+-- name: AtualizarSenhaUsuario :exec
+UPDATE usuarios
+SET senha_hash = $2
+WHERE id = $1;
