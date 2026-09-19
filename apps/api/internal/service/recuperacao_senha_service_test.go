@@ -131,6 +131,24 @@ func TestRecuperacaoSenha_Solicitar_Limite(t *testing.T) {
 	}
 }
 
+func TestRecuperacaoSenha_GerarTokenReset_Unico(t *testing.T) {
+
+	primeiro, primeiroHash, err := gerarTokenReset()
+	if err != nil {
+		t.Fatal(err)
+	}
+	segundo, segundoHash, err := gerarTokenReset()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if primeiro == segundo || primeiroHash == segundoHash {
+		t.Fatal("tokens de reset devem ser unicos")
+	}
+	if hashToken(primeiro) != primeiroHash || hashToken(segundo) != segundoHash {
+		t.Fatal("hash do token gerado incorreto")
+	}
+}
+
 func TestRecuperacaoSenha_ValidarToken_Cenarios(t *testing.T) {
 	now := time.Date(2026, 9, 19, 12, 0, 0, 0, time.UTC)
 	raw := "token-valido"

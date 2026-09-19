@@ -37,6 +37,19 @@ describe('SolicitarResetForm', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Muitas tentativas. Tente novamente em 1 hora.')
   })
 
+  it('mantém a mensagem genérica quando a API falha sem atingir o limite', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(authService, 'solicitarReset').mockRejectedValue(new AuthApiError('server.internal_error', '', 500))
+    renderForm()
+
+    await user.type(screen.getByLabelText('Email'), 'lucas@example.com')
+    await user.click(screen.getByRole('button', { name: 'Enviar instruções' }))
+
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'Se este e-mail estiver cadastrado, você receberá as instruções em breve.'
+    )
+  })
+
   it('mantém o botão e o campo desabilitados enquanto envia a solicitação', async () => {
     const user = userEvent.setup()
     let resolver: () => void = () => undefined
