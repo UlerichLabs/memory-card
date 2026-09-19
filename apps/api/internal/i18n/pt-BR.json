@@ -13,5 +13,10 @@
   "auth.password_reset.token_used": "Este link já foi utilizado. Solicite um novo se necessário.",
   "auth.password_reset.weak_password": "A senha deve ter no mínimo 8 caracteres, incluindo maiúscula, número e caractere especial.",
   "auth.password_reset.rate_limited": "Muitas tentativas. Tente novamente em 1 hora.",
-  "auth.password_reset.invalid_token": "Este link de recuperação é inválido. Solicite um novo."
+  "auth.password_reset.invalid_token": "Este link de recuperação é inválido. Solicite um novo.",
+  "auth.password_change.invalid_input": "Dados de entrada inválidos.",
+  "auth.password_change.current_password_invalid": "Senha atual incorreta.",
+  "auth.password_change.weak_password": "A senha deve ter no mínimo 8 caracteres, incluindo maiúscula, número e caractere especial.",
+  "auth.password_change.same_password": "A nova senha deve ser diferente da atual.",
+  "auth.password_change.success": "Senha alterada com sucesso."
 }
