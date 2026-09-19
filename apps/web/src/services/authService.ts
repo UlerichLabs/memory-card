@@ -20,6 +20,10 @@ export interface RedefinirSenhaPayload {
   token: string
   senha: string
 }
+export interface TrocarSenhaPayload {
+  senha_atual: string
+  nova_senha: string
+}
 export interface SessaoDTO {
   access_token: string
   refresh_token: string
@@ -82,6 +86,12 @@ export const authService = {
   validarTokenReset: (token: string) =>
     get<void>(`/auth/validar-token-reset?token=${encodeURIComponent(token)}`),
   redefinirSenha: (payload: RedefinirSenhaPayload) => post<void>('/auth/redefinir-senha', payload),
+  trocarSenha: (accessToken: string, payload: TrocarSenhaPayload) =>
+    authService.authenticatedRequest<{ mensagem: string }>('/auth/trocar-senha', accessToken, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }),
   refresh: (refreshToken: string) =>
     post<Pick<SessaoDTO, 'access_token'>>('/auth/refresh', { refresh_token: refreshToken }),
   logout: (accessToken: string, refreshToken: string) =>

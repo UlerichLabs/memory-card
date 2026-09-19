@@ -115,7 +115,7 @@ export function Topbar() {
                 >
                   <Menu.Item
                     className="flex w-full cursor-pointer select-none items-center gap-2.5 rounded-[6px] px-3.5 py-2.5 text-[13px] font-medium text-[#EDEDED] outline-none transition-colors hover:bg-[#1D1F25] focus:bg-[#1D1F25] data-highlighted:bg-[#1D1F25]"
-                    onClick={() => navigate('/conta')}
+                    onClick={() => navigate('/conta/trocar-senha')}
                   >
                     <User className="h-4 w-4 text-[#9A9CA5]" aria-hidden="true" />
                     <span>Conta</span>
