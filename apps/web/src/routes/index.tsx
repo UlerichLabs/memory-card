@@ -6,6 +6,7 @@ import { DashboardPage } from '@/pages/DashboardPage'
 import { CadastroPage } from '@/pages/auth/CadastroPage'
 import { EsqueciSenhaPage } from '@/pages/auth/EsqueciSenhaPage'
 import { RedefinirSenhaPage } from '@/pages/auth/RedefinirSenhaPage'
+import { ContaTrocarSenhaPage } from '@/pages/ContaTrocarSenhaPage'
 
 export function AppRoutes() {
   return (
@@ -14,6 +15,7 @@ export function AppRoutes() {
         <Routes>
           <Route element={<PrivateRoute />}>
             <Route path="/" element={<DashboardPage />} />
+            <Route path="/conta/trocar-senha" element={<ContaTrocarSenhaPage />} />
           </Route>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/cadastro" element={<CadastroPage />} />

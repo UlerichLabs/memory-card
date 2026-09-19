@@ -138,4 +138,24 @@ describe('authService', () => {
     expect(mockFetch.mock.calls[2][0]).toContain('/api/v1/auth/redefinir-senha')
     expect(JSON.parse(mockFetch.mock.calls[2][1].body)).toEqual({ token: 'token+/=', senha: 'SenhaForte@123' })
   })
+
+  it('envia troca de senha autenticada com o payload correto', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ data: { mensagem: 'Senha alterada com sucesso.' } }),
+    })
+    globalThis.fetch = mockFetch
+
+    await authService.trocarSenha('access-token', {
+      senha_atual: 'SenhaAtual@123',
+      nova_senha: 'SenhaNova@123',
+    })
+
+    const [url, options] = mockFetch.mock.calls[0]
+    expect(url).toContain('/api/v1/auth/trocar-senha')
+    expect(options.method).toBe('POST')
+    expect(options.headers.get('Authorization')).toBe('Bearer access-token')
+    expect(JSON.parse(options.body)).toEqual({ senha_atual: 'SenhaAtual@123', nova_senha: 'SenhaNova@123' })
+  })
 })
