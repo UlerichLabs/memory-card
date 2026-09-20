@@ -13,6 +13,7 @@ type Querier interface {
 	AtualizarSenhaUsuario(ctx context.Context, arg AtualizarSenhaUsuarioParams) error
 	BuscarCredenciaisUsuarioPorID(ctx context.Context, id int32) (BuscarCredenciaisUsuarioPorIDRow, error)
 	BuscarJogoPorID(ctx context.Context, arg BuscarJogoPorIDParams) (JogosZerado, error)
+	BuscarSnapshotIGDB(ctx context.Context, chave string) ([]byte, error)
 	BuscarTokenResetSenha(ctx context.Context, tokenHash string) (TokensResetSenha, error)
 	BuscarUsuarioPorEmail(ctx context.Context, email string) (BuscarUsuarioPorEmailRow, error)
 	BuscarUsuarioPorID(ctx context.Context, id int32) (BuscarUsuarioPorIDRow, error)
@@ -29,6 +30,7 @@ type Querier interface {
 	RegistrarSolicitacaoResetSenha(ctx context.Context, email string) (int16, error)
 	RemoverRefreshTokensAtivosPorUsuario(ctx context.Context, usuarioID int32) error
 	RevogarToken(ctx context.Context, arg RevogarTokenParams) error
+	SalvarSnapshotIGDB(ctx context.Context, arg SalvarSnapshotIGDBParams) error
 	TokenEstaRevogado(ctx context.Context, jti string) (bool, error)
 }
 

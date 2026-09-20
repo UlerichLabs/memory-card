@@ -18,5 +18,9 @@
   "auth.password_change.current_password_invalid": "Senha atual incorreta.",
   "auth.password_change.weak_password": "A senha deve ter no mínimo 8 caracteres, incluindo maiúscula, número e caractere especial.",
   "auth.password_change.same_password": "A nova senha deve ser diferente da atual.",
-  "auth.password_change.success": "Senha alterada com sucesso."
+  "auth.password_change.success": "Senha alterada com sucesso.",
+  "igdb.search.empty": "Informe um termo de busca.",
+  "igdb.unavailable": "Não foi possível buscar jogos no momento. Tente novamente em instantes.",
+  "igdb.rate_limited": "Muitas buscas em pouco tempo. Aguarde um instante e tente novamente.",
+  "igdb.invalid_id": "Identificador inválido."
 }

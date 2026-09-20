@@ -18,5 +18,9 @@
   "auth.password_change.current_password_invalid": "Current password is incorrect.",
   "auth.password_change.weak_password": "Password must be at least 8 characters long, including an uppercase letter, a number, and a special character.",
   "auth.password_change.same_password": "The new password must be different from the current password.",
-  "auth.password_change.success": "Password changed successfully."
+  "auth.password_change.success": "Password changed successfully.",
+  "igdb.search.empty": "Please enter a search term.",
+  "igdb.unavailable": "Unable to search games right now. Please try again shortly.",
+  "igdb.rate_limited": "Too many searches in a short time. Please wait and try again.",
+  "igdb.invalid_id": "Invalid identifier."
 }
