@@ -102,7 +102,7 @@ func (c *Client) SearchGames(ctx context.Context, query string) ([]Game, error) 
 	if query == "" {
 		return []Game{}, nil
 	}
-	return c.games(ctx, fmt.Sprintf("fields id,name,cover.url,first_release_date; search %q; limit 20;", query))
+	return c.games(ctx, fmt.Sprintf("fields id,name,cover.url,first_release_date,summary; search %q; limit 20;", query))
 }
 
 func (c *Client) GameDetails(ctx context.Context, id int64) (*Game, error) {

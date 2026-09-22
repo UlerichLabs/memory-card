@@ -212,3 +212,49 @@ func TestClientSearchFranchisesQuery(t *testing.T) {
 	}
 }
 
+func TestClientSearchGamesQuery(t *testing.T) {
+	var requestBody string
+	var requestPath string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/oauth":
+			_ = json.NewEncoder(w).Encode(accessToken{AccessToken: "token", ExpiresIn: 3600})
+		case "/v4/games":
+			requestPath = r.URL.Path
+			bodyBytes, err := io.ReadAll(r.Body)
+			if err != nil {
+				t.Fatalf("ler body: %v", err)
+			}
+			requestBody = string(bodyBytes)
+			_, _ = fmt.Fprint(w, `[{"id":1022,"name":"The Legend of Zelda","cover":{"id":86202,"url":"//cover.jpg"},"first_release_date":509328000,"summary":"Action RPG"}]`)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	client := New(Config{
+		ClientID:     "client",
+		ClientSecret: "secret",
+		HTTPClient:   server.Client(),
+		TokenURL:     server.URL + "/oauth",
+		APIURL:       server.URL + "/v4",
+	})
+
+	games, err := client.SearchGames(context.Background(), "zelda")
+	if err != nil {
+		t.Fatalf("SearchGames: %v", err)
+	}
+	if len(games) != 1 || games[0].Name != "The Legend of Zelda" || games[0].Summary != "Action RPG" {
+		t.Fatalf("games=%+v", games)
+	}
+	if requestPath != "/v4/games" {
+		t.Fatalf("path=%s, esperava /v4/games", requestPath)
+	}
+	expectedClause := `fields id,name,cover.url,first_release_date,summary; search "zelda"; limit 20;`
+	if requestBody != expectedClause {
+		t.Fatalf("body=%q, esperava %q", requestBody, expectedClause)
+	}
+}
+
+
