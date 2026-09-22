@@ -43,6 +43,7 @@ function renderTopbar(initialPath = '/') {
           <Route path="/" element={<TopbarWrapper />} />
           <Route path="/login" element={<h1>Tela de Login</h1>} />
           <Route path="/conta" element={<h1>Tela de Conta</h1>} />
+          <Route path="/jogos/novo" element={<h1>Tela Novo Jogo</h1>} />
         </Routes>
       </AuthProvider>
     </MemoryRouter>
@@ -87,5 +88,15 @@ describe('Topbar - Menu de usuário', () => {
 
     expect(logoutSpy).toHaveBeenCalledWith('access-123', 'refresh-123')
     expect(await screen.findByRole('heading', { name: 'Tela de Login' })).toBeVisible()
+  })
+
+  it('redireciona para /jogos/novo ao clicar em + Registrar jogo', async () => {
+    const user = userEvent.setup()
+    renderTopbar()
+
+    const btnRegistrar = screen.getByRole('button', { name: '+ Registrar jogo' })
+    await user.click(btnRegistrar)
+
+    expect(await screen.findByRole('heading', { name: 'Tela Novo Jogo' })).toBeVisible()
   })
 })
