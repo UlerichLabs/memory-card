@@ -154,7 +154,7 @@ describe('GameForm', () => {
     await user.type(screen.getByLabelText(/Nome do jogo/i), 'Super Mario')
     await user.click(screen.getByLabelText(/Console/i))
     await user.click(screen.getByRole('option', { name: 'Super Nintendo' }))
-    fireEvent.change(screen.getByLabelText(/Finalizado em/i), { target: { value: '01/02/2026' } })
+    fireEvent.change(screen.getByLabelText(/Finalizado em/i), { target: { value: '2026-02-01' } })
 
     const notaInput = screen.getByLabelText(/Nota \(1 a 11\)/i)
     await user.clear(notaInput)
@@ -174,7 +174,7 @@ describe('GameForm', () => {
     await user.type(screen.getByLabelText(/Nome do jogo/i), 'Super Mario')
     await user.click(screen.getByLabelText(/Console/i))
     await user.click(screen.getByRole('option', { name: 'Super Nintendo' }))
-    fireEvent.change(screen.getByLabelText(/Finalizado em/i), { target: { value: '01/02/2026' } })
+    fireEvent.change(screen.getByLabelText(/Finalizado em/i), { target: { value: '2026-02-01' } })
 
     const minutosInput = screen.getByLabelText(/Minutos/i)
     await user.clear(minutosInput)
@@ -184,6 +184,41 @@ describe('GameForm', () => {
 
     expect(handleSubmit).not.toHaveBeenCalled()
     expect(screen.getByText('Minutos devem ser entre 0 e 59')).toBeInTheDocument()
+  })
+
+  it('campos de data usam type date nativo com tema escuro', () => {
+    render(<GameForm onSubmit={vi.fn()} />)
+
+    const iniciadoInput = screen.getByLabelText(/Iniciado em/i)
+    const finalizadoInput = screen.getByLabelText(/Finalizado em/i)
+
+    expect(iniciadoInput).toHaveAttribute('type', 'date')
+    expect(finalizadoInput).toHaveAttribute('type', 'date')
+  })
+
+  it('tempo jogado inicia vazio com placeholder 0 e não concatena ao digitar', async () => {
+    const user = userEvent.setup()
+    render(<GameForm onSubmit={vi.fn()} />)
+
+    const horasInput = screen.getByLabelText(/Horas/i)
+    expect(horasInput).toHaveValue('')
+    expect(horasInput).toHaveAttribute('placeholder', '0')
+
+    await user.click(horasInput)
+    await user.type(horasInput, '5')
+    expect(horasInput).toHaveValue('5')
+
+    fireEvent.blur(horasInput)
+    expect(horasInput).toHaveValue('5')
+
+    const minutosInput = screen.getByLabelText(/Minutos/i)
+    fireEvent.blur(minutosInput)
+    expect(minutosInput).toHaveValue('0')
+
+    fireEvent.focus(minutosInput)
+    expect(minutosInput).toHaveValue('')
+    await user.type(minutosInput, '30')
+    expect(minutosInput).toHaveValue('30')
   })
 
   it('contador de caracteres atualiza e bloqueia além de 500', async () => {
@@ -208,7 +243,7 @@ describe('GameForm', () => {
     await user.type(screen.getByLabelText(/Nome do jogo/i), 'Elden Ring')
     await user.click(screen.getByLabelText(/Console/i))
     await user.click(screen.getByRole('option', { name: 'PC' }))
-    fireEvent.change(screen.getByLabelText(/Finalizado em/i), { target: { value: '01/02/2026' } })
+    fireEvent.change(screen.getByLabelText(/Finalizado em/i), { target: { value: '2026-02-01' } })
 
     const destaqueSwitch = screen.getByRole('switch', { name: /Marcar como jogo destaque do ano/i })
     await user.click(destaqueSwitch)

@@ -97,7 +97,7 @@ export function GameFormAutocomplete({
               ) : sugestoes.length === 0 ? (
                 <li className="py-3 text-center text-xs text-[var(--text-muted)]">Nenhum jogo encontrado no IGDB</li>
               ) : (
-                sugestoes.slice(0, 5).map((sugestao) => {
+                sugestoes.map((sugestao) => {
                   const capa = formatarCapaIGDB(sugestao.cover?.url)
                   const ano = sugestao.first_release_date ? new Date(sugestao.first_release_date * 1000).getFullYear() : null
                   const plats = sugestao.platforms?.map((p) => p.name).join(', ')

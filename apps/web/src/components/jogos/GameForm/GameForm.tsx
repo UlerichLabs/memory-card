@@ -1,12 +1,11 @@
 import { useContext } from 'react'
-import { Calendar } from 'lucide-react'
 import { jogosService, type Dificuldade, type JogoZeradoDTO, type SalvarJogoPayload } from '@/lib/services/jogosService'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { CustomSelect } from '@/components/ui/CustomSelect'
 import { AuthContext } from '@/store/authStore'
-import { formatarCapaIGDB, aplicarMascaraData } from '@/lib/utils'
+import { formatarCapaIGDB } from '@/lib/utils'
 import { GameFormAutocomplete } from './GameFormAutocomplete'
 import { useGameForm } from './useGameForm'
 import { DIFICULDADE_OPCOES, CONSOLES_PADRAO } from './GameForm.constants'
@@ -77,15 +76,13 @@ export function GameForm({ initialData, onSubmit, onCancel, isEditing = false }:
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="iniciado_em" className="text-[var(--text-secondary)] text-sm">Iniciado em</Label>
           <div className="relative">
-            <Input id="iniciado_em" name="iniciado_em" value={iniciadoEm} onChange={(e) => setIniciadoEm(aplicarMascaraData(e.target.value))} placeholder="dd/mm/aaaa" maxLength={10} className="bg-[var(--bg-surface-alt)] border-[var(--border-subtle)] text-[var(--text-primary)] pr-8" />
-            <Calendar className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--text-faint)]" aria-hidden="true" />
+            <Input id="iniciado_em" name="iniciado_em" type="date" value={iniciadoEm} onChange={(e) => setIniciadoEm(e.target.value)} onClick={(e) => e.currentTarget.showPicker?.()} className="bg-[var(--bg-surface-alt)] border-[var(--border-subtle)] text-[var(--text-primary)] [color-scheme:dark] cursor-pointer" />
           </div>
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="finalizado_em" className="text-[var(--text-secondary)] text-sm">Finalizado em *</Label>
           <div className="relative">
-            <Input id="finalizado_em" name="finalizado_em" value={finalizadoEm} onChange={(e) => setFinalizadoEm(aplicarMascaraData(e.target.value))} placeholder="dd/mm/aaaa" maxLength={10} className="bg-[var(--bg-surface-alt)] border-[var(--border-subtle)] text-[var(--text-primary)] pr-8" aria-invalid={!!errors.finalizado_em} />
-            <Calendar className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--text-faint)]" aria-hidden="true" />
+            <Input id="finalizado_em" name="finalizado_em" type="date" value={finalizadoEm} onChange={(e) => setFinalizadoEm(e.target.value)} onClick={(e) => e.currentTarget.showPicker?.()} className="bg-[var(--bg-surface-alt)] border-[var(--border-subtle)] text-[var(--text-primary)] [color-scheme:dark] cursor-pointer" aria-invalid={!!errors.finalizado_em} />
           </div>
           {errors.finalizado_em && <span className="text-xs text-[var(--danger)]">{errors.finalizado_em}</span>}
         </div>
@@ -95,17 +92,17 @@ export function GameForm({ initialData, onSubmit, onCancel, isEditing = false }:
           <Label className="text-[var(--text-secondary)] text-sm">Tempo jogado</Label>
           <div className="flex h-8 items-center justify-between rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface-alt)] px-2.5">
             <div className="flex items-center gap-1">
-              <input id="tempo_jogado_horas" name="tempo_jogado_horas" type="number" min={0} value={horas} onChange={(e) => setHoras(Number(e.target.value))} placeholder="h" className="w-10 bg-transparent text-center text-sm font-medium text-[var(--text-primary)] outline-none no-spinner" aria-label="Horas" />
+              <input id="tempo_jogado_horas" name="tempo_jogado_horas" type="text" inputMode="numeric" placeholder="0" value={horas} onFocus={() => { if (horas === '0') setHoras('') }} onBlur={() => { if (horas === '') setHoras('0') }} onChange={(e) => setHoras(e.target.value.replace(/\D/g, ''))} className="w-8 bg-transparent text-center text-sm font-medium text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none" aria-label="Horas" />
               <span className="text-[11px] font-semibold text-[var(--text-muted)]">h</span>
             </div>
             <span className="text-[var(--border-subtle)] text-xs">|</span>
             <div className="flex items-center gap-1">
-              <input id="tempo_jogado_minutos" name="tempo_jogado_minutos" type="number" min={0} max={59} value={minutos} onChange={(e) => setMinutos(Number(e.target.value))} placeholder="m" className="w-10 bg-transparent text-center text-sm font-medium text-[var(--text-primary)] outline-none no-spinner" aria-label="Minutos" />
+              <input id="tempo_jogado_minutos" name="tempo_jogado_minutos" type="text" inputMode="numeric" placeholder="0" value={minutos} onFocus={() => { if (minutos === '0') setMinutos('') }} onBlur={() => { if (minutos === '') setMinutos('0') }} onChange={(e) => setMinutos(e.target.value.replace(/\D/g, ''))} className="w-8 bg-transparent text-center text-sm font-medium text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none" aria-label="Minutos" />
               <span className="text-[11px] font-semibold text-[var(--text-muted)]">m</span>
             </div>
             <span className="text-[var(--border-subtle)] text-xs">|</span>
             <div className="flex items-center gap-1">
-              <input id="tempo_jogado_segundos" name="tempo_jogado_segundos" type="number" min={0} max={59} value={segundos} onChange={(e) => setSegundos(Number(e.target.value))} placeholder="s" className="w-10 bg-transparent text-center text-sm font-medium text-[var(--text-primary)] outline-none no-spinner" aria-label="Segundos" />
+              <input id="tempo_jogado_segundos" name="tempo_jogado_segundos" type="text" inputMode="numeric" placeholder="0" value={segundos} onFocus={() => { if (segundos === '0') setSegundos('') }} onBlur={() => { if (segundos === '') setSegundos('0') }} onChange={(e) => setSegundos(e.target.value.replace(/\D/g, ''))} className="w-8 bg-transparent text-center text-sm font-medium text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none" aria-label="Segundos" />
               <span className="text-[11px] font-semibold text-[var(--text-muted)]">s</span>
             </div>
           </div>

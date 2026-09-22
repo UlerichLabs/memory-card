@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from '@/store/authStore'
@@ -118,5 +118,57 @@ describe('BibliotecaPage', () => {
 
     await user.click(screen.getByRole('button', { name: 'Cancelar' }))
     expect(screen.getByText('Chrono Trigger')).toBeInTheDocument()
+  })
+
+  it('não renderiza botão duplicado de registrar jogo no header quando existem jogos', () => {
+    renderBiblioteca([jogoMock])
+    const pageHeader = screen.getByRole('heading', { name: 'Biblioteca' }).closest('header')
+    expect(within(pageHeader!).queryByRole('button')).not.toBeInTheDocument()
+  })
+
+  it('alterna entre visualização em grade e lista e persiste no localStorage', async () => {
+    const user = userEvent.setup()
+    renderBiblioteca([jogoMock])
+
+    const btnLista = screen.getByRole('button', { name: 'Visualização em lista' })
+    await user.click(btnLista)
+
+    expect(localStorage.getItem('biblioteca_view_mode')).toBe('list')
+    expect(screen.getByRole('button', { name: 'Opções de Chrono Trigger' })).toBeInTheDocument()
+
+    const btnGrade = screen.getByRole('button', { name: 'Visualização em grade' })
+    await user.click(btnGrade)
+
+    expect(localStorage.getItem('biblioteca_view_mode')).toBe('grid')
+  })
+
+  it('filtra jogos por console, gênero e nota mínima', async () => {
+    const jogo2: JogoZeradoDTO = {
+      ...jogoMock,
+      id: 2,
+      nome: 'God of War',
+      console: 'PS5',
+      genero: 'Ação',
+      nota: 8,
+    }
+    const user = userEvent.setup()
+    renderBiblioteca([jogoMock, jogo2])
+
+    const selectConsole = screen.getByLabelText('Filtrar por console')
+    await user.click(selectConsole)
+    await user.click(screen.getByRole('option', { name: 'PS5' }))
+
+    expect(screen.queryByText('Chrono Trigger')).not.toBeInTheDocument()
+    expect(screen.getByText('God of War')).toBeInTheDocument()
+
+    await user.click(selectConsole)
+    await user.click(screen.getByRole('option', { name: 'Todos os consoles' }))
+
+    const selectNota = screen.getByLabelText('Filtrar por nota mínima')
+    await user.click(selectNota)
+    await user.click(screen.getByRole('option', { name: 'Nota 10+' }))
+
+    expect(screen.getByText('Chrono Trigger')).toBeInTheDocument()
+    expect(screen.queryByText('God of War')).not.toBeInTheDocument()
   })
 })
