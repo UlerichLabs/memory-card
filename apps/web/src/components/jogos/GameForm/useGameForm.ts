@@ -15,9 +15,9 @@ export function useGameForm({ initialData, onSubmit }: UseGameFormProps) {
   const [tipo, setTipo] = useState(initialData?.tipo ?? '')
   const [iniciadoEm, setIniciadoEm] = useState(initialData?.iniciado_em?.slice(0, 10) ?? '')
   const [finalizadoEm, setFinalizadoEm] = useState(initialData?.finalizado_em?.slice(0, 10) ?? '')
-  const [horas, setHoras] = useState(initialData?.tempo_jogado != null ? String(Math.floor(s / 3600)) : '')
-  const [minutos, setMinutos] = useState(initialData?.tempo_jogado != null ? String(Math.floor((s % 3600) / 60)) : '')
-  const [segundos, setSegundos] = useState(initialData?.tempo_jogado != null ? String(s % 60) : '')
+  const [horas, setHoras] = useState(s >= 3600 ? String(Math.floor(s / 3600)) : '')
+  const [minutos, setMinutos] = useState((s % 3600) >= 60 ? String(Math.floor((s % 3600) / 60)) : '')
+  const [segundos, setSegundos] = useState((s % 60) > 0 ? String(s % 60) : '')
   const [nota, setNota] = useState<number>(initialData?.nota ?? 10)
   const [dificuldade, setDificuldade] = useState<Dificuldade>(initialData?.dificuldade ?? 'A')
   const [condicao, setCondicao] = useState(initialData?.condicao_zeramento ?? '')
@@ -36,9 +36,9 @@ export function useGameForm({ initialData, onSubmit }: UseGameFormProps) {
     const res = gameFormSchema.safeParse({
       igdb_id: igdbId, nome, console: consoleName, genero, tipo,
       iniciado_em: iniciadoEm || undefined, finalizado_em: finalizadoEm,
-      tempo_jogado_horas: Number(horas || 0),
-      tempo_jogado_minutos: Number(minutos || 0),
-      tempo_jogado_segundos: Number(segundos || 0),
+      tempo_jogado_horas: horas === '' ? 0 : parseInt(horas, 10),
+      tempo_jogado_minutos: minutos === '' ? 0 : parseInt(minutos, 10),
+      tempo_jogado_segundos: segundos === '' ? 0 : parseInt(segundos, 10),
       nota, dificuldade, condicao_zeramento: condicao, destaque,
       igdb_capa_url: igdbCapaUrl, igdb_descricao: igdbDescricao,
     })

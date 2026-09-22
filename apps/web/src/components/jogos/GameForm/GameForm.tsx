@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { CustomSelect } from '@/components/ui/CustomSelect'
+import { DatePicker } from '@/components/ui/DatePicker'
 import { AuthContext } from '@/store/authStore'
 import { formatarCapaIGDB } from '@/lib/utils'
 import { GameFormAutocomplete } from './GameFormAutocomplete'
@@ -75,15 +76,11 @@ export function GameForm({ initialData, onSubmit, onCancel, isEditing = false }:
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="iniciado_em" className="text-[var(--text-secondary)] text-sm">Iniciado em</Label>
-          <div className="relative">
-            <Input id="iniciado_em" name="iniciado_em" type="date" value={iniciadoEm} onChange={(e) => setIniciadoEm(e.target.value)} onClick={(e) => e.currentTarget.showPicker?.()} className="bg-[var(--bg-surface-alt)] border-[var(--border-subtle)] text-[var(--text-primary)] [color-scheme:dark] cursor-pointer" />
-          </div>
+          <DatePicker id="iniciado_em" name="iniciado_em" value={iniciadoEm} onChange={setIniciadoEm} ariaLabel="Iniciado em" />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="finalizado_em" className="text-[var(--text-secondary)] text-sm">Finalizado em *</Label>
-          <div className="relative">
-            <Input id="finalizado_em" name="finalizado_em" type="date" value={finalizadoEm} onChange={(e) => setFinalizadoEm(e.target.value)} onClick={(e) => e.currentTarget.showPicker?.()} className="bg-[var(--bg-surface-alt)] border-[var(--border-subtle)] text-[var(--text-primary)] [color-scheme:dark] cursor-pointer" aria-invalid={!!errors.finalizado_em} />
-          </div>
+          <DatePicker id="finalizado_em" name="finalizado_em" value={finalizadoEm} onChange={setFinalizadoEm} error={!!errors.finalizado_em} ariaLabel="Finalizado em" ariaInvalid={!!errors.finalizado_em} />
           {errors.finalizado_em && <span className="text-xs text-[var(--danger)]">{errors.finalizado_em}</span>}
         </div>
       </div>
@@ -92,17 +89,17 @@ export function GameForm({ initialData, onSubmit, onCancel, isEditing = false }:
           <Label className="text-[var(--text-secondary)] text-sm">Tempo jogado</Label>
           <div className="flex h-8 items-center justify-between rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface-alt)] px-2.5">
             <div className="flex items-center gap-1">
-              <input id="tempo_jogado_horas" name="tempo_jogado_horas" type="text" inputMode="numeric" placeholder="0" value={horas} onFocus={() => { if (horas === '0') setHoras('') }} onBlur={() => { if (horas === '') setHoras('0') }} onChange={(e) => setHoras(e.target.value.replace(/\D/g, ''))} className="w-8 bg-transparent text-center text-sm font-medium text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none" aria-label="Horas" />
+              <input id="tempo_jogado_horas" name="tempo_jogado_horas" type="text" inputMode="numeric" placeholder="0" value={horas} onChange={(e) => { if (/^\d*$/.test(e.target.value)) setHoras(e.target.value) }} className="w-8 bg-transparent text-center text-sm font-medium text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none" aria-label="Horas" />
               <span className="text-[11px] font-semibold text-[var(--text-muted)]">h</span>
             </div>
             <span className="text-[var(--border-subtle)] text-xs">|</span>
             <div className="flex items-center gap-1">
-              <input id="tempo_jogado_minutos" name="tempo_jogado_minutos" type="text" inputMode="numeric" placeholder="0" value={minutos} onFocus={() => { if (minutos === '0') setMinutos('') }} onBlur={() => { if (minutos === '') setMinutos('0') }} onChange={(e) => setMinutos(e.target.value.replace(/\D/g, ''))} className="w-8 bg-transparent text-center text-sm font-medium text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none" aria-label="Minutos" />
+              <input id="tempo_jogado_minutos" name="tempo_jogado_minutos" type="text" inputMode="numeric" placeholder="0" value={minutos} onChange={(e) => { if (/^\d*$/.test(e.target.value)) setMinutos(e.target.value) }} className="w-8 bg-transparent text-center text-sm font-medium text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none" aria-label="Minutos" />
               <span className="text-[11px] font-semibold text-[var(--text-muted)]">m</span>
             </div>
             <span className="text-[var(--border-subtle)] text-xs">|</span>
             <div className="flex items-center gap-1">
-              <input id="tempo_jogado_segundos" name="tempo_jogado_segundos" type="text" inputMode="numeric" placeholder="0" value={segundos} onFocus={() => { if (segundos === '0') setSegundos('') }} onBlur={() => { if (segundos === '') setSegundos('0') }} onChange={(e) => setSegundos(e.target.value.replace(/\D/g, ''))} className="w-8 bg-transparent text-center text-sm font-medium text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none" aria-label="Segundos" />
+              <input id="tempo_jogado_segundos" name="tempo_jogado_segundos" type="text" inputMode="numeric" placeholder="0" value={segundos} onChange={(e) => { if (/^\d*$/.test(e.target.value)) setSegundos(e.target.value) }} className="w-8 bg-transparent text-center text-sm font-medium text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none" aria-label="Segundos" />
               <span className="text-[11px] font-semibold text-[var(--text-muted)]">s</span>
             </div>
           </div>

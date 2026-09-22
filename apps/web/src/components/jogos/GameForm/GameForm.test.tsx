@@ -186,17 +186,19 @@ describe('GameForm', () => {
     expect(screen.getByText('Minutos devem ser entre 0 e 59')).toBeInTheDocument()
   })
 
-  it('campos de data usam type date nativo com tema escuro', () => {
+  it('campos de data usam DatePicker com formato dd/mm/aaaa e placeholder', () => {
     render(<GameForm onSubmit={vi.fn()} />)
 
-    const iniciadoInput = screen.getByLabelText(/Iniciado em/i)
-    const finalizadoInput = screen.getByLabelText(/Finalizado em/i)
+    const iniciadoBtn = screen.getByRole('button', { name: /Iniciado em/i })
+    const finalizadoBtn = screen.getByRole('button', { name: /Finalizado em/i })
 
-    expect(iniciadoInput).toHaveAttribute('type', 'date')
-    expect(finalizadoInput).toHaveAttribute('type', 'date')
+    expect(iniciadoBtn).toBeInTheDocument()
+    expect(iniciadoBtn).toHaveTextContent('dd/mm/aaaa')
+    expect(finalizadoBtn).toBeInTheDocument()
+    expect(finalizadoBtn).toHaveTextContent('dd/mm/aaaa')
   })
 
-  it('tempo jogado inicia vazio com placeholder 0 e não concatena ao digitar', async () => {
+  it('tempo jogado inicia vazio com placeholder 0 e aceita apenas dígitos', async () => {
     const user = userEvent.setup()
     render(<GameForm onSubmit={vi.fn()} />)
 
@@ -204,19 +206,15 @@ describe('GameForm', () => {
     expect(horasInput).toHaveValue('')
     expect(horasInput).toHaveAttribute('placeholder', '0')
 
-    await user.click(horasInput)
     await user.type(horasInput, '5')
     expect(horasInput).toHaveValue('5')
 
-    fireEvent.blur(horasInput)
-    expect(horasInput).toHaveValue('5')
+    await user.clear(horasInput)
+    expect(horasInput).toHaveValue('')
 
     const minutosInput = screen.getByLabelText(/Minutos/i)
-    fireEvent.blur(minutosInput)
-    expect(minutosInput).toHaveValue('0')
-
-    fireEvent.focus(minutosInput)
     expect(minutosInput).toHaveValue('')
+    expect(minutosInput).toHaveAttribute('placeholder', '0')
     await user.type(minutosInput, '30')
     expect(minutosInput).toHaveValue('30')
   })
@@ -238,12 +236,11 @@ describe('GameForm', () => {
     const erro409 = new JogosApiError('jogos.destaque_ano_conflito', 'já existe um destaque para este ano', 409)
     const handleSubmit = vi.fn().mockRejectedValue(erro409)
 
-    render(<GameForm onSubmit={handleSubmit} />)
+    render(<GameForm initialData={{ finalizado_em: '2026-02-01' }} onSubmit={handleSubmit} />)
 
     await user.type(screen.getByLabelText(/Nome do jogo/i), 'Elden Ring')
     await user.click(screen.getByLabelText(/Console/i))
     await user.click(screen.getByRole('option', { name: 'PC' }))
-    fireEvent.change(screen.getByLabelText(/Finalizado em/i), { target: { value: '2026-02-01' } })
 
     const destaqueSwitch = screen.getByRole('switch', { name: /Marcar como jogo destaque do ano/i })
     await user.click(destaqueSwitch)
