@@ -134,6 +134,7 @@ export function Topbar() {
 
           <button
             type="button"
+            onClick={() => navigate('/jogos/novo')}
             className="inline-flex shrink-0 items-center justify-center rounded-[7px] bg-[var(--accent)] px-3.5 py-1.5 text-[13px] font-bold text-[#0E0F12] transition-opacity hover:opacity-90"
           >
             + Registrar jogo
