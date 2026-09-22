@@ -22,5 +22,18 @@
   "igdb.search.empty": "Informe um termo de busca.",
   "igdb.unavailable": "Não foi possível buscar jogos no momento. Tente novamente em instantes.",
   "igdb.rate_limited": "Muitas buscas em pouco tempo. Aguarde um instante e tente novamente.",
-  "igdb.invalid_id": "Identificador inválido."
+  "igdb.invalid_id": "Identificador inválido.",
+  "jogos.invalid_input": "Dados de entrada inválidos.",
+  "jogos.nome_required": "O nome do jogo é obrigatório.",
+  "jogos.console_required": "O console é obrigatório.",
+  "jogos.finalizado_em_required": "A data de finalização é obrigatória.",
+  "jogos.finalizado_em_invalid": "Formato de data de finalização inválido.",
+  "jogos.iniciado_em_invalid": "Formato de data de início inválido.",
+  "jogos.tempo_jogado_invalid": "O tempo jogado deve ser positivo.",
+  "jogos.nota_invalid": "A nota deve estar entre 1 e 11.",
+  "jogos.dificuldade_invalid": "A dificuldade deve ser C, B, A, AA ou AAA.",
+  "jogos.condicao_zeramento_too_long": "A condição de zeramento deve ter no máximo 500 caracteres.",
+  "jogos.destaque_ano_conflito": "já existe um destaque para este ano",
+  "jogos.not_found": "Jogo não encontrado.",
+  "jogos.invalid_id": "Identificador de jogo inválido."
 }

@@ -130,6 +130,13 @@ func run() error {
 	privadas.GET("/igdb/franquias/busca", igdbHandler.BuscarFranquias)
 	privadas.GET("/igdb/franquias/:id/jogos", igdbHandler.JogosDaFranquia)
 	privadas.POST("/igdb/franquias/:id/jogos/refresh", igdbHandler.AtualizarJogosDaFranquia)
+	jogosRepo := repository.NewJogosRepository(queries)
+	jogosService := service.NewJogosService(jogosRepo)
+	jogosHandler := handler.NewJogosHandler(jogosService)
+	privadas.POST("/jogos", jogosHandler.CriarJogo)
+	privadas.PUT("/jogos/:id", jogosHandler.AtualizarJogo)
+	privadas.DELETE("/jogos/:id", jogosHandler.ExcluirJogo)
+
 	server := &http.Server{
 		Addr:              ":" + cfg.Port,
 		Handler:           router,

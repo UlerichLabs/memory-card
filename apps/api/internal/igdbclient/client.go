@@ -131,7 +131,7 @@ func (c *Client) SearchFranchises(ctx context.Context, query string) ([]Franchis
 		return []Franchise{}, nil
 	}
 	var result []Franchise
-	if err := c.query(ctx, "franchises", fmt.Sprintf("fields id,name; search %q; limit 20;", query), &result); err != nil {
+	if err := c.query(ctx, "franchises", fmt.Sprintf("fields id,name; where name ~ *%q*; limit 20;", query), &result); err != nil {
 		return nil, err
 	}
 	return result, nil
