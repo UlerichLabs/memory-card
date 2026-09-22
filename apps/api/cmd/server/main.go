@@ -16,7 +16,9 @@ import (
 
 	"github.com/UlerichLabs/memory-card/apps/api/internal/config"
 	"github.com/UlerichLabs/memory-card/apps/api/internal/handler"
+	"github.com/UlerichLabs/memory-card/apps/api/internal/igdbclient"
 	"github.com/UlerichLabs/memory-card/apps/api/internal/middleware"
+	"github.com/UlerichLabs/memory-card/apps/api/internal/migration"
 	"github.com/UlerichLabs/memory-card/apps/api/internal/repository"
 	"github.com/UlerichLabs/memory-card/apps/api/internal/repository/db"
 	"github.com/UlerichLabs/memory-card/apps/api/internal/service"
@@ -62,6 +64,15 @@ func run() error {
 	cancel()
 	if err != nil {
 		return fmt.Errorf("conectar ao PostgreSQL: %w", err)
+	}
+	migrated, err := migration.Apply(pool)
+	if err != nil {
+		return fmt.Errorf("aplicar migrations: %w", err)
+	}
+	if migrated {
+		slog.Info("migrations aplicadas")
+	} else {
+		slog.Info("schema já atualizado")
 	}
 
 	gin.SetMode(gin.ReleaseMode)
@@ -109,6 +120,16 @@ func run() error {
 	privadas.POST("/auth/logout", logoutHandler.Logout)
 	trocaSenhaHandler := handler.NewTrocaSenhaHandler(service.NewTrocaSenhaService(usuarioRepo, resetRepo, revogadosRepo))
 	privadas.POST("/auth/trocar-senha", trocaSenhaHandler.TrocarSenha)
+	igdbService := service.NewIGDBService(igdbclient.New(igdbclient.Config{ClientID: cfg.IGDBClientID, ClientSecret: cfg.IGDBClientSecret}), repository.NewIGDBCacheRepository(queries))
+	igdbHandler := handler.NewIGDBHandler(igdbService)
+	privadas.GET("/igdb/jogos/busca", igdbHandler.BuscarJogos)
+	privadas.GET("/jogos/igdb/:id", igdbHandler.BuscarJogo)
+	privadas.GET("/igdb/plataformas", igdbHandler.ListarPlataformas)
+	privadas.GET("/igdb/plataformas/:id/jogos", igdbHandler.JogosDaPlataforma)
+	privadas.POST("/igdb/plataformas/:id/jogos/refresh", igdbHandler.AtualizarJogosDaPlataforma)
+	privadas.GET("/igdb/franquias/busca", igdbHandler.BuscarFranquias)
+	privadas.GET("/igdb/franquias/:id/jogos", igdbHandler.JogosDaFranquia)
+	privadas.POST("/igdb/franquias/:id/jogos/refresh", igdbHandler.AtualizarJogosDaFranquia)
 	server := &http.Server{
 		Addr:              ":" + cfg.Port,
 		Handler:           router,

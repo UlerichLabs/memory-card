@@ -199,6 +199,12 @@ type Favorito struct {
 	CreatedAt pgtype.Timestamp
 }
 
+type IgdbCache struct {
+	Chave        string
+	Payload      []byte
+	AtualizadoEm pgtype.Timestamptz
+}
+
 type JogosZerado struct {
 	ID                int32
 	UsuarioID         int32
