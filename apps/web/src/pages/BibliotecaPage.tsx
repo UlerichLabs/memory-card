@@ -1,5 +1,4 @@
 import { useState, type CSSProperties } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { Plus, Search, Disc3 } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { useJogosStore } from '@/stores/jogosStore'
@@ -26,8 +25,7 @@ const bibliotecaTheme = {
 } as CSSProperties
 
 export function BibliotecaPage() {
-  const navigate = useNavigate()
-  const { jogos, excluirJogo } = useJogosStore()
+  const { jogos, excluirJogo, abrirModalRegistro, abrirModalEdicao } = useJogosStore()
   const [termoBusca, setTermoBusca] = useState('')
   const [jogoParaExcluir, setJogoParaExcluir] = useState<JogoZeradoDTO | null>(null)
   const [isExcluindo, setIsExcluindo] = useState(false)
@@ -70,7 +68,7 @@ export function BibliotecaPage() {
 
           <button
             type="button"
-            onClick={() => navigate('/jogos/novo')}
+            onClick={abrirModalRegistro}
             className="inline-flex items-center justify-center gap-2 rounded-[7px] bg-[var(--accent)] px-4 py-2 text-[13px] font-bold text-[#0E0F12] transition-opacity hover:opacity-90"
           >
             <Plus className="h-4 w-4" aria-hidden="true" />
@@ -105,7 +103,7 @@ export function BibliotecaPage() {
             </div>
             <button
               type="button"
-              onClick={() => navigate('/jogos/novo')}
+              onClick={abrirModalRegistro}
               className="inline-flex items-center justify-center gap-2 rounded-[7px] bg-[var(--accent)] px-4 py-2 text-[13px] font-bold text-[#0E0F12] transition-opacity hover:opacity-90"
             >
               <Plus className="h-4 w-4" aria-hidden="true" />
@@ -122,7 +120,7 @@ export function BibliotecaPage() {
               <BibliotecaCard
                 key={jogo.id}
                 jogo={jogo}
-                onEditar={(j) => navigate(`/jogos/${j.id}/editar`)}
+                onEditar={(j) => abrirModalEdicao(j)}
                 onExcluir={(j) => setJogoParaExcluir(j)}
               />
             ))}

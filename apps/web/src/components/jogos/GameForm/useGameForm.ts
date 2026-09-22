@@ -25,14 +25,14 @@ export function useGameForm({ initialData, onSubmit }: UseGameFormProps) {
   const [igdbId, setIgdbId] = useState<number | null>(initialData?.igdb_id ?? null)
   const [igdbCapaUrl, setIgdbCapaUrl] = useState(initialData?.igdb_capa_url ?? '')
   const [igdbDescricao, setIgdbDescricao] = useState(initialData?.igdb_descricao ?? '')
+  const [plataformas, setPlataformas] = useState<string[]>([])
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [destaqueError, setDestaqueError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    setErrors({})
-    setDestaqueError(null)
+    setErrors({}); setDestaqueError(null)
     const res = gameFormSchema.safeParse({
       igdb_id: igdbId, nome, console: consoleName, genero, tipo,
       iniciado_em: iniciadoEm || undefined, finalizado_em: finalizadoEm,
@@ -69,7 +69,7 @@ export function useGameForm({ initialData, onSubmit }: UseGameFormProps) {
     iniciadoEm, setIniciadoEm, finalizadoEm, setFinalizadoEm, horas, setHoras,
     minutos, setMinutos, segundos, setSegundos, nota, setNota, dificuldade,
     setDificuldade, condicao, setCondicao, destaque, setDestaque, igdbId, setIgdbId,
-    igdbCapaUrl, setIgdbCapaUrl, igdbDescricao, setIgdbDescricao, errors, destaqueError,
-    isSubmitting, handleSubmit,
+    igdbCapaUrl, setIgdbCapaUrl, igdbDescricao, setIgdbDescricao, plataformas, setPlataformas,
+    errors, destaqueError, isSubmitting, handleSubmit,
   }
 }

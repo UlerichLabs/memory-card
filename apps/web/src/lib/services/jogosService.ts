@@ -94,4 +94,6 @@ export const jogosService = {
   excluir: (id: number, token?: string) => request<void>(`/jogos/${id}`, { method: 'DELETE' }, token),
   buscarIGDB: (termo: string, token?: string, signal?: AbortSignal) =>
     request<IGDBJogoSugestao[]>(`/igdb/jogos/busca?q=${encodeURIComponent(termo)}`, { method: 'GET', signal }, token),
+  obterDetalhesIGDB: (id: number, token?: string) =>
+    request<IGDBJogoSugestao>(`/jogos/igdb/${id}`, { method: 'GET' }, token),
 }

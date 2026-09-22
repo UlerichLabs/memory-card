@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { AuthContext } from '@/store/authStore'
 import { GameForm } from './GameForm'
 import { jogosService, JogosApiError, type IGDBJogoSugestao } from '@/lib/services/jogosService'
 
@@ -52,6 +53,70 @@ describe('GameForm', () => {
     expect(nomeInput).toHaveValue('Chrono Trigger')
     const capa = screen.getByAltText('Capa do jogo')
     expect(capa).toHaveAttribute('src', 'https://images.igdb.com/cover.jpg')
+  })
+
+  it('autocomplete envia token de autenticacao quando usuario autenticado', async () => {
+    const sugestoes: IGDBJogoSugestao[] = [
+      { id: 10, name: 'God of War', cover: { url: '//images.igdb.com/gow.jpg' } },
+    ]
+    vi.spyOn(jogosService, 'buscarIGDB').mockResolvedValue(sugestoes)
+
+    const mockAuthValue = {
+      sessao: {
+        access_token: 'token-jwt-valido',
+        refresh_token: 'r-token',
+        usuario: { id: 1, nome: 'Test', email: 't@example.com', idioma: 'pt-BR', created_at: '' },
+      },
+      login: vi.fn(),
+      request: vi.fn(),
+      refresh: vi.fn(),
+      logout: vi.fn(),
+    }
+
+    const user = userEvent.setup()
+    render(
+      <AuthContext.Provider value={mockAuthValue}>
+        <GameForm onSubmit={vi.fn()} />
+      </AuthContext.Provider>
+    )
+
+    const nomeInput = screen.getByLabelText(/Nome do jogo/i)
+    await user.type(nomeInput, 'God')
+
+    await waitFor(() => {
+      expect(jogosService.buscarIGDB).toHaveBeenCalledWith('God', 'token-jwt-valido', expect.any(AbortSignal))
+    })
+  })
+
+  it('detalhes do jogo preenchem plataformas sugeridas e genero', async () => {
+    const sugestoes: IGDBJogoSugestao[] = [
+      { id: 99, name: 'God of War Ragnarok' },
+    ]
+    vi.spyOn(jogosService, 'buscarIGDB').mockResolvedValue(sugestoes)
+    vi.spyOn(jogosService, 'obterDetalhesIGDB').mockResolvedValue({
+      id: 99,
+      name: 'God of War Ragnarok',
+      genres: [{ id: 1, name: 'Ação' }, { id: 2, name: 'Aventura' }],
+      platforms: [{ id: 10, name: 'PlayStation 5' }, { id: 11, name: 'PlayStation 4' }],
+      summary: 'Jornada mitológica nórdica.',
+    })
+
+    const user = userEvent.setup()
+    render(<GameForm onSubmit={vi.fn()} />)
+
+    const nomeInput = screen.getByLabelText(/Nome do jogo/i)
+    await user.type(nomeInput, 'God')
+    const opcao = await screen.findByText('God of War Ragnarok')
+    await user.click(opcao)
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/Gênero/i)).toHaveValue('Ação, Aventura')
+      expect(screen.getByLabelText(/Console/i)).toHaveValue('PlayStation 5')
+    })
+
+    const botaoPs4 = screen.getByRole('button', { name: 'PlayStation 4' })
+    await user.click(botaoPs4)
+    expect(screen.getByLabelText(/Console/i)).toHaveValue('PlayStation 4')
   })
 
   it('campos preenchidos via IGDB continuam editáveis manualmente', async () => {

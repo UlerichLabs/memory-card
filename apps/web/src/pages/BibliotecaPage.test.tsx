@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from '@/store/authStore'
 import { JogosProvider } from '@/stores/jogosStore'
+import { GameFormDialog } from '@/components/jogos/GameForm/GameFormDialog'
 import { BibliotecaPage } from './BibliotecaPage'
 import type { JogoZeradoDTO } from '@/lib/services/jogosService'
 
@@ -29,10 +30,9 @@ function renderBiblioteca(initialJogos: JogoZeradoDTO[] = []) {
     <MemoryRouter initialEntries={['/biblioteca']}>
       <AuthProvider>
         <JogosProvider initialJogos={initialJogos}>
+          <GameFormDialog />
           <Routes>
             <Route path="/biblioteca" element={<BibliotecaPage />} />
-            <Route path="/jogos/novo" element={<h1>Tela Novo Jogo</h1>} />
-            <Route path="/jogos/:id/editar" element={<h1>Tela Editar Jogo</h1>} />
           </Routes>
         </JogosProvider>
       </AuthProvider>
@@ -54,12 +54,12 @@ describe('BibliotecaPage', () => {
     expect(screen.getByRole('button', { name: /Registrar primeiro jogo/i })).toBeInTheDocument()
   })
 
-  it('redireciona para /jogos/novo ao clicar em registrar jogo no estado vazio', async () => {
+  it('abre modal de registro ao clicar em registrar jogo no estado vazio', async () => {
     const user = userEvent.setup()
     renderBiblioteca([])
 
     await user.click(screen.getByRole('button', { name: /Registrar primeiro jogo/i }))
-    expect(await screen.findByRole('heading', { name: 'Tela Novo Jogo' })).toBeVisible()
+    expect(await screen.findByRole('heading', { name: 'Registrar jogo' })).toBeVisible()
   })
 
   it('renderiza os cards de jogos quando existem itens na biblioteca', () => {
@@ -96,14 +96,14 @@ describe('BibliotecaPage', () => {
     expect(screen.getByText('Super Mario World')).toBeInTheDocument()
   })
 
-  it('navega para /jogos/:id/editar ao clicar no botão Editar', async () => {
+  it('abre modal de edição ao clicar no botão Editar', async () => {
     const user = userEvent.setup()
     renderBiblioteca([jogoMock])
 
     const btnEditar = screen.getByRole('button', { name: 'Editar Chrono Trigger' })
     await user.click(btnEditar)
 
-    expect(await screen.findByRole('heading', { name: 'Tela Editar Jogo' })).toBeVisible()
+    expect(await screen.findByRole('heading', { name: 'Editar registro' })).toBeVisible()
   })
 
   it('abre modal de exclusão ao clicar no botão Excluir e cancela sem remover', async () => {

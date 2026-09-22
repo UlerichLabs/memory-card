@@ -1,8 +1,9 @@
-import type { CSSProperties } from 'react'
+import { useContext, type CSSProperties } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Disc3, Search, Bell, User, ChevronDown, LogOut } from 'lucide-react'
 import { Menu } from '@base-ui/react/menu'
 import { useAuthStore } from '@/store/authStore'
+import { JogosContext } from '@/stores/jogosStore'
 
 const navLinks = [
   { label: 'Dashboard', href: '/' },
@@ -14,23 +15,17 @@ const navLinks = [
 ]
 
 const dropdownTheme = {
-  backgroundColor: '#1A1B20',
-  color: '#EDEDED',
-  borderColor: '#24262C',
-  '--bg-surface': '#1A1B20',
-  '--bg-surface-alt': '#1D1F25',
-  '--border': '#24262C',
-  '--border-subtle': '#2A2C33',
-  '--text-primary': '#EDEDED',
-  '--text-secondary': '#9A9CA5',
-  '--danger': '#E05A4E',
-  fontFamily: 'Inter, sans-serif',
+  backgroundColor: '#1A1B20', color: '#EDEDED', borderColor: '#24262C',
+  '--bg-surface': '#1A1B20', '--bg-surface-alt': '#1D1F25', '--border': '#24262C',
+  '--border-subtle': '#2A2C33', '--text-primary': '#EDEDED', '--text-secondary': '#9A9CA5',
+  '--danger': '#E05A4E', fontFamily: 'Inter, sans-serif',
 } as CSSProperties
 
 export function Topbar() {
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const { sessao, logout } = useAuthStore()
+  const jogos = useContext(JogosContext)
   const nomeUsuario = sessao?.usuario?.nome ?? 'Jogador'
 
   async function handleLogout() {
@@ -134,7 +129,7 @@ export function Topbar() {
 
           <button
             type="button"
-            onClick={() => navigate('/jogos/novo')}
+            onClick={() => jogos?.abrirModalRegistro()}
             className="inline-flex shrink-0 items-center justify-center rounded-[7px] bg-[var(--accent)] px-3.5 py-1.5 text-[13px] font-bold text-[#0E0F12] transition-opacity hover:opacity-90"
           >
             + Registrar jogo
