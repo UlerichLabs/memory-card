@@ -8,7 +8,7 @@ type AuthStore = {
   refresh: () => Promise<void>
   logout: () => Promise<void>
 }
-const AuthContext = createContext<AuthStore | null>(null)
+export const AuthContext = createContext<AuthStore | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [sessao, setSessao] = useState<SessaoDTO | null>(null)
