@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { gameFormSchema } from './GameForm.schema'
 import { JogosApiError, type Dificuldade, type JogoZeradoDTO, type SalvarJogoPayload } from '@/lib/services/jogosService'
+import { isoParaDataPt, dataPtParaIso } from '@/lib/utils'
 
 export interface UseGameFormProps {
   initialData?: Partial<JogoZeradoDTO>
@@ -13,8 +14,8 @@ export function useGameForm({ initialData, onSubmit }: UseGameFormProps) {
   const [consoleName, setConsoleName] = useState(initialData?.console ?? '')
   const [genero, setGenero] = useState(initialData?.genero ?? '')
   const [tipo, setTipo] = useState(initialData?.tipo ?? '')
-  const [iniciadoEm, setIniciadoEm] = useState(initialData?.iniciado_em?.slice(0, 10) ?? '')
-  const [finalizadoEm, setFinalizadoEm] = useState(initialData?.finalizado_em?.slice(0, 10) ?? '')
+  const [iniciadoEm, setIniciadoEm] = useState(isoParaDataPt(initialData?.iniciado_em))
+  const [finalizadoEm, setFinalizadoEm] = useState(isoParaDataPt(initialData?.finalizado_em))
   const [horas, setHoras] = useState(Math.floor(s / 3600))
   const [minutos, setMinutos] = useState(Math.floor((s % 3600) / 60))
   const [segundos, setSegundos] = useState(s % 60)
@@ -33,9 +34,11 @@ export function useGameForm({ initialData, onSubmit }: UseGameFormProps) {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setErrors({}); setDestaqueError(null)
+    const dataIni = iniciadoEm ? dataPtParaIso(iniciadoEm) : undefined
+    const dataFim = dataPtParaIso(finalizadoEm)
     const res = gameFormSchema.safeParse({
       igdb_id: igdbId, nome, console: consoleName, genero, tipo,
-      iniciado_em: iniciadoEm || undefined, finalizado_em: finalizadoEm,
+      iniciado_em: dataIni, finalizado_em: dataFim,
       tempo_jogado_horas: horas, tempo_jogado_minutos: minutos, tempo_jogado_segundos: segundos,
       nota, dificuldade, condicao_zeramento: condicao, destaque,
       igdb_capa_url: igdbCapaUrl, igdb_descricao: igdbDescricao,

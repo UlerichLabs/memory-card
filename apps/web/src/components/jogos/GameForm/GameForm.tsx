@@ -1,12 +1,15 @@
 import { useContext } from 'react'
+import { Calendar } from 'lucide-react'
 import { jogosService, type Dificuldade, type JogoZeradoDTO, type SalvarJogoPayload } from '@/lib/services/jogosService'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { CustomSelect } from '@/components/ui/CustomSelect'
 import { AuthContext } from '@/store/authStore'
-import { formatarCapaIGDB } from '@/lib/utils'
+import { formatarCapaIGDB, aplicarMascaraData } from '@/lib/utils'
 import { GameFormAutocomplete } from './GameFormAutocomplete'
 import { useGameForm } from './useGameForm'
+import { DIFICULDADE_OPCOES, CONSOLES_PADRAO } from './GameForm.constants'
 
 export interface GameFormProps {
   initialData?: Partial<JogoZeradoDTO>
@@ -14,8 +17,6 @@ export interface GameFormProps {
   onCancel?: () => void
   isEditing?: boolean
 }
-
-const DIFICULDADES: Dificuldade[] = ['C', 'B', 'A', 'AA', 'AAA']
 
 export function GameForm({ initialData, onSubmit, onCancel, isEditing = false }: GameFormProps) {
   const auth = useContext(AuthContext)
@@ -29,8 +30,10 @@ export function GameForm({ initialData, onSubmit, onCancel, isEditing = false }:
     isSubmitting, handleSubmit,
   } = useGameForm({ initialData, onSubmit })
 
+  const consoleOptions = plataformas.length > 0 ? plataformas.map((p) => ({ value: p, label: p })) : CONSOLES_PADRAO
+
   return (
-    <form noValidate onSubmit={handleSubmit} className="flex flex-col gap-5 bg-[var(--bg-surface)] p-6 rounded-xl border border-[var(--border)]">
+    <form noValidate onSubmit={handleSubmit} className="flex flex-col gap-4">
       {errors.form && <div className="text-sm text-[var(--danger)]">{errors.form}</div>}
       <GameFormAutocomplete
         nome={nome}
@@ -46,35 +49,19 @@ export function GameForm({ initialData, onSubmit, onCancel, isEditing = false }:
             if (detalhes?.platforms?.length) {
               const nomes = detalhes.platforms.map((p) => p.name)
               setPlataformas(nomes)
-              if (!consoleName) setConsoleName(nomes[0])
+              if (!consoleName || !nomes.includes(consoleName)) setConsoleName(nomes[0])
             }
           } catch {}
         }}
         igdbCapaUrl={igdbCapaUrl}
+        igdbDescricao={igdbDescricao}
         error={errors.nome}
       />
-      {igdbCapaUrl && (
-        <div className="flex items-center gap-3.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface-alt)] p-3">
-          <img src={igdbCapaUrl} alt="Prévia da capa" className="h-20 w-15 shrink-0 rounded border border-[var(--border)] object-cover shadow-sm" />
-          <div className="min-w-0 flex-1 space-y-0.5">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--accent)]">Identificado no IGDB</span>
-            <p className="truncate text-sm font-bold text-[var(--text-primary)]">{nome}</p>
-            {igdbDescricao && <p className="line-clamp-2 text-xs text-[var(--text-muted)]">{igdbDescricao}</p>}
-          </div>
-        </div>
-      )}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="console" className="text-[var(--text-secondary)] text-sm">Console *</Label>
-          <Input id="console" name="console" list="consoles-lista" value={consoleName} onChange={(e) => setConsoleName(e.target.value)} placeholder="Ex: Super Nintendo, PS5" className="bg-[var(--bg-surface-alt)] border-[var(--border-subtle)] text-[var(--text-primary)]" aria-invalid={!!errors.console} />
-          <datalist id="consoles-lista">{plataformas.map((p) => <option key={p} value={p} />)}</datalist>
-          {plataformas.length > 0 && (
-            <div className="flex flex-wrap gap-1 pt-1">
-              {plataformas.slice(0, 4).map((p) => (
-                <button key={p} type="button" onClick={() => setConsoleName(p)} className={`rounded-full border px-2 py-0.5 text-[10px] font-medium transition-colors ${consoleName === p ? 'border-[var(--accent)] bg-[var(--accent)] text-[#0E0F12]' : 'border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}>{p}</button>
-              ))}
-            </div>
-          )}
+          <CustomSelect id="console" name="console" value={consoleName} onChange={setConsoleName} options={consoleOptions} placeholder="Selecione o console" error={!!errors.console} ariaLabel="Console" />
+          {plataformas.length > 0 && <span className="text-[11px] text-[var(--text-muted)]">Disponível para este jogo no IGDB</span>}
           {errors.console && <span className="text-xs text-[var(--danger)]">{errors.console}</span>}
         </div>
         <div className="flex flex-col gap-1.5">
@@ -86,41 +73,52 @@ export function GameForm({ initialData, onSubmit, onCancel, isEditing = false }:
           <Input id="tipo" name="tipo" value={tipo} onChange={(e) => setTipo(e.target.value)} placeholder="Ex: Campanha, DLC" className="bg-[var(--bg-surface-alt)] border-[var(--border-subtle)] text-[var(--text-primary)]" />
         </div>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="iniciado_em" className="text-[var(--text-secondary)] text-sm">Iniciado em</Label>
-          <Input id="iniciado_em" name="iniciado_em" type="date" value={iniciadoEm} onChange={(e) => setIniciadoEm(e.target.value)} className="bg-[var(--bg-surface-alt)] border-[var(--border-subtle)] text-[var(--text-primary)]" />
+          <div className="relative">
+            <Input id="iniciado_em" name="iniciado_em" value={iniciadoEm} onChange={(e) => setIniciadoEm(aplicarMascaraData(e.target.value))} placeholder="dd/mm/aaaa" maxLength={10} className="bg-[var(--bg-surface-alt)] border-[var(--border-subtle)] text-[var(--text-primary)] pr-8" />
+            <Calendar className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--text-faint)]" aria-hidden="true" />
+          </div>
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="finalizado_em" className="text-[var(--text-secondary)] text-sm">Finalizado em *</Label>
-          <Input id="finalizado_em" name="finalizado_em" type="date" value={finalizadoEm} onChange={(e) => setFinalizadoEm(e.target.value)} className="bg-[var(--bg-surface-alt)] border-[var(--border-subtle)] text-[var(--text-primary)]" aria-invalid={!!errors.finalizado_em} />
+          <div className="relative">
+            <Input id="finalizado_em" name="finalizado_em" value={finalizadoEm} onChange={(e) => setFinalizadoEm(aplicarMascaraData(e.target.value))} placeholder="dd/mm/aaaa" maxLength={10} className="bg-[var(--bg-surface-alt)] border-[var(--border-subtle)] text-[var(--text-primary)] pr-8" aria-invalid={!!errors.finalizado_em} />
+            <Calendar className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--text-faint)]" aria-hidden="true" />
+          </div>
           {errors.finalizado_em && <span className="text-xs text-[var(--danger)]">{errors.finalizado_em}</span>}
         </div>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <div className="flex flex-col gap-1.5">
           <Label className="text-[var(--text-secondary)] text-sm">Tempo jogado</Label>
-          <div className="flex gap-2 items-center">
-            <Input id="tempo_jogado_horas" name="tempo_jogado_horas" type="number" min={0} value={horas} onChange={(e) => setHoras(Number(e.target.value))} placeholder="h" className="bg-[var(--bg-surface-alt)] border-[var(--border-subtle)] text-[var(--text-primary)] text-center" aria-label="Horas" />
-            <span className="text-[var(--text-muted)]">:</span>
-            <Input id="tempo_jogado_minutos" name="tempo_jogado_minutos" type="number" min={0} max={59} value={minutos} onChange={(e) => setMinutos(Number(e.target.value))} placeholder="m" className="bg-[var(--bg-surface-alt)] border-[var(--border-subtle)] text-[var(--text-primary)] text-center" aria-label="Minutos" />
-            <span className="text-[var(--text-muted)]">:</span>
-            <Input id="tempo_jogado_segundos" name="tempo_jogado_segundos" type="number" min={0} max={59} value={segundos} onChange={(e) => setSegundos(Number(e.target.value))} placeholder="s" className="bg-[var(--bg-surface-alt)] border-[var(--border-subtle)] text-[var(--text-primary)] text-center" aria-label="Segundos" />
+          <div className="flex h-8 items-center justify-between rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface-alt)] px-2.5">
+            <div className="flex items-center gap-1">
+              <input id="tempo_jogado_horas" name="tempo_jogado_horas" type="number" min={0} value={horas} onChange={(e) => setHoras(Number(e.target.value))} placeholder="h" className="w-10 bg-transparent text-center text-sm font-medium text-[var(--text-primary)] outline-none no-spinner" aria-label="Horas" />
+              <span className="text-[11px] font-semibold text-[var(--text-muted)]">h</span>
+            </div>
+            <span className="text-[var(--border-subtle)] text-xs">|</span>
+            <div className="flex items-center gap-1">
+              <input id="tempo_jogado_minutos" name="tempo_jogado_minutos" type="number" min={0} max={59} value={minutos} onChange={(e) => setMinutos(Number(e.target.value))} placeholder="m" className="w-10 bg-transparent text-center text-sm font-medium text-[var(--text-primary)] outline-none no-spinner" aria-label="Minutos" />
+              <span className="text-[11px] font-semibold text-[var(--text-muted)]">m</span>
+            </div>
+            <span className="text-[var(--border-subtle)] text-xs">|</span>
+            <div className="flex items-center gap-1">
+              <input id="tempo_jogado_segundos" name="tempo_jogado_segundos" type="number" min={0} max={59} value={segundos} onChange={(e) => setSegundos(Number(e.target.value))} placeholder="s" className="w-10 bg-transparent text-center text-sm font-medium text-[var(--text-primary)] outline-none no-spinner" aria-label="Segundos" />
+              <span className="text-[11px] font-semibold text-[var(--text-muted)]">s</span>
+            </div>
           </div>
-          {(errors.tempo_jogado_minutos || errors.tempo_jogado_segundos) && (
-            <span className="text-xs text-[var(--danger)]">{errors.tempo_jogado_minutos || errors.tempo_jogado_segundos}</span>
-          )}
+          {(errors.tempo_jogado_minutos || errors.tempo_jogado_segundos) && <span className="text-xs text-[var(--danger)]">{errors.tempo_jogado_minutos || errors.tempo_jogado_segundos}</span>}
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="nota" className="text-[var(--text-secondary)] text-sm">Nota (1 a 11) *</Label>
-          <Input id="nota" name="nota" type="number" min={1} max={11} value={nota} onChange={(e) => setNota(Number(e.target.value))} className="bg-[var(--bg-surface-alt)] border-[var(--border-subtle)] text-[var(--text-primary)]" aria-invalid={!!errors.nota} />
+          <Input id="nota" name="nota" type="number" min={1} max={11} value={nota} onChange={(e) => setNota(Number(e.target.value))} className="bg-[var(--bg-surface-alt)] border-[var(--border-subtle)] text-[var(--text-primary)] no-spinner" aria-invalid={!!errors.nota} />
           {errors.nota && <span className="text-xs text-[var(--danger)]">{errors.nota}</span>}
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="dificuldade" className="text-[var(--text-secondary)] text-sm">Dificuldade *</Label>
-          <select id="dificuldade" name="dificuldade" value={dificuldade} onChange={(e) => setDificuldade(e.target.value as Dificuldade)} className="h-8 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface-alt)] px-2.5 py-1 text-sm text-[var(--text-primary)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]">
-            {DIFICULDADES.map((d) => <option key={d} value={d}>{d}</option>)}
-          </select>
+          <CustomSelect id="dificuldade" name="dificuldade" value={dificuldade} onChange={(v) => setDificuldade(v as Dificuldade)} options={DIFICULDADE_OPCOES} ariaLabel="Dificuldade" />
         </div>
       </div>
       <div className="flex flex-col gap-1.5">
@@ -128,21 +126,21 @@ export function GameForm({ initialData, onSubmit, onCancel, isEditing = false }:
           <Label htmlFor="condicao_zeramento" className="text-[var(--text-secondary)] text-sm">Condição de zeramento</Label>
           <span className="text-xs text-[var(--text-muted)]">{condicao.length}/500</span>
         </div>
-        <textarea id="condicao_zeramento" name="condicao_zeramento" maxLength={500} rows={3} value={condicao} onChange={(e) => setCondicao(e.target.value)} placeholder="Ex: 100% de conquistas, final secreto, zerado no modo difícil" className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface-alt)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]" />
+        <textarea id="condicao_zeramento" name="condicao_zeramento" maxLength={500} rows={3} value={condicao} onChange={(e) => setCondicao(e.target.value)} placeholder="Ex: 100% de conquistas, final secreto, zerado no modo difícil" className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface-alt)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] custom-scrollbar" />
         {errors.condicao_zeramento && <span className="text-xs text-[var(--danger)]">{errors.condicao_zeramento}</span>}
       </div>
-      <label className="flex items-center gap-2 cursor-pointer select-none">
-        <input id="destaque" name="destaque" type="checkbox" checked={destaque} onChange={(e) => setDestaque(e.target.checked)} className="h-4 w-4 rounded border-[var(--border-subtle)] accent-[var(--accent)]" />
-        <span className="text-sm font-medium text-[var(--text-primary)]">Marcar como jogo destaque do ano</span>
-      </label>
-      {destaqueError && <span className="text-xs text-[var(--danger)]">{destaqueError}</span>}
-      <div className="flex gap-3 justify-end pt-2">
-        {onCancel && (
-          <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting} className="border-[var(--border)] text-[var(--text-primary)] hover:bg-[var(--bg-surface-alt)]">Cancelar</Button>
-        )}
-        <Button type="submit" disabled={isSubmitting} className="bg-[var(--accent)] text-[#0E0F12] font-bold hover:bg-[var(--accent)]/90">
-          {isSubmitting ? 'Salvando...' : isEditing ? 'Atualizar registro' : 'Salvar registro'}
-        </Button>
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-center gap-3">
+          <button id="destaque" type="button" role="switch" aria-checked={destaque} aria-label="Marcar como jogo destaque do ano" onClick={() => setDestaque(!destaque)} className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${destaque ? 'bg-[var(--accent)]' : 'bg-[var(--border-subtle)]'}`}>
+            <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full shadow ring-0 transition duration-200 ease-in-out ${destaque ? 'translate-x-4 bg-[#0E0F12]' : 'translate-x-0 bg-[var(--text-secondary)]'}`} />
+          </button>
+          <label htmlFor="destaque" className="text-sm font-medium text-[var(--text-primary)] cursor-pointer select-none">Marcar como jogo destaque do ano</label>
+        </div>
+        {destaqueError && <span className="text-xs text-[var(--danger)]">{destaqueError}</span>}
+      </div>
+      <div className="flex gap-3 justify-end pt-3 border-t border-[var(--border)]">
+        {onCancel && <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting} className="border-[var(--border)] text-[var(--text-primary)] hover:bg-[var(--bg-surface-alt)]">Cancelar</Button>}
+        <Button type="submit" disabled={isSubmitting} className="bg-[var(--accent)] text-[#0E0F12] font-bold hover:bg-[var(--accent)]/90">{isSubmitting ? 'Salvando...' : isEditing ? 'Atualizar registro' : 'Salvar registro'}</Button>
       </div>
     </form>
   )

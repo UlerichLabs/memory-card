@@ -114,8 +114,9 @@ describe('GameForm', () => {
       expect(screen.getByLabelText(/Console/i)).toHaveValue('PlayStation 5')
     })
 
-    const botaoPs4 = screen.getByRole('button', { name: 'PlayStation 4' })
-    await user.click(botaoPs4)
+    await user.click(screen.getByLabelText(/Console/i))
+    const opcaoPs4 = screen.getByRole('option', { name: 'PlayStation 4' })
+    await user.click(opcaoPs4)
     expect(screen.getByLabelText(/Console/i)).toHaveValue('PlayStation 4')
   })
 
@@ -151,8 +152,9 @@ describe('GameForm', () => {
     render(<GameForm onSubmit={handleSubmit} />)
 
     await user.type(screen.getByLabelText(/Nome do jogo/i), 'Super Mario')
-    await user.type(screen.getByLabelText(/Console/i), 'SNES')
-    fireEvent.change(screen.getByLabelText(/Finalizado em/i), { target: { value: '2026-02-01' } })
+    await user.click(screen.getByLabelText(/Console/i))
+    await user.click(screen.getByRole('option', { name: 'Super Nintendo' }))
+    fireEvent.change(screen.getByLabelText(/Finalizado em/i), { target: { value: '01/02/2026' } })
 
     const notaInput = screen.getByLabelText(/Nota \(1 a 11\)/i)
     await user.clear(notaInput)
@@ -170,8 +172,9 @@ describe('GameForm', () => {
     render(<GameForm onSubmit={handleSubmit} />)
 
     await user.type(screen.getByLabelText(/Nome do jogo/i), 'Super Mario')
-    await user.type(screen.getByLabelText(/Console/i), 'SNES')
-    fireEvent.change(screen.getByLabelText(/Finalizado em/i), { target: { value: '2026-02-01' } })
+    await user.click(screen.getByLabelText(/Console/i))
+    await user.click(screen.getByRole('option', { name: 'Super Nintendo' }))
+    fireEvent.change(screen.getByLabelText(/Finalizado em/i), { target: { value: '01/02/2026' } })
 
     const minutosInput = screen.getByLabelText(/Minutos/i)
     await user.clear(minutosInput)
@@ -203,18 +206,19 @@ describe('GameForm', () => {
     render(<GameForm onSubmit={handleSubmit} />)
 
     await user.type(screen.getByLabelText(/Nome do jogo/i), 'Elden Ring')
-    await user.type(screen.getByLabelText(/Console/i), 'PC')
-    fireEvent.change(screen.getByLabelText(/Finalizado em/i), { target: { value: '2026-02-01' } })
+    await user.click(screen.getByLabelText(/Console/i))
+    await user.click(screen.getByRole('option', { name: 'PC' }))
+    fireEvent.change(screen.getByLabelText(/Finalizado em/i), { target: { value: '01/02/2026' } })
 
-    const destaqueCheckbox = screen.getByRole('checkbox', { name: /Marcar como jogo destaque do ano/i })
-    await user.click(destaqueCheckbox)
-    expect(destaqueCheckbox).toBeChecked()
+    const destaqueSwitch = screen.getByRole('switch', { name: /Marcar como jogo destaque do ano/i })
+    await user.click(destaqueSwitch)
+    expect(destaqueSwitch).toBeChecked()
 
     await user.click(screen.getByRole('button', { name: 'Salvar registro' }))
 
     await waitFor(() => {
       expect(screen.getByText('já existe um destaque para este ano')).toBeInTheDocument()
     })
-    expect(destaqueCheckbox).not.toBeChecked()
+    expect(destaqueSwitch).not.toBeChecked()
   })
 })
