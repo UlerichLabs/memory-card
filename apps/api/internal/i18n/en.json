@@ -22,5 +22,18 @@
   "igdb.search.empty": "Please enter a search term.",
   "igdb.unavailable": "Unable to search games right now. Please try again shortly.",
   "igdb.rate_limited": "Too many searches in a short time. Please wait and try again.",
-  "igdb.invalid_id": "Invalid identifier."
+  "igdb.invalid_id": "Invalid identifier.",
+  "jogos.invalid_input": "Invalid input data.",
+  "jogos.nome_required": "Game name is required.",
+  "jogos.console_required": "Console is required.",
+  "jogos.finalizado_em_required": "Completion date is required.",
+  "jogos.finalizado_em_invalid": "Invalid completion date format.",
+  "jogos.iniciado_em_invalid": "Invalid start date format.",
+  "jogos.tempo_jogado_invalid": "Played time must be positive.",
+  "jogos.nota_invalid": "Rating must be between 1 and 11.",
+  "jogos.dificuldade_invalid": "Difficulty must be C, B, A, AA or AAA.",
+  "jogos.condicao_zeramento_too_long": "Completion condition must be up to 500 characters.",
+  "jogos.destaque_ano_conflito": "There is already a highlight for this year.",
+  "jogos.not_found": "Game not found.",
+  "jogos.invalid_id": "Invalid game identifier."
 }

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -162,3 +163,52 @@ func contains(value, part string) bool {
 	}
 	return false
 }
+
+func TestClientSearchFranchisesQuery(t *testing.T) {
+	var requestBody string
+	var requestPath string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/oauth":
+			_ = json.NewEncoder(w).Encode(accessToken{AccessToken: "token", ExpiresIn: 3600})
+		case "/v4/franchises":
+			requestPath = r.URL.Path
+			bodyBytes, err := io.ReadAll(r.Body)
+			if err != nil {
+				t.Fatalf("ler body: %v", err)
+			}
+			requestBody = string(bodyBytes)
+			_, _ = fmt.Fprint(w, `[{"id":596,"name":"The Legend of Zelda"}]`)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	client := New(Config{
+		ClientID:     "client",
+		ClientSecret: "secret",
+		HTTPClient:   server.Client(),
+		TokenURL:     server.URL + "/oauth",
+		APIURL:       server.URL + "/v4",
+	})
+
+	franchises, err := client.SearchFranchises(context.Background(), "zelda")
+	if err != nil {
+		t.Fatalf("SearchFranchises: %v", err)
+	}
+	if len(franchises) != 1 || franchises[0].Name != "The Legend of Zelda" {
+		t.Fatalf("franchises=%+v", franchises)
+	}
+	if requestPath != "/v4/franchises" {
+		t.Fatalf("path=%s, esperava /v4/franchises", requestPath)
+	}
+	expectedClause := `where name ~ *"zelda"*;`
+	if !contains(requestBody, expectedClause) {
+		t.Fatalf("body=%q não contém a cláusula esperada %q", requestBody, expectedClause)
+	}
+	if contains(requestBody, "search") {
+		t.Fatalf("body=%q não deveria conter 'search'", requestBody)
+	}
+}
+

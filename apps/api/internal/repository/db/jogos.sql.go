@@ -13,36 +13,62 @@ import (
 
 const atualizarJogoZerado = `-- name: AtualizarJogoZerado :one
 UPDATE jogos_zerados SET
-    nome = $3, console = $4, genero = $5, tipo = $6,
-    nota = $7, dificuldade = $8, condicao_zeramento = $9,
+    igdb_id = $3,
+    nome = $4,
+    console = $5,
+    genero = $6,
+    tipo = $7,
+    iniciado_em = $8,
+    finalizado_em = $9,
+    tempo_jogado = $10,
+    nota = $11,
+    dificuldade = $12,
+    condicao_zeramento = $13,
+    destaque = $14,
+    igdb_capa_url = $15,
+    igdb_descricao = $16,
     updated_at = now()
-WHERE id = $1 AND usuario_id = $2
+WHERE id = $1 AND usuario_id = $2 AND deleted_at IS NULL
 RETURNING id, usuario_id, igdb_id, nome, console, genero, tipo, iniciado_em, finalizado_em, tempo_jogado, nota, dificuldade, condicao_zeramento, destaque, igdb_capa_url, igdb_descricao, deleted_at, created_at, updated_at
 `
 
 type AtualizarJogoZeradoParams struct {
 	ID                int32
 	UsuarioID         int32
+	IgdbID            pgtype.Int4
 	Nome              string
 	Console           string
 	Genero            pgtype.Text
 	Tipo              pgtype.Text
+	IniciadoEm        pgtype.Timestamp
+	FinalizadoEm      pgtype.Timestamp
+	TempoJogado       int32
 	Nota              int32
 	Dificuldade       Dificuldade
 	CondicaoZeramento pgtype.Text
+	Destaque          pgtype.Bool
+	IgdbCapaUrl       pgtype.Text
+	IgdbDescricao     pgtype.Text
 }
 
 func (q *Queries) AtualizarJogoZerado(ctx context.Context, arg AtualizarJogoZeradoParams) (JogosZerado, error) {
 	row := q.db.QueryRow(ctx, atualizarJogoZerado,
 		arg.ID,
 		arg.UsuarioID,
+		arg.IgdbID,
 		arg.Nome,
 		arg.Console,
 		arg.Genero,
 		arg.Tipo,
+		arg.IniciadoEm,
+		arg.FinalizadoEm,
+		arg.TempoJogado,
 		arg.Nota,
 		arg.Dificuldade,
 		arg.CondicaoZeramento,
+		arg.Destaque,
+		arg.IgdbCapaUrl,
+		arg.IgdbDescricao,
 	)
 	var i JogosZerado
 	err := row.Scan(
@@ -109,9 +135,9 @@ const criarJogoZerado = `-- name: CriarJogoZerado :one
 INSERT INTO jogos_zerados (
     usuario_id, igdb_id, nome, console, genero, tipo,
     iniciado_em, finalizado_em, tempo_jogado, nota,
-    dificuldade, condicao_zeramento, destaque
+    dificuldade, condicao_zeramento, destaque, igdb_capa_url, igdb_descricao
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
 ) RETURNING id, usuario_id, igdb_id, nome, console, genero, tipo, iniciado_em, finalizado_em, tempo_jogado, nota, dificuldade, condicao_zeramento, destaque, igdb_capa_url, igdb_descricao, deleted_at, created_at, updated_at
 `
 
@@ -129,6 +155,8 @@ type CriarJogoZeradoParams struct {
 	Dificuldade       Dificuldade
 	CondicaoZeramento pgtype.Text
 	Destaque          pgtype.Bool
+	IgdbCapaUrl       pgtype.Text
+	IgdbDescricao     pgtype.Text
 }
 
 func (q *Queries) CriarJogoZerado(ctx context.Context, arg CriarJogoZeradoParams) (JogosZerado, error) {
@@ -146,6 +174,8 @@ func (q *Queries) CriarJogoZerado(ctx context.Context, arg CriarJogoZeradoParams
 		arg.Dificuldade,
 		arg.CondicaoZeramento,
 		arg.Destaque,
+		arg.IgdbCapaUrl,
+		arg.IgdbDescricao,
 	)
 	var i JogosZerado
 	err := row.Scan(
@@ -172,8 +202,10 @@ func (q *Queries) CriarJogoZerado(ctx context.Context, arg CriarJogoZeradoParams
 	return i, err
 }
 
-const excluirJogoZerado = `-- name: ExcluirJogoZerado :exec
-UPDATE jogos_zerados SET deleted_at = now() WHERE id = $1 AND usuario_id = $2
+const excluirJogoZerado = `-- name: ExcluirJogoZerado :execrows
+UPDATE jogos_zerados
+SET deleted_at = now()
+WHERE id = $1 AND usuario_id = $2 AND deleted_at IS NULL
 `
 
 type ExcluirJogoZeradoParams struct {
@@ -181,9 +213,12 @@ type ExcluirJogoZeradoParams struct {
 	UsuarioID int32
 }
 
-func (q *Queries) ExcluirJogoZerado(ctx context.Context, arg ExcluirJogoZeradoParams) error {
-	_, err := q.db.Exec(ctx, excluirJogoZerado, arg.ID, arg.UsuarioID)
-	return err
+func (q *Queries) ExcluirJogoZerado(ctx context.Context, arg ExcluirJogoZeradoParams) (int64, error) {
+	result, err := q.db.Exec(ctx, excluirJogoZerado, arg.ID, arg.UsuarioID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const listarJogosZerados = `-- name: ListarJogosZerados :many
