@@ -226,7 +226,7 @@ func TestClientSearchGamesQuery(t *testing.T) {
 				t.Fatalf("ler body: %v", err)
 			}
 			requestBody = string(bodyBytes)
-			_, _ = fmt.Fprint(w, `[{"id":1022,"name":"The Legend of Zelda","cover":{"id":86202,"url":"//cover.jpg"},"first_release_date":509328000,"summary":"Action RPG"}]`)
+			_, _ = fmt.Fprint(w, `[{"id":1022,"name":"The Legend of Zelda","cover":{"id":86202,"image_id":"co1uid"},"first_release_date":509328000,"summary":"Action RPG"}]`)
 		default:
 			http.NotFound(w, r)
 		}
@@ -245,13 +245,13 @@ func TestClientSearchGamesQuery(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SearchGames: %v", err)
 	}
-	if len(games) != 1 || games[0].Name != "The Legend of Zelda" || games[0].Summary != "Action RPG" {
+	if len(games) != 1 || games[0].Name != "The Legend of Zelda" || games[0].Summary != "Action RPG" || games[0].Cover.URL != "//images.igdb.com/igdb/image/upload/t_thumb/co1uid.jpg" {
 		t.Fatalf("games=%+v", games)
 	}
 	if requestPath != "/v4/games" {
 		t.Fatalf("path=%s, esperava /v4/games", requestPath)
 	}
-	expectedClause := `fields id,name,cover.url,first_release_date,summary; search "zelda"; limit 50;`
+	expectedClause := `fields id, name, first_release_date, summary, cover.image_id, genres.name, game_type, version_parent, total_rating_count, platforms.name, parent_game.id, parent_game.name, parent_game.first_release_date, parent_game.cover.image_id, parent_game.platforms.name; search "zelda"; limit 50;`
 	if requestBody != expectedClause {
 		t.Fatalf("body=%q, esperava %q", requestBody, expectedClause)
 	}
