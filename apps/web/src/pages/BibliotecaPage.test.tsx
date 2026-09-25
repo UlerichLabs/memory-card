@@ -1,9 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from '@/store/authStore'
 import { JogosProvider } from '@/stores/jogosStore'
+import { GameFormDialog } from '@/components/jogos/GameForm/GameFormDialog'
 import { BibliotecaPage } from './BibliotecaPage'
 import type { JogoZeradoDTO } from '@/lib/services/jogosService'
 
@@ -29,10 +30,9 @@ function renderBiblioteca(initialJogos: JogoZeradoDTO[] = []) {
     <MemoryRouter initialEntries={['/biblioteca']}>
       <AuthProvider>
         <JogosProvider initialJogos={initialJogos}>
+          <GameFormDialog />
           <Routes>
             <Route path="/biblioteca" element={<BibliotecaPage />} />
-            <Route path="/jogos/novo" element={<h1>Tela Novo Jogo</h1>} />
-            <Route path="/jogos/:id/editar" element={<h1>Tela Editar Jogo</h1>} />
           </Routes>
         </JogosProvider>
       </AuthProvider>
@@ -54,12 +54,12 @@ describe('BibliotecaPage', () => {
     expect(screen.getByRole('button', { name: /Registrar primeiro jogo/i })).toBeInTheDocument()
   })
 
-  it('redireciona para /jogos/novo ao clicar em registrar jogo no estado vazio', async () => {
+  it('abre modal de registro ao clicar em registrar jogo no estado vazio', async () => {
     const user = userEvent.setup()
     renderBiblioteca([])
 
     await user.click(screen.getByRole('button', { name: /Registrar primeiro jogo/i }))
-    expect(await screen.findByRole('heading', { name: 'Tela Novo Jogo' })).toBeVisible()
+    expect(await screen.findByRole('heading', { name: 'Registrar jogo' })).toBeVisible()
   })
 
   it('renderiza os cards de jogos quando existem itens na biblioteca', () => {
@@ -96,14 +96,14 @@ describe('BibliotecaPage', () => {
     expect(screen.getByText('Super Mario World')).toBeInTheDocument()
   })
 
-  it('navega para /jogos/:id/editar ao clicar no botão Editar', async () => {
+  it('abre modal de edição ao clicar no botão Editar', async () => {
     const user = userEvent.setup()
     renderBiblioteca([jogoMock])
 
     const btnEditar = screen.getByRole('button', { name: 'Editar Chrono Trigger' })
     await user.click(btnEditar)
 
-    expect(await screen.findByRole('heading', { name: 'Tela Editar Jogo' })).toBeVisible()
+    expect(await screen.findByRole('heading', { name: 'Editar registro' })).toBeVisible()
   })
 
   it('abre modal de exclusão ao clicar no botão Excluir e cancela sem remover', async () => {
@@ -118,5 +118,57 @@ describe('BibliotecaPage', () => {
 
     await user.click(screen.getByRole('button', { name: 'Cancelar' }))
     expect(screen.getByText('Chrono Trigger')).toBeInTheDocument()
+  })
+
+  it('não renderiza botão duplicado de registrar jogo no header quando existem jogos', () => {
+    renderBiblioteca([jogoMock])
+    const pageHeader = screen.getByRole('heading', { name: 'Biblioteca' }).closest('header')
+    expect(within(pageHeader!).queryByRole('button')).not.toBeInTheDocument()
+  })
+
+  it('alterna entre visualização em grade e lista e persiste no localStorage', async () => {
+    const user = userEvent.setup()
+    renderBiblioteca([jogoMock])
+
+    const btnLista = screen.getByRole('button', { name: 'Visualização em lista' })
+    await user.click(btnLista)
+
+    expect(localStorage.getItem('biblioteca_view_mode')).toBe('list')
+    expect(screen.getByRole('button', { name: 'Opções de Chrono Trigger' })).toBeInTheDocument()
+
+    const btnGrade = screen.getByRole('button', { name: 'Visualização em grade' })
+    await user.click(btnGrade)
+
+    expect(localStorage.getItem('biblioteca_view_mode')).toBe('grid')
+  })
+
+  it('filtra jogos por console, gênero e nota mínima', async () => {
+    const jogo2: JogoZeradoDTO = {
+      ...jogoMock,
+      id: 2,
+      nome: 'God of War',
+      console: 'PS5',
+      genero: 'Ação',
+      nota: 8,
+    }
+    const user = userEvent.setup()
+    renderBiblioteca([jogoMock, jogo2])
+
+    const selectConsole = screen.getByLabelText('Filtrar por console')
+    await user.click(selectConsole)
+    await user.click(screen.getByRole('option', { name: 'PS5' }))
+
+    expect(screen.queryByText('Chrono Trigger')).not.toBeInTheDocument()
+    expect(screen.getByText('God of War')).toBeInTheDocument()
+
+    await user.click(selectConsole)
+    await user.click(screen.getByRole('option', { name: 'Todos os consoles' }))
+
+    const selectNota = screen.getByLabelText('Filtrar por nota mínima')
+    await user.click(selectNota)
+    await user.click(screen.getByRole('option', { name: 'Nota 10+' }))
+
+    expect(screen.getByText('Chrono Trigger')).toBeInTheDocument()
+    expect(screen.queryByText('God of War')).not.toBeInTheDocument()
   })
 })

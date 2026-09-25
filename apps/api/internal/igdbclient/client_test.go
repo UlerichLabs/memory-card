@@ -251,7 +251,7 @@ func TestClientSearchGamesQuery(t *testing.T) {
 	if requestPath != "/v4/games" {
 		t.Fatalf("path=%s, esperava /v4/games", requestPath)
 	}
-	expectedClause := `fields id,name,cover.url,first_release_date,summary; search "zelda"; limit 20;`
+	expectedClause := `fields id,name,cover.url,first_release_date,summary; search "zelda"; limit 50;`
 	if requestBody != expectedClause {
 		t.Fatalf("body=%q, esperava %q", requestBody, expectedClause)
 	}

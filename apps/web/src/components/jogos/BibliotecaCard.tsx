@@ -1,5 +1,6 @@
 import { Star, Clock, Calendar, Pencil, Trash2, Gamepad2, Award } from 'lucide-react'
 import type { JogoZeradoDTO, Dificuldade } from '@/lib/services/jogosService'
+import { formatarCapaIGDB } from '@/lib/utils'
 
 export interface BibliotecaCardProps {
   jogo: JogoZeradoDTO
@@ -34,13 +35,14 @@ function formatarData(dataStr: string): string {
 
 export function BibliotecaCard({ jogo, onEditar, onExcluir }: BibliotecaCardProps) {
   const corDificuldade = dificuldadeCores[jogo.dificuldade] || 'text-[var(--text-secondary)] border-[var(--border-subtle)]'
+  const capaUrl = formatarCapaIGDB(jogo.igdb_capa_url)
 
   return (
     <article className="group flex flex-col rounded-[12px] border border-[var(--border)] bg-[var(--bg-surface)] p-3.5 transition-transform duration-200 hover:-translate-y-1">
       <div className="relative aspect-[3/4] w-full overflow-hidden rounded-[6px] border border-[var(--border)] bg-[var(--bg-surface-alt)]">
-        {jogo.igdb_capa_url ? (
+        {capaUrl ? (
           <img
-            src={jogo.igdb_capa_url}
+            src={capaUrl}
             alt={jogo.nome}
             className="h-full w-full object-cover transition-opacity duration-200 group-hover:opacity-90"
             loading="lazy"
