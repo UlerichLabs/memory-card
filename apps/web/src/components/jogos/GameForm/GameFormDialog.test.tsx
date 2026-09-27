@@ -64,7 +64,7 @@ describe('GameFormDialog', () => {
     renderDialog({ isModalOpen: true, jogoEmEdicao: mockJogo })
     expect(screen.getByRole('heading', { name: 'Editar registro' })).toBeInTheDocument()
     expect(screen.getByLabelText(/Nome do jogo/i)).toHaveValue('Chrono Trigger')
-    expect(screen.getByLabelText(/Console/i)).toHaveValue('SNES')
+    expect(screen.getByLabelText(/Plataforma/i)).toHaveValue('SNES')
     expect(screen.getByRole('button', { name: 'Atualizar registro' })).toBeInTheDocument()
   })
 

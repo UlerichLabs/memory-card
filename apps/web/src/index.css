@@ -82,6 +82,9 @@
     --difficulty-a: #4F7CFF;
     --difficulty-aa: #E8C15C;
     --difficulty-aaa: #E05A4E;
+    --rating-low: #E05A4E;
+    --rating-mid: #E8C15C;
+    --rating-high: #4ADE80;
     --success: #4ADE80;
     --danger: #E05A4E;
 
@@ -162,6 +165,17 @@
 .no-spinner::-webkit-inner-spin-button {
     -webkit-appearance: none;
     margin: 0;
+}
+
+@keyframes highlight-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--highlight-gold) 0%, transparent); }
+    50% { box-shadow: 0 0 18px 3px color-mix(in srgb, var(--highlight-gold) 45%, transparent); }
+}
+
+.highlight-pulse { animation: highlight-pulse 1.8s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+    .highlight-pulse { animation: none; }
 }
 
 @layer base {

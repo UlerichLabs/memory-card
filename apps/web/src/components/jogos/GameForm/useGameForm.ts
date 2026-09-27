@@ -18,8 +18,8 @@ export function useGameForm({ initialData, onSubmit }: UseGameFormProps) {
   const [horas, setHoras] = useState(s >= 3600 ? String(Math.floor(s / 3600)) : '')
   const [minutos, setMinutos] = useState((s % 3600) >= 60 ? String(Math.floor((s % 3600) / 60)) : '')
   const [segundos, setSegundos] = useState((s % 60) > 0 ? String(s % 60) : '')
-  const [nota, setNota] = useState<number>(initialData?.nota ?? 10)
-  const [dificuldade, setDificuldade] = useState<Dificuldade>(initialData?.dificuldade ?? 'A')
+  const [nota, setNota] = useState<number | undefined>(initialData?.nota)
+  const [dificuldade, setDificuldade] = useState<Dificuldade | undefined>(initialData?.dificuldade)
   const [condicao, setCondicao] = useState(initialData?.condicao_zeramento ?? '')
   const [destaque, setDestaque] = useState(initialData?.destaque ?? false)
   const [igdbId, setIgdbId] = useState<number | null>(initialData?.igdb_id ?? null)
@@ -55,6 +55,7 @@ export function useGameForm({ initialData, onSubmit }: UseGameFormProps) {
     try {
       await onSubmit(res.data)
     } catch (err) {
+      if (err instanceof JogosApiError && err.status === 401) { window.location.assign('/login'); return }
       if (err instanceof JogosApiError && (err.status === 409 || err.codigo === 'jogos.destaque_ano_conflito')) {
         setDestaque(false)
         setDestaqueError(err.message || 'já existe um destaque para este ano')
