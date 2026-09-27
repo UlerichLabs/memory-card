@@ -58,7 +58,7 @@ export function DateInput({ id, label, value, onChange, error }: DateInputProps)
   return (
     <div className="flex flex-col gap-1.5">
       <label htmlFor={id} className="text-sm text-[var(--text-secondary)]">{label}</label>
-      <div className={`flex h-9 items-center rounded-lg border bg-[var(--bg-surface-alt)] px-2 ${error ? 'border-[var(--danger)]' : 'border-[var(--border-subtle)]'}`}>
+      <div className={`flex h-11 min-w-0 items-center rounded-lg border bg-[var(--bg-surface-alt)] px-2 ${error ? 'border-[var(--danger)]' : 'border-[var(--border-subtle)]'}`}>
         <input id={id} value={display} onChange={(event) => commit(event.target.value)} onBlur={handleBlur} onKeyDown={(event) => { if (event.key === 'Enter') handleBlur() }} placeholder="dd/mm/aaaa" inputMode="numeric" aria-invalid={!!error} className="min-w-0 flex-1 bg-transparent text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]" />
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger type="button" aria-label="Abrir calendário" className="rounded p-1 text-[var(--text-secondary)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]"><CalendarIcon className="size-4" /></PopoverTrigger>

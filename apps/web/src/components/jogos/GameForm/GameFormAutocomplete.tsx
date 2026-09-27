@@ -70,8 +70,9 @@ export function GameFormAutocomplete({ nome, onChangeNome, onSelectSugestao, err
     <div ref={containerRef} className="relative flex flex-col gap-2">
       <Label htmlFor="nome" className="text-sm font-medium text-[var(--text-secondary)]">Nome do jogo *</Label>
       <div className="relative">
-        <Input id="nome" name="nome" value={nome} onChange={(event) => handleChange(event.target.value)} onFocus={() => { if (sugestoes.length) setIsOpen(true) }} placeholder="Ex: God of War, Chrono Trigger" aria-invalid={!!error} autoComplete="off" className="bg-[var(--bg-surface-alt)] pr-3 text-[var(--text-primary)]" />
+        <Input id="nome" name="nome" value={nome} onChange={(event) => handleChange(event.target.value)} onFocus={() => { if (sugestoes.length) setIsOpen(true) }} placeholder="Ex: God of War, Chrono Trigger" aria-invalid={!!error} autoComplete="off" className={`h-12 bg-[var(--bg-surface-alt)] text-[var(--text-primary)] ${selecionado ? 'pr-48' : 'pr-3'}`} />
         {isSearching && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[var(--text-muted)]">Buscando...</span>}
+        {selecionado && <span className="pointer-events-none absolute right-3 top-1/2 max-w-[calc(100%-1.5rem)] -translate-y-1/2 truncate rounded-full border border-[var(--chip-border)] bg-[var(--chip-bg)] px-3 py-1 text-xs text-[var(--chip-text)]">{versaoLabel(selecionado) || selecionado.name}</span>}
         {isOpen && <ul role="listbox" aria-label="Sugestões do IGDB" className="custom-scrollbar absolute left-0 right-0 top-full z-50 mt-1 max-h-60 overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-1 shadow-2xl">
           {isSearching ? <li className="py-3 text-center text-xs text-[var(--text-muted)]">Buscando no IGDB...</li> : sugestoes.length === 0 ? <li className="py-3 text-center text-xs text-[var(--text-muted)]">Nenhum jogo encontrado no IGDB</li> : sugestoes.map((sugestao) => {
             const capa = formatarCapaIGDB(sugestao.cover?.url)
@@ -82,7 +83,6 @@ export function GameFormAutocomplete({ nome, onChangeNome, onSelectSugestao, err
           })}
         </ul>}
       </div>
-      {selecionado && <div className="flex items-center justify-end"><span className="rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface-alt)] px-3 py-1 text-xs text-[var(--text-secondary)]">{versaoLabel(selecionado) || selecionado.name}</span></div>}
       {error && <span className="text-xs text-[var(--danger)]">{error}</span>}
     </div>
   )
