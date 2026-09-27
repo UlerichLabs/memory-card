@@ -12,10 +12,10 @@ func TestLoadCORS_Origens(t *testing.T) {
 		invalid   bool
 	}{
 		{"ausente", "", nil, false},
-		{"multiplas", " http://localhost:5173, https://app.example.com ,", []string{"http://localhost:5173", "https://app.example.com"}, false},
+		{"multiplas", " http://localhost:5180, https://app.example.com ,", []string{"http://localhost:5180", "https://app.example.com"}, false},
 		{"wildcard", "*", nil, true},
 		{"subdominio wildcard", "https://*.example.com", nil, true},
-		{"caminho", "http://localhost:5173/cadastro", nil, true},
+		{"caminho", "http://localhost:5180/cadastro", nil, true},
 		{"esquema invalido", "file://localhost", nil, true},
 		{"sem host", "http://", nil, true},
 		{"url invalida", "http://%", nil, true},
