@@ -1,256 +1,121 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { AuthContext } from '@/store/authStore'
 import { GameForm } from './GameForm'
 import { jogosService, JogosApiError, type IGDBJogoSugestao } from '@/lib/services/jogosService'
 
+const sugestao: IGDBJogoSugestao = { id: 42, name: 'Chrono Trigger', first_release_date: 941500800, cover: { url: '//images.igdb.com/cover.jpg' }, platforms: [{ id: 7, name: 'PlayStation' }] }
+
+function preencherObrigatorios() {
+  fireEvent.change(screen.getByLabelText(/Finalizado em/i), { target: { value: '13/03/2026' } })
+}
+
 describe('GameForm', () => {
-  afterEach(() => {
-    vi.restoreAllMocks()
-  })
+  afterEach(() => vi.restoreAllMocks())
 
-  it('renderiza todos os campos obrigatórios', () => {
+  it('renderiza o redesign sem valor inicial para nota e dificuldade', () => {
     render(<GameForm onSubmit={vi.fn()} />)
-
     expect(screen.getByLabelText(/Nome do jogo/i)).toBeInTheDocument()
-    expect(screen.getByLabelText(/Console/i)).toBeInTheDocument()
-    expect(screen.getByLabelText(/Finalizado em/i)).toBeInTheDocument()
-    expect(screen.getByLabelText(/Horas/i)).toBeInTheDocument()
-    expect(screen.getByLabelText(/Minutos/i)).toBeInTheDocument()
-    expect(screen.getByLabelText(/Segundos/i)).toBeInTheDocument()
-    expect(screen.getByLabelText(/Nota \(1 a 11\)/i)).toBeInTheDocument()
-    expect(screen.getByLabelText(/Dificuldade/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/Plataforma/i)).toBeInTheDocument()
+    expect(screen.getByText('Resumo')).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Nota' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Dificuldade' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Salvar registro' })).toBeInTheDocument()
   })
 
-  it('autocomplete IGDB busca após debounce e preenche os campos ao selecionar', async () => {
-    const sugestoes: IGDBJogoSugestao[] = [
-      {
-        id: 42,
-        name: 'Chrono Trigger',
-        cover: { id: 1, url: '//images.igdb.com/cover.jpg' },
-        summary: 'Um RPG clássico sobre viagens no tempo.',
-      },
-    ]
-    vi.spyOn(jogosService, 'buscarIGDB').mockResolvedValue(sugestoes)
-
+  it('selecionar uma versão fecha a lista e não refaz a busca', async () => {
+    vi.spyOn(jogosService, 'buscarIGDB').mockResolvedValue([sugestao])
+    vi.spyOn(jogosService, 'obterDetalhesIGDB').mockResolvedValue({ ...sugestao, summary: 'Resumo' })
     const user = userEvent.setup()
     render(<GameForm onSubmit={vi.fn()} />)
-
-    const nomeInput = screen.getByLabelText(/Nome do jogo/i)
-    await user.type(nomeInput, 'Chrono')
-
-    await waitFor(() => {
-      expect(jogosService.buscarIGDB).toHaveBeenCalledWith('Chrono', undefined, expect.any(AbortSignal))
-    })
-
-    const opcao = await screen.findByText('Chrono Trigger')
-    expect(opcao).toBeInTheDocument()
-
-    await user.click(opcao)
-
-    expect(nomeInput).toHaveValue('Chrono Trigger')
-    const capa = screen.getByAltText('Capa do jogo')
-    expect(capa).toHaveAttribute('src', 'https://images.igdb.com/cover.jpg')
+    await user.type(screen.getByLabelText(/Nome do jogo/i), 'Chrono')
+    await user.click(await screen.findByText('Chrono Trigger'))
+    await waitFor(() => expect(jogosService.buscarIGDB).toHaveBeenCalledTimes(1))
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+    expect(screen.getByText('1999 · PlayStation')).toBeInTheDocument()
   })
 
-  it('autocomplete envia token de autenticacao quando usuario autenticado', async () => {
-    const sugestoes: IGDBJogoSugestao[] = [
-      { id: 10, name: 'God of War', cover: { url: '//images.igdb.com/gow.jpg' } },
-    ]
-    vi.spyOn(jogosService, 'buscarIGDB').mockResolvedValue(sugestoes)
-
-    const mockAuthValue = {
-      sessao: {
-        access_token: 'token-jwt-valido',
-        refresh_token: 'r-token',
-        usuario: { id: 1, nome: 'Test', email: 't@example.com', idioma: 'pt-BR', created_at: '' },
-      },
-      login: vi.fn(),
-      request: vi.fn(),
-      refresh: vi.fn(),
-      logout: vi.fn(),
-    }
-
-    const user = userEvent.setup()
-    render(
-      <AuthContext.Provider value={mockAuthValue}>
-        <GameForm onSubmit={vi.fn()} />
-      </AuthContext.Provider>
-    )
-
-    const nomeInput = screen.getByLabelText(/Nome do jogo/i)
-    await user.type(nomeInput, 'God')
-
-    await waitFor(() => {
-      expect(jogosService.buscarIGDB).toHaveBeenCalledWith('God', 'token-jwt-valido', expect.any(AbortSignal))
-    })
-  })
-
-  it('detalhes do jogo preenchem plataformas sugeridas e genero', async () => {
-    const sugestoes: IGDBJogoSugestao[] = [
-      { id: 99, name: 'God of War Ragnarok' },
-    ]
-    vi.spyOn(jogosService, 'buscarIGDB').mockResolvedValue(sugestoes)
-    vi.spyOn(jogosService, 'obterDetalhesIGDB').mockResolvedValue({
-      id: 99,
-      name: 'God of War Ragnarok',
-      genres: [{ id: 1, name: 'Ação' }, { id: 2, name: 'Aventura' }],
-      platforms: [{ id: 10, name: 'PlayStation 5' }, { id: 11, name: 'PlayStation 4' }],
-      summary: 'Jornada mitológica nórdica.',
-    })
-
+  it('resposta atrasada de busca antiga não substitui a busca atual', async () => {
+    let resolver: ((value: IGDBJogoSugestao[]) => void) | undefined
+    vi.spyOn(jogosService, 'buscarIGDB').mockImplementation(() => new Promise((resolve) => { resolver = resolve }))
     const user = userEvent.setup()
     render(<GameForm onSubmit={vi.fn()} />)
-
-    const nomeInput = screen.getByLabelText(/Nome do jogo/i)
-    await user.type(nomeInput, 'God')
-    const opcao = await screen.findByText('God of War Ragnarok')
-    await user.click(opcao)
-
-    await waitFor(() => {
-      expect(screen.getByLabelText(/Gênero/i)).toHaveValue('Ação, Aventura')
-      expect(screen.getByLabelText(/Console/i)).toHaveValue('PlayStation 5')
-    })
-
-    await user.click(screen.getByLabelText(/Console/i))
-    const opcaoPs4 = screen.getByRole('option', { name: 'PlayStation 4' })
-    await user.click(opcaoPs4)
-    expect(screen.getByLabelText(/Console/i)).toHaveValue('PlayStation 4')
+    await user.type(screen.getByLabelText(/Nome do jogo/i), 'Ch')
+    await waitFor(() => expect(jogosService.buscarIGDB).toHaveBeenCalled())
+    await user.type(screen.getByLabelText(/Nome do jogo/i), 'rono')
+    resolver?.([{ id: 1, name: 'Resultado antigo' }])
+    await waitFor(() => expect(screen.queryByText('Resultado antigo')).not.toBeInTheDocument())
   })
 
-  it('campos preenchidos via IGDB continuam editáveis manualmente', async () => {
-    const sugestoes: IGDBJogoSugestao[] = [
-      {
-        id: 42,
-        name: 'Chrono Trigger',
-        cover: { id: 1, url: 'https://images.igdb.com/cover.jpg' },
-        summary: 'Descrição',
-      },
-    ]
-    vi.spyOn(jogosService, 'buscarIGDB').mockResolvedValue(sugestoes)
-
+  it('editar o nome depois da seleção limpa os dados do IGDB', async () => {
+    vi.spyOn(jogosService, 'buscarIGDB').mockResolvedValue([sugestao])
+    vi.spyOn(jogosService, 'obterDetalhesIGDB').mockResolvedValue({ ...sugestao, summary: 'Resumo' })
     const user = userEvent.setup()
     render(<GameForm onSubmit={vi.fn()} />)
-
-    const nomeInput = screen.getByLabelText(/Nome do jogo/i)
-    await user.type(nomeInput, 'Chrono')
-
-    const opcao = await screen.findByText('Chrono Trigger')
-    await user.click(opcao)
-
-    expect(nomeInput).toHaveValue('Chrono Trigger')
-
-    await user.type(nomeInput, ' - Edição SNES')
-    expect(nomeInput).toHaveValue('Chrono Trigger - Edição SNES')
+    await user.type(screen.getByLabelText(/Nome do jogo/i), 'Chrono')
+    await user.click(await screen.findByText('Chrono Trigger'))
+    await waitFor(() => expect(screen.getByAltText('Capa do jogo')).toBeInTheDocument())
+    await user.clear(screen.getByLabelText(/Nome do jogo/i))
+    expect(screen.queryByAltText('Capa do jogo')).not.toBeInTheDocument()
+    expect(screen.queryByText('1999 · PlayStation')).not.toBeInTheDocument()
+    expect(screen.getByLabelText(/Plataforma/i)).toHaveValue('')
   })
 
-  it('validação: nota fora de 1-11 exibe erro', async () => {
-    const user = userEvent.setup()
-    const handleSubmit = vi.fn()
-    render(<GameForm onSubmit={handleSubmit} />)
-
-    await user.type(screen.getByLabelText(/Nome do jogo/i), 'Super Mario')
-    await user.click(screen.getByLabelText(/Console/i))
-    await user.click(screen.getByRole('option', { name: 'Super Nintendo' }))
-    fireEvent.change(screen.getByLabelText(/Finalizado em/i), { target: { value: '2026-02-01' } })
-
-    const notaInput = screen.getByLabelText(/Nota \(1 a 11\)/i)
-    await user.clear(notaInput)
-    await user.type(notaInput, '15')
-
-    await user.click(screen.getByRole('button', { name: 'Salvar registro' }))
-
-    expect(handleSubmit).not.toHaveBeenCalled()
-    expect(screen.getByText('Nota deve ser entre 1 e 11')).toBeInTheDocument()
-  })
-
-  it('validação: minutos/segundos > 59 exibe erro', async () => {
-    const user = userEvent.setup()
-    const handleSubmit = vi.fn()
-    render(<GameForm onSubmit={handleSubmit} />)
-
-    await user.type(screen.getByLabelText(/Nome do jogo/i), 'Super Mario')
-    await user.click(screen.getByLabelText(/Console/i))
-    await user.click(screen.getByRole('option', { name: 'Super Nintendo' }))
-    fireEvent.change(screen.getByLabelText(/Finalizado em/i), { target: { value: '2026-02-01' } })
-
-    const minutosInput = screen.getByLabelText(/Minutos/i)
-    await user.clear(minutosInput)
-    await user.type(minutosInput, '75')
-
-    await user.click(screen.getByRole('button', { name: 'Salvar registro' }))
-
-    expect(handleSubmit).not.toHaveBeenCalled()
-    expect(screen.getByText('Minutos devem ser entre 0 e 59')).toBeInTheDocument()
-  })
-
-  it('campos de data usam DatePicker com formato dd/mm/aaaa e placeholder', () => {
-    render(<GameForm onSubmit={vi.fn()} />)
-
-    const iniciadoBtn = screen.getByRole('button', { name: /Iniciado em/i })
-    const finalizadoBtn = screen.getByRole('button', { name: /Finalizado em/i })
-
-    expect(iniciadoBtn).toBeInTheDocument()
-    expect(iniciadoBtn).toHaveTextContent('dd/mm/aaaa')
-    expect(finalizadoBtn).toBeInTheDocument()
-    expect(finalizadoBtn).toHaveTextContent('dd/mm/aaaa')
-  })
-
-  it('tempo jogado inicia vazio com placeholder 0 e aceita apenas dígitos', async () => {
+  it('seleciona automaticamente uma plataforma e deixa vazio quando há várias', async () => {
+    vi.spyOn(jogosService, 'buscarIGDB').mockResolvedValue([sugestao])
+    const detalhe = vi.spyOn(jogosService, 'obterDetalhesIGDB').mockResolvedValue({ ...sugestao, platforms: [{ id: 7, name: 'PlayStation' }] })
     const user = userEvent.setup()
     render(<GameForm onSubmit={vi.fn()} />)
-
-    const horasInput = screen.getByLabelText(/Horas/i)
-    expect(horasInput).toHaveValue('')
-    expect(horasInput).toHaveAttribute('placeholder', '0')
-
-    await user.type(horasInput, '5')
-    expect(horasInput).toHaveValue('5')
-
-    await user.clear(horasInput)
-    expect(horasInput).toHaveValue('')
-
-    const minutosInput = screen.getByLabelText(/Minutos/i)
-    expect(minutosInput).toHaveValue('')
-    expect(minutosInput).toHaveAttribute('placeholder', '0')
-    await user.type(minutosInput, '30')
-    expect(minutosInput).toHaveValue('30')
+    await user.type(screen.getByLabelText(/Nome do jogo/i), 'Chrono')
+    await user.click(await screen.findByText('Chrono Trigger'))
+    await waitFor(() => expect(screen.getByLabelText(/Plataforma/i)).toHaveValue('PlayStation'))
+    detalhe.mockResolvedValue({ ...sugestao, platforms: [{ id: 7, name: 'PlayStation' }, { id: 6, name: 'PC' }] })
+    await user.clear(screen.getByLabelText(/Nome do jogo/i))
+    await user.type(screen.getByLabelText(/Nome do jogo/i), 'Chrono')
+    await user.click(await screen.findByText('Chrono Trigger'))
+    await waitFor(() => expect(screen.getByLabelText(/Plataforma/i)).toHaveValue(''))
   })
 
-  it('contador de caracteres atualiza e bloqueia além de 500', async () => {
+  it('mascara data, valida data inválida e avança o tempo com Enter', async () => {
     const user = userEvent.setup()
     render(<GameForm onSubmit={vi.fn()} />)
-
-    const textarea = screen.getByPlaceholderText(/Ex: 100% de conquistas/i)
-    expect(screen.getByText('0/500')).toBeInTheDocument()
-    expect(textarea).toHaveAttribute('maxLength', '500')
-
-    await user.type(textarea, 'Zerado com 100%')
-    expect(screen.getByText('15/500')).toBeInTheDocument()
+    const data = screen.getByLabelText(/Finalizado em/i)
+    await user.type(data, '130326')
+    fireEvent.blur(data)
+    expect(data).toHaveValue('13/03/2026')
+    const horas = screen.getByLabelText('Horas')
+    const minutos = screen.getByLabelText('Minutos')
+    const segundos = screen.getByLabelText('Segundos')
+    await user.type(horas, '13'); await user.keyboard('{Enter}')
+    expect(minutos).toHaveFocus()
+    await user.type(minutos, '2'); await user.keyboard('{Enter}')
+    expect(segundos).toHaveFocus()
   })
 
-  it('conflito 409 no destaque exibe mensagem e reverte o toggle', async () => {
+  it('nota, dificuldade e review usam os controles novos', async () => {
     const user = userEvent.setup()
-    const erro409 = new JogosApiError('jogos.destaque_ano_conflito', 'já existe um destaque para este ano', 409)
-    const handleSubmit = vi.fn().mockRejectedValue(erro409)
+    render(<GameForm onSubmit={vi.fn()} />)
+    await user.click(screen.getByRole('button', { name: '11' }))
+    expect(screen.getByText('11 · Jogo da Vida')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Muito difícil' }))
+    expect(screen.getByRole('button', { name: 'Muito difícil' })).toHaveAttribute('aria-pressed', 'true')
+    const review = screen.getByLabelText('Review')
+    await user.type(review, 'Final difícil')
+    expect(screen.getByText('13/500')).toBeInTheDocument()
+  })
 
-    render(<GameForm initialData={{ finalizado_em: '2026-02-01' }} onSubmit={handleSubmit} />)
-
+  it('conflito 409 mostra mensagem junto à coroa', async () => {
+    const erro = new JogosApiError('jogos.destaque_ano_conflito', 'Destaque já utilizado', 409)
+    const onSubmit = vi.fn().mockRejectedValue(erro)
+    const user = userEvent.setup()
+    render(<GameForm initialData={{ finalizado_em: '2026-02-01' }} onSubmit={onSubmit} />)
     await user.type(screen.getByLabelText(/Nome do jogo/i), 'Elden Ring')
-    await user.click(screen.getByLabelText(/Console/i))
-    await user.click(screen.getByRole('option', { name: 'PC' }))
-
-    const destaqueSwitch = screen.getByRole('switch', { name: /Marcar como jogo destaque do ano/i })
-    await user.click(destaqueSwitch)
-    expect(destaqueSwitch).toBeChecked()
-
+    await user.type(screen.getByLabelText(/Plataforma/i), 'PC')
+    preencherObrigatorios()
+    await user.click(screen.getByRole('button', { name: '11' }))
+    await user.click(screen.getByRole('button', { name: 'Normal' }))
+    await user.click(screen.getByRole('button', { name: 'Marcar como jogo do ano' }))
     await user.click(screen.getByRole('button', { name: 'Salvar registro' }))
-
-    await waitFor(() => {
-      expect(screen.getByText('já existe um destaque para este ano')).toBeInTheDocument()
-    })
-    expect(destaqueSwitch).not.toBeChecked()
+    await waitFor(() => expect(screen.getByText('Destaque já utilizado')).toBeInTheDocument())
   })
 })

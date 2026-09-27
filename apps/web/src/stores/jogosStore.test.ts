@@ -31,6 +31,17 @@ describe('jogosStore', () => {
     expect(result.current.error).toBeNull()
   })
 
+  it('limpa o registro em edição ao fechar o modal', () => {
+    const { result } = renderHook(() => useJogosStore(), {
+      wrapper: ({ children }) => JogosProvider({ children, initialJogos: [jogoMock] }),
+    })
+    act(() => result.current.abrirModalEdicao(jogoMock))
+    expect(result.current.jogoEmEdicao).toEqual(jogoMock)
+    act(() => result.current.fecharModal())
+    expect(result.current.isModalOpen).toBe(false)
+    expect(result.current.jogoEmEdicao).toBeNull()
+  })
+
   it('lança erro ao ser usado fora de JogosProvider', () => {
     expect(() => renderHook(() => useJogosStore())).toThrow(
       'useJogosStore deve ser utilizado dentro de um JogosProvider'
