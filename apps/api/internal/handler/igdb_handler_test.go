@@ -18,6 +18,8 @@ import (
 
 type igdbHandlerMock struct {
 	searchErr error
+	detail    *igdbclient.Game
+	detailErr error
 }
 
 func (m *igdbHandlerMock) BuscarJogos(context.Context, string) ([]igdbclient.Game, error) {
@@ -25,7 +27,7 @@ func (m *igdbHandlerMock) BuscarJogos(context.Context, string) ([]igdbclient.Gam
 }
 
 func (m *igdbHandlerMock) BuscarJogo(context.Context, int64) (*igdbclient.Game, error) {
-	return nil, nil
+	return m.detail, m.detailErr
 }
 
 func (m *igdbHandlerMock) ListarPlataformas(context.Context) ([]igdbclient.Platform, error) {
@@ -88,9 +90,7 @@ func TestIGDBHandlerSearch_Sucesso(t *testing.T) {
 			FirstReleaseDate: &date,
 			Summary:          "RPG",
 			GameType:         igdbclient.GameTypeMainGame,
-			VersionParent:    func() *int64 { value := int64(7); return &value }(),
 			TotalRatingCount: func() *int { value := 10; return &value }(),
-			ParentGame:       &igdbclient.ParentGame{ID: 1, Name: "Chrono Trigger"},
 			Platforms: []igdbclient.Platform{
 				{ID: 19, Name: "Super Nintendo Entertainment System"},
 				{ID: 7, Name: "PlayStation"},
@@ -145,6 +145,64 @@ func TestIGDBHandlerSearch_TermoAusenteOuVazio(t *testing.T) {
 				t.Fatalf("esperava código igdb.search.empty, obteve: %s", recorder.Body.String())
 			}
 		})
+	}
+}
+
+func TestIGDBHandlerDetail(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	date := int64(794880000)
+	game := &igdbclient.Game{ID: 1802, Name: "Chrono Trigger", FirstReleaseDate: &date, Platforms: []igdbclient.Platform{{ID: 19, Name: "Super Nintendo"}}}
+	router := gin.New()
+	router.GET("/jogos/igdb/:id", NewIGDBHandler(&igdbHandlerMock{detail: game}).BuscarJogo)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/jogos/igdb/1802", nil))
+	if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), `"Super Nintendo"`) {
+		t.Fatalf("status=%d body=%s", recorder.Code, recorder.Body.String())
+	}
+	for _, field := range []string{"game_type", "version_parent", "total_rating_count", "parent_game", "image_id"} {
+		if strings.Contains(recorder.Body.String(), field) {
+			t.Fatalf("campo interno %q exposto: %s", field, recorder.Body.String())
+		}
+	}
+}
+
+func TestIGDBHandlerDetailErrors(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	tests := []struct {
+		name string
+		path string
+		mock *igdbHandlerMock
+		code int
+	}{
+		{name: "invalid id", path: "/jogos/igdb/nope", mock: &igdbHandlerMock{}, code: http.StatusBadRequest},
+		{name: "not found", path: "/jogos/igdb/999", mock: &igdbHandlerMock{detailErr: service.ErrJogoIGDBNaoEncontrado}, code: http.StatusNotFound},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			router := gin.New()
+			router.GET("/jogos/igdb/:id", NewIGDBHandler(tc.mock).BuscarJogo)
+			recorder := httptest.NewRecorder()
+			router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, tc.path, nil))
+			if recorder.Code != tc.code {
+				t.Fatalf("status=%d body=%s", recorder.Code, recorder.Body.String())
+			}
+		})
+	}
+}
+
+func TestIGDBHandlerDetailSemToken(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	tokens, err := service.NewAuthToken(uuid.NewString(), 15*time.Minute, 168*time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	privadas := middleware.GrupoPrivado(router, tokens)
+	privadas.GET("/jogos/igdb/:id", NewIGDBHandler(&igdbHandlerMock{}).BuscarJogo)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/v1/jogos/igdb/1802", nil))
+	if recorder.Code != http.StatusUnauthorized {
+		t.Fatalf("status esperado 401, obteve %d", recorder.Code)
 	}
 }
 

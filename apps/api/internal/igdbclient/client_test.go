@@ -29,7 +29,7 @@ func TestClientSearchGamesOAuthAndCache(t *testing.T) {
 			if r.Header.Get("Authorization") != "Bearer private-token" || r.Header.Get("Client-ID") != "client" {
 				t.Fatal("igdb authorization headers missing")
 			}
-			_, _ = fmt.Fprint(w, `[{"name":"search","result":[{"id":1,"name":"Game","cover":{"url":"//cover"}}]},{"name":"contains","result":[]}]`)
+			_, _ = fmt.Fprint(w, `[{"name":"search","result":[{"id":1,"name":"Game","cover":{"url":"//cover"}}]},{"name":"exact","result":[]},{"name":"contains","result":[]}]`)
 		default:
 			http.NotFound(w, r)
 		}
@@ -65,7 +65,7 @@ func TestClientRenewsTokenBeforeExpiration(t *testing.T) {
 			_ = json.NewEncoder(w).Encode(accessToken{AccessToken: fmt.Sprintf("token-%d", tokenRequests), ExpiresIn: 3600})
 			return
 		}
-		_, _ = fmt.Fprint(w, `[]`)
+		_, _ = fmt.Fprint(w, `[{"name":"search","result":[{"id":1,"name":"Game"}]}]`)
 	}))
 	defer server.Close()
 	now := time.Now()
@@ -116,7 +116,7 @@ func TestClientThrottlesConcurrentRequests(t *testing.T) {
 		mu.Lock()
 		starts = append(starts, time.Now())
 		mu.Unlock()
-		_, _ = fmt.Fprint(w, `[]`)
+		_, _ = fmt.Fprint(w, `[{"name":"search","result":[{"id":1,"name":"Game"}]}]`)
 	}))
 	defer server.Close()
 	client := New(Config{ClientID: "client", ClientSecret: "secret", HTTPClient: server.Client(), TokenURL: server.URL + "/oauth", APIURL: server.URL + "/v4"})
@@ -226,7 +226,7 @@ func TestClientSearchGamesQuery(t *testing.T) {
 				t.Fatalf("ler body: %v", err)
 			}
 			requestBody = string(bodyBytes)
-			_, _ = fmt.Fprint(w, `[{"name":"search","result":[{"id":1022,"name":"The Legend of Zelda","cover":{"id":86202,"image_id":"co1uid"},"first_release_date":509328000,"summary":"Action RPG"}]},{"name":"contains","result":[{"id":1022,"name":"The Legend of Zelda"},{"id":1023,"name":"Zelda II"}]}]`)
+			_, _ = fmt.Fprint(w, `[{"name":"search","result":[{"id":1022,"name":"The Legend of Zelda","cover":{"id":86202,"image_id":"co1uid"},"first_release_date":509328000,"summary":"Action RPG"}]},{"name":"exact","result":[{"id":1022,"name":"The Legend of Zelda"}]},{"name":"contains","result":[{"id":1022,"name":"The Legend of Zelda"},{"id":1023,"name":"Zelda II"}]}]`)
 		default:
 			http.NotFound(w, r)
 		}
@@ -253,13 +253,19 @@ func TestClientSearchGamesQuery(t *testing.T) {
 	}
 	expectedClauses := []string{
 		`query games "search" {
-fields id, name, first_release_date, summary, cover.image_id, genres.name, game_type, version_parent, total_rating_count, platforms.name, parent_game.id, parent_game.name, parent_game.first_release_date, parent_game.cover.image_id, parent_game.platforms.name;
-where name = "zelda";
+fields id, name, first_release_date, summary, cover.image_id, genres.name, game_type, total_rating_count, platforms.name;
+search "zelda";
+where game_type = (0, 4, 8, 9, 10, 11, 12);
+limit 50;
+};`,
+		`query games "exact" {
+fields id, name, first_release_date, summary, cover.image_id, genres.name, game_type, total_rating_count, platforms.name;
+where name = "zelda" & game_type = (0, 4, 8, 9, 10, 11, 12);
 limit 50;
 };`,
 		`query games "contains" {
-fields id, name, first_release_date, summary, cover.image_id, genres.name, game_type, version_parent, total_rating_count, platforms.name, parent_game.id, parent_game.name, parent_game.first_release_date, parent_game.cover.image_id, parent_game.platforms.name;
-where name ~ *"zelda"*;
+fields id, name, first_release_date, summary, cover.image_id, genres.name, game_type, total_rating_count, platforms.name;
+where name ~ *"zelda"* & game_type = (0, 4, 8, 9, 10, 11, 12);
 limit 50;
 };`,
 	}
@@ -293,10 +299,10 @@ func TestClientSearchGamesEscapesQuery(t *testing.T) {
 	if _, err := client.SearchGames(context.Background(), `Chrono "Tr`); err != nil {
 		t.Fatal(err)
 	}
-	if contains(requestBody, `search "Chrono "Tr`) || contains(requestBody, `where name ~ *"Chrono "Tr`) {
+	if contains(requestBody, `search "Chrono "Tr`) || contains(requestBody, `where name ~ *"Chrono "Tr`) || contains(requestBody, `where name = "Chrono "Tr`) {
 		t.Fatalf("query não foi sanitizada: %q", requestBody)
 	}
-	if !contains(requestBody, `Chrono \"Tr`) {
+	if !contains(requestBody, `\"Tr`) {
 		t.Fatalf("query escapada ausente: %q", requestBody)
 	}
 }

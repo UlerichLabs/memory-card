@@ -120,6 +120,8 @@ func (h *IGDBHandler) respond(c *gin.Context, data any, err error) {
 		status, code = http.StatusTooManyRequests, "igdb.rate_limited"
 	case errors.Is(err, service.ErrIGDBIndisponivel):
 		status, code = http.StatusServiceUnavailable, "igdb.unavailable"
+	case errors.Is(err, service.ErrJogoIGDBNaoEncontrado):
+		status, code = http.StatusNotFound, "jogos.not_found"
 	default:
 		slog.ErrorContext(c.Request.Context(), "falha no proxy IGDB", "error", err)
 	}
