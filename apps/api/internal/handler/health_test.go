@@ -57,7 +57,7 @@ func TestHealthHandler_Check(t *testing.T) {
 			router.GET("/api/v1/health", h.Check)
 
 			req := httptest.NewRequest(http.MethodGet, "/api/v1/health", nil)
-			req.Header.Set("Origin", "http://localhost:5173")
+			req.Header.Set("Origin", "http://localhost:5180")
 			recorder := httptest.NewRecorder()
 
 			router.ServeHTTP(recorder, req)
@@ -89,7 +89,7 @@ func TestHealth_CrossOrigin(t *testing.T) {
 	router.GET("/api/v1/health", Health(checker))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/health", nil)
-	req.Header.Set("Origin", "http://localhost:5173")
+	req.Header.Set("Origin", "http://localhost:5180")
 	recorder := httptest.NewRecorder()
 
 	router.ServeHTTP(recorder, req)
