@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/UlerichLabs/memory-card/apps/api/internal/igdbclient"
@@ -12,6 +13,8 @@ import (
 type igdbMock struct {
 	platformGamesCalls  int
 	franchiseGamesCalls int
+	detail              *igdbclient.Game
+	detailErr           error
 }
 
 func (m *igdbMock) SearchGames(context.Context, string) ([]igdbclient.Game, error) {
@@ -19,7 +22,7 @@ func (m *igdbMock) SearchGames(context.Context, string) ([]igdbclient.Game, erro
 }
 
 func (m *igdbMock) GameDetails(context.Context, int64) (*igdbclient.Game, error) {
-	return nil, nil
+	return m.detail, m.detailErr
 }
 
 func (m *igdbMock) Platforms(context.Context) ([]igdbclient.Platform, error) {
@@ -140,8 +143,8 @@ func (m *customSearchMock) SearchGames(ctx context.Context, q string) ([]igdbcli
 
 func TestBuscarJogos_Filtros(t *testing.T) {
 	tests := []struct {
-		name      string
-		gameType  int
+		name       string
+		gameType   int
 		shouldKeep bool
 	}{
 		{"main game", igdbclient.GameTypeMainGame, true},
@@ -183,7 +186,7 @@ func TestBuscarJogos_Filtros(t *testing.T) {
 	}
 }
 
-func TestBuscarJogos_AgrupamentoChronoTrigger(t *testing.T) {
+func TestBuscarJogos_VersoesChronoTriggerDatas(t *testing.T) {
 	dateSNES := int64(794880000)
 	datePS1 := int64(943920000)
 	dateDS := int64(1227139200)
@@ -204,7 +207,6 @@ func TestBuscarJogos_AgrupamentoChronoTrigger(t *testing.T) {
 					GameType:         igdbclient.GameTypeExpandedGame,
 					FirstReleaseDate: &datePS1,
 					Platforms:        []igdbclient.Platform{{ID: 7, Name: "PlayStation"}},
-					ParentGame:       &igdbclient.ParentGame{ID: 1802, Name: "Chrono Trigger"},
 				},
 				{
 					ID:               20398,
@@ -212,7 +214,6 @@ func TestBuscarJogos_AgrupamentoChronoTrigger(t *testing.T) {
 					GameType:         igdbclient.GameTypePort,
 					FirstReleaseDate: &dateDS,
 					Platforms:        []igdbclient.Platform{{ID: 20, Name: "Nintendo DS"}},
-					ParentGame:       &igdbclient.ParentGame{ID: 263446, Name: "Chrono Trigger"},
 				},
 				{
 					ID:               206320,
@@ -220,7 +221,6 @@ func TestBuscarJogos_AgrupamentoChronoTrigger(t *testing.T) {
 					GameType:         igdbclient.GameTypePort,
 					FirstReleaseDate: &dateSteam,
 					Platforms:        []igdbclient.Platform{{ID: 6, Name: "PC (Microsoft Windows)"}},
-					ParentGame:       &igdbclient.ParentGame{ID: 20398, Name: "Chrono Trigger"},
 				},
 			}, nil
 		},
@@ -231,52 +231,39 @@ func TestBuscarJogos_AgrupamentoChronoTrigger(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(games) != 1 {
-		t.Fatalf("esperava 1 único resultado para Chrono Trigger, obteve %d", len(games))
+	if len(games) != 4 {
+		t.Fatalf("esperava 4 versões para Chrono Trigger, obteve %d", len(games))
 	}
 	g := games[0]
 	if g.ID != 1802 {
 		t.Fatalf("id esperado 1802, obteve %d", g.ID)
 	}
-	if len(g.Platforms) != 4 {
-		t.Fatalf("esperava 4 plataformas unificadas, obteve %d: %+v", len(g.Platforms), g.Platforms)
+	if len(g.Platforms) != 1 {
+		t.Fatalf("esperava plataforma própria, obteve %d: %+v", len(g.Platforms), g.Platforms)
 	}
 	hasSNES := false
-	hasPS := false
 	for _, p := range g.Platforms {
-		if p.Name == "Super Nintendo Entertainment System" {
+		if p.Name == "Super Nintendo" {
 			hasSNES = true
 		}
-		if p.Name == "PlayStation" {
-			hasPS = true
-		}
 	}
-	if !hasSNES || !hasPS {
-		t.Fatalf("plataformas esperadas SNES e PlayStation não encontradas: %+v", g.Platforms)
+	if !hasSNES {
+		t.Fatalf("plataforma esperada não encontrada: %+v", g.Platforms)
 	}
 }
 
-func TestBuscarJogos_AgrupamentoPaiAusente(t *testing.T) {
-	dateParent := int64(1000000000)
+func TestBuscarJogos_VersaoSemPai(t *testing.T) {
 	datePort := int64(1100000000)
-	cover := &igdbclient.Image{ID: 1, ImageID: "co1111", URL: "//images.igdb.com/igdb/image/upload/t_thumb/co1111.jpg"}
 
 	mock := &customSearchMock{
 		searchFn: func(ctx context.Context, query string) ([]igdbclient.Game, error) {
 			return []igdbclient.Game{
 				{
 					ID:               501,
-					Name:             "Persona 3 Portable",
+					Name:             "Persona 3",
 					GameType:         igdbclient.GameTypePort,
 					FirstReleaseDate: &datePort,
 					Platforms:        []igdbclient.Platform{{ID: 38, Name: "PlayStation Portable"}},
-					ParentGame: &igdbclient.ParentGame{
-						ID:               101,
-						Name:             "Persona 3",
-						FirstReleaseDate: &dateParent,
-						Cover:            cover,
-						Platforms:        []igdbclient.Platform{{ID: 8, Name: "PlayStation 2"}},
-					},
 				},
 			}, nil
 		},
@@ -288,18 +275,18 @@ func TestBuscarJogos_AgrupamentoPaiAusente(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(games) != 1 {
-		t.Fatalf("esperava 1 jogo pai sintetizado, obteve %d", len(games))
+		t.Fatalf("esperava 1 jogo, obteve %d", len(games))
 	}
 	g := games[0]
-	if g.ID != 101 || g.Name != "Persona 3" {
-		t.Fatalf("dados do pai incorretos: %+v", g)
+	if g.ID != 501 || g.Name != "Persona 3" {
+		t.Fatalf("dados incorretos: %+v", g)
 	}
-	if len(g.Platforms) != 2 {
-		t.Fatalf("esperava união das 2 plataformas, obteve %d: %+v", len(g.Platforms), g.Platforms)
+	if len(g.Platforms) != 1 {
+		t.Fatalf("esperava plataforma própria, obteve %d: %+v", len(g.Platforms), g.Platforms)
 	}
 }
 
-func TestBuscarJogos_RemakeNaoAgrupado(t *testing.T) {
+func TestBuscarJogos_RemakePermaneceSeparado(t *testing.T) {
 	dateOriginal := int64(1030579200)
 	dateRemake := int64(1600992000)
 	mock := &customSearchMock{
@@ -318,13 +305,11 @@ func TestBuscarJogos_RemakeNaoAgrupado(t *testing.T) {
 					GameType:         igdbclient.GameTypeRemake,
 					FirstReleaseDate: &dateRemake,
 					Platforms:        []igdbclient.Platform{{ID: 48, Name: "PlayStation 4"}},
-					ParentGame:       &igdbclient.ParentGame{ID: 39, Name: "Mafia"},
 				},
 				{
-					ID:         392531,
-					Name:       "Mafia: Definitive Edition - Chicago Outfit Pack",
-					GameType:   igdbclient.GameTypePack,
-					ParentGame: &igdbclient.ParentGame{ID: 134070, Name: "Mafia: Definitive Edition"},
+					ID:       392531,
+					Name:     "Mafia: Definitive Edition - Chicago Outfit Pack",
+					GameType: igdbclient.GameTypePack,
 				},
 			}, nil
 		},
@@ -444,9 +429,9 @@ func TestBuscarJogos_Limite10(t *testing.T) {
 
 func TestBuscarJogos_ErrosTraduzidos(t *testing.T) {
 	tests := []struct {
-		name       string
-		clientErr  error
-		targetErr  error
+		name      string
+		clientErr error
+		targetErr error
 	}{
 		{"rate limit", igdbclient.ErrRateLimited, ErrIGDBRateLimit},
 		{"unavailable", igdbclient.ErrUnavailable, ErrIGDBIndisponivel},
@@ -475,5 +460,163 @@ func TestBuscarJogos_QueryRepassadaAoClient(t *testing.T) {
 	_, _ = svc.BuscarJogos(context.Background(), "  Super Mario  ")
 	if mock.lastQuery != "Super Mario" {
 		t.Fatalf("esperava consulta 'Super Mario', obteve %q", mock.lastQuery)
+	}
+}
+
+func TestBuscarJogos_BuscaParcialEDeduplicacao(t *testing.T) {
+	mock := &customSearchMock{
+		searchFn: func(context.Context, string) ([]igdbclient.Game, error) {
+			return []igdbclient.Game{
+				{ID: 1, Name: "Chrono Trigger"},
+				{ID: 1, Name: "Chrono Trigger"},
+				{ID: 2, Name: "Chrono Cross"},
+			}, nil
+		},
+	}
+
+	games, err := NewIGDBService(mock, &cacheMock{items: make(map[string]any)}).BuscarJogos(context.Background(), "Chrono Tr")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(games) != 2 || games[0].ID != 1 {
+		t.Fatalf("games=%+v, esperava Chrono Trigger no topo e ids únicos", games)
+	}
+	if tier := calculateTier("Chrono Trigger", normalizeString("Chrono Tr"), strings.Fields(normalizeString("Chrono Tr"))); tier != 3 {
+		t.Fatalf("tier=%d, esperava tier 3 para prefixo do último token", tier)
+	}
+}
+
+func TestBuscarJogos_VersoesMantemPlataformasProprias(t *testing.T) {
+	mock := &customSearchMock{
+		searchFn: func(context.Context, string) ([]igdbclient.Game, error) {
+			return []igdbclient.Game{
+				{
+					ID:               1,
+					Name:             "Chrono Trigger",
+					GameType:         igdbclient.GameTypeMainGame,
+					Platforms:        []igdbclient.Platform{{ID: 1, Name: "Super Nintendo Entertainment System"}},
+					TotalRatingCount: func() *int { value := 10; return &value }(),
+				},
+				{
+					ID:        2,
+					Name:      "Chrono Trigger",
+					GameType:  igdbclient.GameTypePort,
+					Platforms: []igdbclient.Platform{{ID: 2, Name: "PC (Microsoft Windows)"}},
+				},
+				{
+					ID:        3,
+					Name:      "Chrono Trigger: Character Library",
+					GameType:  igdbclient.GameTypeExpandedGame,
+					Platforms: []igdbclient.Platform{{ID: 3, Name: "Satellaview"}},
+				},
+			}, nil
+		},
+	}
+
+	games, err := NewIGDBService(mock, &cacheMock{items: make(map[string]any)}).BuscarJogos(context.Background(), "Chrono Trigger")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(games) != 3 {
+		t.Fatalf("games=%+v, esperava versões separadas", games)
+	}
+	if len(games[0].Platforms) != 1 || games[0].Platforms[0].Name != "Super Nintendo" {
+		t.Fatalf("plataformas da primeira versão=%+v", games[0].Platforms)
+	}
+	if len(games[1].Platforms) != 1 || games[1].Platforms[0].Name != "PC" {
+		t.Fatalf("plataformas da segunda versão=%+v", games[1].Platforms)
+	}
+	if games[2].Name != "Chrono Trigger: Character Library" || len(games[2].Platforms) != 1 || games[2].Platforms[0].Name != "Satellaview" {
+		t.Fatalf("subtítulo=%+v", games[2])
+	}
+}
+
+func TestBuscarJogos_VersoesChronoTrigger(t *testing.T) {
+	dates := []int64{794880000, 943920000, 1227139200, 1519689600}
+	games := []igdbclient.Game{
+		{ID: 1802, Name: "Chrono Trigger", GameType: igdbclient.GameTypeMainGame, FirstReleaseDate: &dates[0], Platforms: []igdbclient.Platform{{Name: "Super Nintendo Entertainment System"}}},
+		{ID: 263446, Name: "Chrono Trigger", GameType: igdbclient.GameTypeExpandedGame, FirstReleaseDate: &dates[1], Platforms: []igdbclient.Platform{{Name: "PlayStation"}}},
+		{ID: 20398, Name: "Chrono Trigger", GameType: igdbclient.GameTypePort, FirstReleaseDate: &dates[2], Platforms: []igdbclient.Platform{{Name: "Nintendo DS"}}},
+		{ID: 206320, Name: "Chrono Trigger", GameType: igdbclient.GameTypePort, FirstReleaseDate: &dates[3], Platforms: []igdbclient.Platform{{Name: "PC (Microsoft Windows)"}}},
+	}
+	mock := &customSearchMock{searchFn: func(context.Context, string) ([]igdbclient.Game, error) { return games, nil }}
+	result, err := NewIGDBService(mock, &cacheMock{items: make(map[string]any)}).BuscarJogos(context.Background(), "Chrono Trigger")
+	if err != nil || len(result) != 4 {
+		t.Fatalf("result=%+v err=%v", result, err)
+	}
+	want := map[int64]string{1802: "Super Nintendo", 263446: "PlayStation", 20398: "Nintendo DS", 206320: "PC"}
+	for _, game := range result {
+		if len(game.Platforms) != 1 || game.Platforms[0].Name != want[game.ID] {
+			t.Fatalf("versão %d plataformas=%+v", game.ID, game.Platforms)
+		}
+	}
+}
+
+func TestBuscarJogoDetalheMapeiaPlataformas(t *testing.T) {
+	mock := &igdbMock{detail: &igdbclient.Game{ID: 1, Platforms: []igdbclient.Platform{{Name: "PC (Microsoft Windows)"}, {Name: "PC"}, {Name: "Nintendo Entertainment System"}}}}
+	game, err := NewIGDBService(mock, &cacheMock{items: make(map[string]any)}).BuscarJogo(context.Background(), 1)
+	if err != nil || len(game.Platforms) != 2 || game.Platforms[0].Name != "PC" || game.Platforms[1].Name != "NES" {
+		t.Fatalf("game=%+v err=%v", game, err)
+	}
+}
+
+func TestBuscarJogoDetalheNaoEncontrado(t *testing.T) {
+	game, err := NewIGDBService(&igdbMock{}, &cacheMock{items: make(map[string]any)}).BuscarJogo(context.Background(), 999)
+	if game != nil || !errors.Is(err, ErrJogoIGDBNaoEncontrado) {
+		t.Fatalf("game=%+v err=%v", game, err)
+	}
+}
+
+func TestBuscarJogos_MapeiaPlataformasEDeduplicaAposMapeamento(t *testing.T) {
+	mock := &customSearchMock{
+		searchFn: func(context.Context, string) ([]igdbclient.Game, error) {
+			return []igdbclient.Game{{
+				ID:       1,
+				Name:     "Game",
+				GameType: igdbclient.GameTypeMainGame,
+				Platforms: []igdbclient.Platform{
+					{ID: 1, Name: "PC (Microsoft Windows)"},
+					{ID: 2, Name: "PC"},
+					{ID: 3, Name: "Super Nintendo Entertainment System"},
+					{ID: 4, Name: "Nintendo Entertainment System"},
+					{ID: 5, Name: "Satellaview"},
+				},
+			}}, nil
+		},
+	}
+
+	games, err := NewIGDBService(mock, &cacheMock{items: make(map[string]any)}).BuscarJogos(context.Background(), "Game")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"PC", "Super Nintendo", "NES", "Satellaview"}
+	if len(games) != 1 || len(games[0].Platforms) != len(want) {
+		t.Fatalf("games=%+v", games)
+	}
+	for i, platform := range games[0].Platforms {
+		if platform.Name != want[i] {
+			t.Fatalf("platform[%d]=%q, want %q", i, platform.Name, want[i])
+		}
+	}
+}
+
+func TestBuscarJogos_RebaixaSemAvaliacao(t *testing.T) {
+	rating := 10
+	mock := &customSearchMock{
+		searchFn: func(context.Context, string) ([]igdbclient.Game, error) {
+			return []igdbclient.Game{
+				{ID: 1, Name: "Chrono Trigger", TotalRatingCount: &rating},
+				{ID: 2, Name: "Chrono Trigger Character Library"},
+				{ID: 3, Name: "Chrono Trigger Music Library"},
+			}, nil
+		},
+	}
+
+	games, err := NewIGDBService(mock, &cacheMock{items: make(map[string]any)}).BuscarJogos(context.Background(), "Chrono Trigger")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(games) != 3 || games[0].ID != 1 || games[1].ID != 2 || games[2].ID != 3 {
+		t.Fatalf("games=%+v, esperava resultados sem avaliação no fim", games)
 	}
 }

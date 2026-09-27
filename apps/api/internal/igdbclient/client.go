@@ -61,25 +61,15 @@ const (
 )
 
 type Game struct {
-	ID               int64       `json:"id"`
-	Name             string      `json:"name"`
-	Cover            *Image      `json:"cover,omitempty"`
-	FirstReleaseDate *int64      `json:"first_release_date,omitempty"`
-	Platforms        []Platform  `json:"platforms,omitempty"`
-	Genres           []Genre     `json:"genres,omitempty"`
-	Summary          string      `json:"summary,omitempty"`
-	GameType         int         `json:"game_type"`
-	VersionParent    *int64      `json:"version_parent,omitempty"`
-	TotalRatingCount *int        `json:"total_rating_count,omitempty"`
-	ParentGame       *ParentGame `json:"parent_game,omitempty"`
-}
-
-type ParentGame struct {
 	ID               int64      `json:"id"`
 	Name             string     `json:"name"`
-	FirstReleaseDate *int64     `json:"first_release_date,omitempty"`
 	Cover            *Image     `json:"cover,omitempty"`
+	FirstReleaseDate *int64     `json:"first_release_date,omitempty"`
 	Platforms        []Platform `json:"platforms,omitempty"`
+	Genres           []Genre    `json:"genres,omitempty"`
+	Summary          string     `json:"summary,omitempty"`
+	GameType         int        `json:"game_type"`
+	TotalRatingCount *int       `json:"total_rating_count,omitempty"`
 }
 
 type Platform struct {
@@ -101,6 +91,10 @@ type Image struct {
 	ID      int64  `json:"id"`
 	ImageID string `json:"image_id,omitempty"`
 	URL     string `json:"url,omitempty"`
+}
+
+type multiqueryResult struct {
+	Result []Game `json:"result"`
 }
 
 func (img *Image) EnsureURL() {
@@ -139,18 +133,61 @@ func (c *Client) SearchGames(ctx context.Context, query string) ([]Game, error) 
 	if query == "" {
 		return []Game{}, nil
 	}
-	body := fmt.Sprintf("fields id, name, first_release_date, summary, cover.image_id, genres.name, game_type, version_parent, total_rating_count, platforms.name, parent_game.id, parent_game.name, parent_game.first_release_date, parent_game.cover.image_id, parent_game.platforms.name; search %q; limit 50;", query)
-	games, err := c.games(ctx, body)
-	if err != nil {
+	escapedQuery := escapeApicalypse(query)
+	fields := "fields id, name, first_release_date, summary, cover.image_id, genres.name, game_type, total_rating_count, platforms.name;"
+	filter := "game_type = (0, 4, 8, 9, 10, 11, 12)"
+	containsWhere := buildContainsWhere(query)
+	body := fmt.Sprintf("query games \"search\" {\n%s\nsearch \"%s\";\nwhere %s;\nlimit 50;\n};\nquery games \"exact\" {\n%s\nwhere name = \"%s\" & %s;\nlimit 50;\n};\nquery games \"contains\" {\n%s\nwhere %s & %s;\nlimit 50;\n};", fields, escapedQuery, filter, fields, escapedQuery, filter, fields, containsWhere, filter)
+	var queries []multiqueryResult
+	if err := c.query(ctx, "multiquery", body, &queries); err != nil {
 		return nil, err
+	}
+	games := mergeGames(queries)
+	if len(games) == 0 {
+		var err error
+		games, err = c.games(ctx, fmt.Sprintf("%s where %s & %s; limit 50;", fields, containsWhere, filter))
+		if err != nil {
+			return nil, err
+		}
 	}
 	for i := range games {
 		games[i].Cover.EnsureURL()
-		if games[i].ParentGame != nil {
-			games[i].ParentGame.Cover.EnsureURL()
-		}
 	}
 	return games, nil
+}
+
+func escapeApicalypse(value string) string {
+	value = strings.ReplaceAll(value, `\`, `\\`)
+	return strings.ReplaceAll(value, `"`, `\"`)
+}
+
+func buildContainsWhere(value string) string {
+	tokens := strings.Fields(value)
+	clauses := make([]string, 0, len(tokens))
+	for _, token := range tokens {
+		escaped := escapeApicalypse(token)
+		clause := fmt.Sprintf(`name ~ *"%s"*`, escaped)
+		if strings.EqualFold(token, "pokemon") {
+			clause = fmt.Sprintf(`(%s | name ~ *"Pokémon"*)`, clause)
+		}
+		clauses = append(clauses, clause)
+	}
+	return strings.Join(clauses, " & ")
+}
+
+func mergeGames(queries []multiqueryResult) []Game {
+	games := make([]Game, 0)
+	seen := make(map[int64]bool)
+	for _, query := range queries {
+		for _, game := range query.Result {
+			if seen[game.ID] {
+				continue
+			}
+			seen[game.ID] = true
+			games = append(games, game)
+		}
+	}
+	return games
 }
 
 func (c *Client) GameDetails(ctx context.Context, id int64) (*Game, error) {

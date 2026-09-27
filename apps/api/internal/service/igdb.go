@@ -15,9 +15,10 @@ import (
 )
 
 var (
-	ErrTermoIGDBVazio   = errors.New("igdb.search.empty")
-	ErrIGDBIndisponivel = errors.New("igdb.unavailable")
-	ErrIGDBRateLimit    = errors.New("igdb.rate_limited")
+	ErrTermoIGDBVazio        = errors.New("igdb.search.empty")
+	ErrIGDBIndisponivel      = errors.New("igdb.unavailable")
+	ErrIGDBRateLimit         = errors.New("igdb.rate_limited")
+	ErrJogoIGDBNaoEncontrado = errors.New("jogos.not_found")
 )
 
 var normTransformer = transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), norm.NFC)
@@ -52,99 +53,44 @@ func (svc *IGDBService) BuscarJogos(ctx context.Context, termo string) ([]igdbcl
 	}
 	games, err := svc.client.SearchGames(ctx, termo)
 	if err != nil {
-		if errors.Is(err, igdbclient.ErrRateLimited) {
-			return nil, fmt.Errorf("%w: %w", ErrIGDBRateLimit, err)
-		}
-		return nil, fmt.Errorf("%w: %w", ErrIGDBIndisponivel, err)
+		return nil, traduzErroIGDB(err)
 	}
+	games = deduplicateGames(games)
 
 	var filtered []igdbclient.Game
 	for _, g := range games {
 		if isAllowedGameType(g.GameType) {
+			normalizePlatforms(&g.Platforms)
 			filtered = append(filtered, g)
 		}
 	}
-
-	gamesByID := make(map[int64]*igdbclient.Game, len(filtered))
-	for i := range filtered {
-		g := filtered[i]
-		gamesByID[g.ID] = &g
-	}
-
-	syntheticParents := make(map[int64]*igdbclient.Game)
-	mergedIDs := make(map[int64]bool)
-
-	for _, g := range filtered {
-		parentName := getParentName(g, gamesByID)
-		if !shouldGroupIntoParent(g, parentName) {
-			continue
-		}
-		targetID := resolveTargetParentID(getParentID(g), gamesByID)
-		if targetID == 0 || targetID == g.ID {
-			continue
-		}
-		targetGame, exists := gamesByID[targetID]
-		if !exists {
-			synth, synthExists := syntheticParents[targetID]
-			if !synthExists {
-				if g.ParentGame != nil && g.ParentGame.ID == targetID {
-					p := &igdbclient.Game{
-						ID:               g.ParentGame.ID,
-						Name:             g.ParentGame.Name,
-						FirstReleaseDate: g.ParentGame.FirstReleaseDate,
-						Cover:            g.ParentGame.Cover,
-						Platforms:        append([]igdbclient.Platform(nil), g.ParentGame.Platforms...),
-						GameType:         igdbclient.GameTypeMainGame,
-					}
-					syntheticParents[targetID] = p
-					targetGame = p
-				}
-			} else {
-				targetGame = synth
-			}
-		}
-		if targetGame != nil {
-			mergePlatforms(&targetGame.Platforms, g.Platforms)
-			if targetGame.TotalRatingCount == nil && g.TotalRatingCount != nil {
-				targetGame.TotalRatingCount = g.TotalRatingCount
-			}
-			if targetGame.Summary == "" && g.Summary != "" {
-				targetGame.Summary = g.Summary
-			}
-			if len(targetGame.Genres) == 0 && len(g.Genres) > 0 {
-				targetGame.Genres = g.Genres
-			}
-			mergedIDs[g.ID] = true
-		}
-	}
-
-	finalGames := make([]igdbclient.Game, 0, len(filtered))
-	for _, g := range filtered {
-		if !mergedIDs[g.ID] {
-			finalGames = append(finalGames, *gamesByID[g.ID])
-		}
-	}
-	for _, p := range syntheticParents {
-		finalGames = append(finalGames, *p)
-	}
+	finalGames := filtered
 
 	normTerm := normalizeString(termo)
 	termTokens := strings.Fields(normTerm)
+	hasExactRated := false
+	for _, game := range finalGames {
+		if calculateTier(game.Name, normTerm, termTokens) == 1 && ratingCount(game) > 0 {
+			hasExactRated = true
+			break
+		}
+	}
 
 	sort.SliceStable(finalGames, func(i, j int) bool {
+		if hasExactRated {
+			unratedA := ratingCount(finalGames[i]) == 0
+			unratedB := ratingCount(finalGames[j]) == 0
+			if unratedA != unratedB {
+				return !unratedA
+			}
+		}
 		tierA := calculateTier(finalGames[i].Name, normTerm, termTokens)
 		tierB := calculateTier(finalGames[j].Name, normTerm, termTokens)
 		if tierA != tierB {
 			return tierA < tierB
 		}
-		ratingA := 0
-		if finalGames[i].TotalRatingCount != nil {
-			ratingA = *finalGames[i].TotalRatingCount
-		}
-		ratingB := 0
-		if finalGames[j].TotalRatingCount != nil {
-			ratingB = *finalGames[j].TotalRatingCount
-		}
+		ratingA := ratingCount(finalGames[i])
+		ratingB := ratingCount(finalGames[j])
 		if ratingA != ratingB {
 			return ratingA > ratingB
 		}
@@ -188,89 +134,44 @@ func isAllowedGameType(gt int) bool {
 	}
 }
 
-func getParentID(g igdbclient.Game) int64 {
-	if g.ParentGame != nil && g.ParentGame.ID > 0 {
-		return g.ParentGame.ID
-	}
-	if g.VersionParent != nil && *g.VersionParent > 0 {
-		return *g.VersionParent
-	}
-	return 0
-}
-
-func getParentName(g igdbclient.Game, gamesByID map[int64]*igdbclient.Game) string {
-	if g.ParentGame != nil && g.ParentGame.Name != "" {
-		return g.ParentGame.Name
-	}
-	if pid := getParentID(g); pid > 0 {
-		if p, ok := gamesByID[pid]; ok {
-			return p.Name
-		}
-	}
-	return ""
-}
-
-func shouldGroupIntoParent(g igdbclient.Game, parentName string) bool {
-	hasParent := (g.ParentGame != nil && g.ParentGame.ID > 0) || (g.VersionParent != nil && *g.VersionParent > 0)
-	if !hasParent {
-		return false
-	}
-	if g.GameType == igdbclient.GameTypeRemake {
-		return false
-	}
-	if g.GameType == igdbclient.GameTypeStandaloneExpansion {
-		return false
-	}
-	if g.GameType == igdbclient.GameTypeRemaster {
-		return parentName != "" && normalizeString(g.Name) == normalizeString(parentName)
-	}
-	return true
-}
-
-func resolveTargetParentID(startID int64, gamesByID map[int64]*igdbclient.Game) int64 {
-	curr := startID
-	visited := map[int64]bool{curr: true}
-	for {
-		g, exists := gamesByID[curr]
-		if !exists {
-			return curr
-		}
-		pName := getParentName(*g, gamesByID)
-		if !shouldGroupIntoParent(*g, pName) {
-			return curr
-		}
-		nextID := getParentID(*g)
-		if nextID == 0 || visited[nextID] {
-			return curr
-		}
-		visited[nextID] = true
-		curr = nextID
-	}
-}
-
-func mergePlatforms(target *[]igdbclient.Platform, extra []igdbclient.Platform) {
-	seenID := make(map[int64]bool, len(*target))
-	seenName := make(map[string]bool, len(*target))
-	for _, p := range *target {
-		if p.ID > 0 {
-			seenID[p.ID] = true
-		}
-		if p.Name != "" {
-			seenName[strings.ToLower(strings.TrimSpace(p.Name))] = true
-		}
-	}
-	for _, p := range extra {
-		norm := strings.ToLower(strings.TrimSpace(p.Name))
-		if (p.ID > 0 && seenID[p.ID]) || (norm != "" && seenName[norm]) {
+func deduplicateGames(games []igdbclient.Game) []igdbclient.Game {
+	unique := make([]igdbclient.Game, 0, len(games))
+	seen := make(map[int64]bool, len(games))
+	for _, game := range games {
+		if seen[game.ID] {
 			continue
 		}
-		if p.ID > 0 {
-			seenID[p.ID] = true
+		seen[game.ID] = true
+		unique = append(unique, game)
+	}
+	return unique
+}
+
+func normalizePlatforms(platforms *[]igdbclient.Platform) {
+	seen := make(map[string]bool, len(*platforms))
+	result := make([]igdbclient.Platform, 0, len(*platforms))
+	for _, platform := range *platforms {
+		platform.Name = platformDisplayName(platform.Name)
+		key := strings.ToLower(strings.TrimSpace(platform.Name))
+		if key == "" || seen[key] {
+			continue
 		}
-		if norm != "" {
-			seenName[norm] = true
-		}
-		*target = append(*target, p)
+		seen[key] = true
+		result = append(result, platform)
+	}
+	*platforms = result
+}
+
+func platformDisplayName(name string) string {
+	switch name {
+	case "PC (Microsoft Windows)":
+		return "PC"
+	case "Super Nintendo Entertainment System":
+		return "Super Nintendo"
+	case "Nintendo Entertainment System":
+		return "NES"
+	default:
+		return name
 	}
 }
 
@@ -296,7 +197,7 @@ func calculateTier(name, normTerm string, termTokens []string) int {
 	if normName == normTerm {
 		return 1
 	}
-	if strings.HasPrefix(normName, normTerm) {
+	if strings.HasPrefix(normName, normTerm) && (len(normName) == len(normTerm) || normName[len(normTerm)] == ' ') {
 		return 2
 	}
 	if len(termTokens) > 0 && containsAllTokens(normName, termTokens) {
@@ -306,16 +207,46 @@ func calculateTier(name, normTerm string, termTokens []string) int {
 }
 
 func containsAllTokens(normName string, tokens []string) bool {
-	for _, t := range tokens {
-		if !strings.Contains(normName, t) {
+	words := strings.Fields(normName)
+	for i, token := range tokens {
+		matched := false
+		for _, word := range words {
+			if (i == len(tokens)-1 && strings.HasPrefix(word, token)) || (i != len(tokens)-1 && strings.Contains(word, token)) {
+				matched = true
+				break
+			}
+		}
+		if !matched {
 			return false
 		}
 	}
 	return true
 }
 
+func ratingCount(game igdbclient.Game) int {
+	if game.TotalRatingCount == nil {
+		return 0
+	}
+	return *game.TotalRatingCount
+}
+
+func traduzErroIGDB(err error) error {
+	if errors.Is(err, igdbclient.ErrRateLimited) {
+		return fmt.Errorf("%w: %w", ErrIGDBRateLimit, err)
+	}
+	return fmt.Errorf("%w: %w", ErrIGDBIndisponivel, err)
+}
+
 func (svc *IGDBService) BuscarJogo(ctx context.Context, id int64) (*igdbclient.Game, error) {
-	return svc.client.GameDetails(ctx, id)
+	game, err := svc.client.GameDetails(ctx, id)
+	if err != nil {
+		return nil, traduzErroIGDB(err)
+	}
+	if game == nil {
+		return nil, ErrJogoIGDBNaoEncontrado
+	}
+	normalizePlatforms(&game.Platforms)
+	return game, nil
 }
 
 func (svc *IGDBService) ListarPlataformas(ctx context.Context) ([]igdbclient.Platform, error) {
