@@ -61,9 +61,8 @@ func TestIGDBHandlerSearchErrors(t *testing.T) {
 		body string
 	}{
 		{name: "empty", err: service.ErrTermoIGDBVazio, code: http.StatusBadRequest, body: `"codigo":"igdb.search.empty"`},
-		{name: "rate limit", err: igdbclient.ErrRateLimited, code: http.StatusTooManyRequests, body: `"codigo":"igdb.rate_limited"`},
-		{name: "authentication", err: igdbclient.ErrAuthentication, code: http.StatusBadGateway, body: `"codigo":"igdb.unavailable"`},
-		{name: "unavailable", err: igdbclient.ErrUnavailable, code: http.StatusBadGateway, body: `"codigo":"igdb.unavailable"`},
+		{name: "rate limit", err: service.ErrIGDBRateLimit, code: http.StatusTooManyRequests, body: `"codigo":"igdb.rate_limited"`},
+		{name: "unavailable", err: service.ErrIGDBIndisponivel, code: http.StatusServiceUnavailable, body: `"codigo":"igdb.unavailable"`},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -85,7 +84,13 @@ func TestIGDBHandlerSearch_Sucesso(t *testing.T) {
 		{
 			ID:               1802,
 			Name:             "Chrono Trigger",
+			Cover:            &igdbclient.Image{ID: 1, ImageID: "co1uid", URL: "//images.igdb.com/igdb/image/upload/t_thumb/co1uid.jpg"},
 			FirstReleaseDate: &date,
+			Summary:          "RPG",
+			GameType:         igdbclient.GameTypeMainGame,
+			VersionParent:    func() *int64 { value := int64(7); return &value }(),
+			TotalRatingCount: func() *int { value := 10; return &value }(),
+			ParentGame:       &igdbclient.ParentGame{ID: 1, Name: "Chrono Trigger"},
 			Platforms: []igdbclient.Platform{
 				{ID: 19, Name: "Super Nintendo Entertainment System"},
 				{ID: 7, Name: "PlayStation"},
@@ -104,8 +109,13 @@ func TestIGDBHandlerSearch_Sucesso(t *testing.T) {
 		t.Fatalf("status esperado 200, obteve %d", recorder.Code)
 	}
 	body := recorder.Body.String()
-	if !strings.Contains(body, `"name":"Chrono Trigger"`) || !strings.Contains(body, `"PlayStation"`) || !strings.Contains(body, `"Super Nintendo`) {
+	if !strings.Contains(body, `"name":"Chrono Trigger"`) || !strings.Contains(body, `"PlayStation"`) || !strings.Contains(body, `"Super Nintendo`) || !strings.Contains(body, `"cover":{"url":"//images.igdb.com`) {
 		t.Fatalf("corpo inesperado: %s", body)
+	}
+	for _, field := range []string{"game_type", "version_parent", "total_rating_count", "parent_game", "image_id"} {
+		if strings.Contains(body, field) {
+			t.Fatalf("campo interno %q exposto: %s", field, body)
+		}
 	}
 }
 

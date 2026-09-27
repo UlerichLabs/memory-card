@@ -24,12 +24,12 @@ func TestClientSearchGamesOAuthAndCache(t *testing.T) {
 				t.Fatal("oauth credentials missing")
 			}
 			_ = json.NewEncoder(w).Encode(accessToken{AccessToken: "private-token", ExpiresIn: 3600})
-		case "/v4/games":
+		case "/v4/multiquery":
 			apiRequests++
 			if r.Header.Get("Authorization") != "Bearer private-token" || r.Header.Get("Client-ID") != "client" {
 				t.Fatal("igdb authorization headers missing")
 			}
-			_, _ = fmt.Fprint(w, `[{"id":1,"name":"Game","cover":{"url":"//cover"}}]`)
+			_, _ = fmt.Fprint(w, `[{"name":"search","result":[{"id":1,"name":"Game","cover":{"url":"//cover"}}]},{"name":"contains","result":[]}]`)
 		default:
 			http.NotFound(w, r)
 		}
@@ -219,14 +219,14 @@ func TestClientSearchGamesQuery(t *testing.T) {
 		switch r.URL.Path {
 		case "/oauth":
 			_ = json.NewEncoder(w).Encode(accessToken{AccessToken: "token", ExpiresIn: 3600})
-		case "/v4/games":
+		case "/v4/multiquery":
 			requestPath = r.URL.Path
 			bodyBytes, err := io.ReadAll(r.Body)
 			if err != nil {
 				t.Fatalf("ler body: %v", err)
 			}
 			requestBody = string(bodyBytes)
-			_, _ = fmt.Fprint(w, `[{"id":1022,"name":"The Legend of Zelda","cover":{"id":86202,"image_id":"co1uid"},"first_release_date":509328000,"summary":"Action RPG"}]`)
+			_, _ = fmt.Fprint(w, `[{"name":"search","result":[{"id":1022,"name":"The Legend of Zelda","cover":{"id":86202,"image_id":"co1uid"},"first_release_date":509328000,"summary":"Action RPG"}]},{"name":"contains","result":[{"id":1022,"name":"The Legend of Zelda"},{"id":1023,"name":"Zelda II"}]}]`)
 		default:
 			http.NotFound(w, r)
 		}
@@ -245,16 +245,58 @@ func TestClientSearchGamesQuery(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SearchGames: %v", err)
 	}
-	if len(games) != 1 || games[0].Name != "The Legend of Zelda" || games[0].Summary != "Action RPG" || games[0].Cover.URL != "//images.igdb.com/igdb/image/upload/t_thumb/co1uid.jpg" {
+	if len(games) != 2 || games[0].Name != "The Legend of Zelda" || games[0].Summary != "Action RPG" || games[0].Cover.URL != "//images.igdb.com/igdb/image/upload/t_thumb/co1uid.jpg" {
 		t.Fatalf("games=%+v", games)
 	}
-	if requestPath != "/v4/games" {
-		t.Fatalf("path=%s, esperava /v4/games", requestPath)
+	if requestPath != "/v4/multiquery" {
+		t.Fatalf("path=%s, esperava /v4/multiquery", requestPath)
 	}
-	expectedClause := `fields id, name, first_release_date, summary, cover.image_id, genres.name, game_type, version_parent, total_rating_count, platforms.name, parent_game.id, parent_game.name, parent_game.first_release_date, parent_game.cover.image_id, parent_game.platforms.name; search "zelda"; limit 50;`
-	if requestBody != expectedClause {
-		t.Fatalf("body=%q, esperava %q", requestBody, expectedClause)
+	expectedClauses := []string{
+		`query games "search" {
+fields id, name, first_release_date, summary, cover.image_id, genres.name, game_type, version_parent, total_rating_count, platforms.name, parent_game.id, parent_game.name, parent_game.first_release_date, parent_game.cover.image_id, parent_game.platforms.name;
+where name = "zelda";
+limit 50;
+};`,
+		`query games "contains" {
+fields id, name, first_release_date, summary, cover.image_id, genres.name, game_type, version_parent, total_rating_count, platforms.name, parent_game.id, parent_game.name, parent_game.first_release_date, parent_game.cover.image_id, parent_game.platforms.name;
+where name ~ *"zelda"*;
+limit 50;
+};`,
+	}
+	for _, clause := range expectedClauses {
+		if !contains(requestBody, clause) {
+			t.Fatalf("body=%q não contém %q", requestBody, clause)
+		}
+	}
+	if len(games) != 2 || games[0].ID != 1022 || games[1].ID != 1023 {
+		t.Fatalf("games=%+v, esperava deduplicação por id", games)
 	}
 }
 
+func TestClientSearchGamesEscapesQuery(t *testing.T) {
+	var requestBody string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/oauth" {
+			_ = json.NewEncoder(w).Encode(accessToken{AccessToken: "token", ExpiresIn: 3600})
+			return
+		}
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		requestBody = string(body)
+		_, _ = fmt.Fprint(w, `[]`)
+	}))
+	defer server.Close()
 
+	client := New(Config{ClientID: "client", ClientSecret: "secret", HTTPClient: server.Client(), TokenURL: server.URL + "/oauth", APIURL: server.URL + "/v4"})
+	if _, err := client.SearchGames(context.Background(), `Chrono "Tr`); err != nil {
+		t.Fatal(err)
+	}
+	if contains(requestBody, `search "Chrono "Tr`) || contains(requestBody, `where name ~ *"Chrono "Tr`) {
+		t.Fatalf("query não foi sanitizada: %q", requestBody)
+	}
+	if !contains(requestBody, `Chrono \"Tr`) {
+		t.Fatalf("query escapada ausente: %q", requestBody)
+	}
+}

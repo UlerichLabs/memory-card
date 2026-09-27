@@ -29,6 +29,20 @@ type IGDBHandler struct {
 	service IGDBServicer
 }
 
+type igdbGameResponse struct {
+	ID               int64                 `json:"id"`
+	Name             string                `json:"name"`
+	Cover            *igdbImageResponse    `json:"cover,omitempty"`
+	FirstReleaseDate *int64                `json:"first_release_date,omitempty"`
+	Summary          string                `json:"summary,omitempty"`
+	Platforms        []igdbclient.Platform `json:"platforms,omitempty"`
+	Genres           []igdbclient.Genre    `json:"genres,omitempty"`
+}
+
+type igdbImageResponse struct {
+	URL string `json:"url,omitempty"`
+}
+
 func NewIGDBHandler(service IGDBServicer) *IGDBHandler {
 	return &IGDBHandler{service: service}
 }
@@ -95,7 +109,7 @@ func (h *IGDBHandler) AtualizarJogosDaFranquia(c *gin.Context) {
 
 func (h *IGDBHandler) respond(c *gin.Context, data any, err error) {
 	if err == nil {
-		c.JSON(http.StatusOK, gin.H{"data": data})
+		c.JSON(http.StatusOK, gin.H{"data": publicIGDBData(data)})
 		return
 	}
 	status, code := http.StatusBadGateway, "igdb.unavailable"
@@ -105,11 +119,45 @@ func (h *IGDBHandler) respond(c *gin.Context, data any, err error) {
 	case errors.Is(err, service.ErrIGDBRateLimit), errors.Is(err, igdbclient.ErrRateLimited):
 		status, code = http.StatusTooManyRequests, "igdb.rate_limited"
 	case errors.Is(err, service.ErrIGDBIndisponivel):
-		status, code = http.StatusBadGateway, "igdb.unavailable"
+		status, code = http.StatusServiceUnavailable, "igdb.unavailable"
 	default:
 		slog.ErrorContext(c.Request.Context(), "falha no proxy IGDB", "error", err)
 	}
 	c.JSON(status, gin.H{"error": gin.H{"codigo": code, "mensagem": i18n.T(c.GetHeader("Accept-Language"), code)}})
+}
+
+func publicIGDBData(data any) any {
+	switch value := data.(type) {
+	case []igdbclient.Game:
+		result := make([]igdbGameResponse, len(value))
+		for i := range value {
+			result[i] = publicIGDBGame(value[i])
+		}
+		return result
+	case *igdbclient.Game:
+		if value == nil {
+			return nil
+		}
+		result := publicIGDBGame(*value)
+		return result
+	default:
+		return data
+	}
+}
+
+func publicIGDBGame(game igdbclient.Game) igdbGameResponse {
+	result := igdbGameResponse{
+		ID:               game.ID,
+		Name:             game.Name,
+		FirstReleaseDate: game.FirstReleaseDate,
+		Summary:          game.Summary,
+		Platforms:        game.Platforms,
+		Genres:           game.Genres,
+	}
+	if game.Cover != nil {
+		result.Cover = &igdbImageResponse{URL: game.Cover.URL}
+	}
+	return result
 }
 
 func parseIGDBID(c *gin.Context) (int64, bool) {

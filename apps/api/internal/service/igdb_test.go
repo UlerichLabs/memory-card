@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/UlerichLabs/memory-card/apps/api/internal/igdbclient"
@@ -140,8 +141,8 @@ func (m *customSearchMock) SearchGames(ctx context.Context, q string) ([]igdbcli
 
 func TestBuscarJogos_Filtros(t *testing.T) {
 	tests := []struct {
-		name      string
-		gameType  int
+		name       string
+		gameType   int
 		shouldKeep bool
 	}{
 		{"main game", igdbclient.GameTypeMainGame, true},
@@ -244,7 +245,7 @@ func TestBuscarJogos_AgrupamentoChronoTrigger(t *testing.T) {
 	hasSNES := false
 	hasPS := false
 	for _, p := range g.Platforms {
-		if p.Name == "Super Nintendo Entertainment System" {
+		if p.Name == "Super Nintendo" {
 			hasSNES = true
 		}
 		if p.Name == "PlayStation" {
@@ -266,7 +267,7 @@ func TestBuscarJogos_AgrupamentoPaiAusente(t *testing.T) {
 			return []igdbclient.Game{
 				{
 					ID:               501,
-					Name:             "Persona 3 Portable",
+					Name:             "Persona 3",
 					GameType:         igdbclient.GameTypePort,
 					FirstReleaseDate: &datePort,
 					Platforms:        []igdbclient.Platform{{ID: 38, Name: "PlayStation Portable"}},
@@ -444,9 +445,9 @@ func TestBuscarJogos_Limite10(t *testing.T) {
 
 func TestBuscarJogos_ErrosTraduzidos(t *testing.T) {
 	tests := []struct {
-		name       string
-		clientErr  error
-		targetErr  error
+		name      string
+		clientErr error
+		targetErr error
 	}{
 		{"rate limit", igdbclient.ErrRateLimited, ErrIGDBRateLimit},
 		{"unavailable", igdbclient.ErrUnavailable, ErrIGDBIndisponivel},
@@ -475,5 +476,131 @@ func TestBuscarJogos_QueryRepassadaAoClient(t *testing.T) {
 	_, _ = svc.BuscarJogos(context.Background(), "  Super Mario  ")
 	if mock.lastQuery != "Super Mario" {
 		t.Fatalf("esperava consulta 'Super Mario', obteve %q", mock.lastQuery)
+	}
+}
+
+func TestBuscarJogos_BuscaParcialEDeduplicacao(t *testing.T) {
+	mock := &customSearchMock{
+		searchFn: func(context.Context, string) ([]igdbclient.Game, error) {
+			return []igdbclient.Game{
+				{ID: 1, Name: "Chrono Trigger"},
+				{ID: 1, Name: "Chrono Trigger"},
+				{ID: 2, Name: "Chrono Cross"},
+			}, nil
+		},
+	}
+
+	games, err := NewIGDBService(mock, &cacheMock{items: make(map[string]any)}).BuscarJogos(context.Background(), "Chrono Tr")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(games) != 2 || games[0].ID != 1 {
+		t.Fatalf("games=%+v, esperava Chrono Trigger no topo e ids únicos", games)
+	}
+	if tier := calculateTier("Chrono Trigger", normalizeString("Chrono Tr"), strings.Fields(normalizeString("Chrono Tr"))); tier != 3 {
+		t.Fatalf("tier=%d, esperava tier 3 para prefixo do último token", tier)
+	}
+}
+
+func TestBuscarJogos_AgrupamentoRestritoETipoPlataforma(t *testing.T) {
+	mock := &customSearchMock{
+		searchFn: func(context.Context, string) ([]igdbclient.Game, error) {
+			return []igdbclient.Game{
+				{
+					ID:               1,
+					Name:             "Chrono Trigger",
+					GameType:         igdbclient.GameTypeMainGame,
+					Platforms:        []igdbclient.Platform{{ID: 1, Name: "Super Nintendo Entertainment System"}},
+					TotalRatingCount: func() *int { value := 10; return &value }(),
+				},
+				{
+					ID:         2,
+					Name:       "Chrono Trigger",
+					GameType:   igdbclient.GameTypePort,
+					Platforms:  []igdbclient.Platform{{ID: 2, Name: "PC (Microsoft Windows)"}},
+					ParentGame: &igdbclient.ParentGame{ID: 1, Name: "Chrono Trigger"},
+				},
+				{
+					ID:         3,
+					Name:       "Chrono Trigger: Character Library",
+					GameType:   igdbclient.GameTypeExpandedGame,
+					Platforms:  []igdbclient.Platform{{ID: 3, Name: "Satellaview"}},
+					ParentGame: &igdbclient.ParentGame{ID: 1, Name: "Chrono Trigger"},
+				},
+			}, nil
+		},
+	}
+
+	games, err := NewIGDBService(mock, &cacheMock{items: make(map[string]any)}).BuscarJogos(context.Background(), "Chrono Trigger")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(games) != 2 {
+		t.Fatalf("games=%+v, esperava pai agrupado e subtítulo separado", games)
+	}
+	if len(games[0].Platforms) != 2 || games[0].Platforms[0].Name != "Super Nintendo" || games[0].Platforms[1].Name != "PC" {
+		t.Fatalf("plataformas do pai=%+v", games[0].Platforms)
+	}
+	for _, platform := range games[0].Platforms {
+		if platform.Name == "Satellaview" {
+			t.Fatal("Satellaview não deveria ser agrupada no pai")
+		}
+	}
+	if games[1].Name != "Chrono Trigger: Character Library" || games[1].Platforms[0].Name != "Satellaview" {
+		t.Fatalf("subtítulo=%+v", games[1])
+	}
+}
+
+func TestBuscarJogos_MapeiaPlataformasEDeduplicaAposMapeamento(t *testing.T) {
+	mock := &customSearchMock{
+		searchFn: func(context.Context, string) ([]igdbclient.Game, error) {
+			return []igdbclient.Game{{
+				ID:       1,
+				Name:     "Game",
+				GameType: igdbclient.GameTypeMainGame,
+				Platforms: []igdbclient.Platform{
+					{ID: 1, Name: "PC (Microsoft Windows)"},
+					{ID: 2, Name: "PC"},
+					{ID: 3, Name: "Super Nintendo Entertainment System"},
+					{ID: 4, Name: "Nintendo Entertainment System"},
+					{ID: 5, Name: "Satellaview"},
+				},
+			}}, nil
+		},
+	}
+
+	games, err := NewIGDBService(mock, &cacheMock{items: make(map[string]any)}).BuscarJogos(context.Background(), "Game")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"PC", "Super Nintendo", "NES", "Satellaview"}
+	if len(games) != 1 || len(games[0].Platforms) != len(want) {
+		t.Fatalf("games=%+v", games)
+	}
+	for i, platform := range games[0].Platforms {
+		if platform.Name != want[i] {
+			t.Fatalf("platform[%d]=%q, want %q", i, platform.Name, want[i])
+		}
+	}
+}
+
+func TestBuscarJogos_RebaixaSemAvaliacao(t *testing.T) {
+	rating := 10
+	mock := &customSearchMock{
+		searchFn: func(context.Context, string) ([]igdbclient.Game, error) {
+			return []igdbclient.Game{
+				{ID: 1, Name: "Chrono Trigger", TotalRatingCount: &rating},
+				{ID: 2, Name: "Chrono Trigger Character Library"},
+				{ID: 3, Name: "Chrono Trigger Music Library"},
+			}, nil
+		},
+	}
+
+	games, err := NewIGDBService(mock, &cacheMock{items: make(map[string]any)}).BuscarJogos(context.Background(), "Chrono Trigger")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(games) != 3 || games[0].ID != 1 || games[1].ID != 2 || games[2].ID != 3 {
+		t.Fatalf("games=%+v, esperava resultados sem avaliação no fim", games)
 	}
 }

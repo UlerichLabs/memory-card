@@ -57,10 +57,12 @@ func (svc *IGDBService) BuscarJogos(ctx context.Context, termo string) ([]igdbcl
 		}
 		return nil, fmt.Errorf("%w: %w", ErrIGDBIndisponivel, err)
 	}
+	games = deduplicateGames(games)
 
 	var filtered []igdbclient.Game
 	for _, g := range games {
 		if isAllowedGameType(g.GameType) {
+			normalizeGamePlatforms(&g)
 			filtered = append(filtered, g)
 		}
 	}
@@ -130,21 +132,29 @@ func (svc *IGDBService) BuscarJogos(ctx context.Context, termo string) ([]igdbcl
 
 	normTerm := normalizeString(termo)
 	termTokens := strings.Fields(normTerm)
+	hasExactRated := false
+	for _, game := range finalGames {
+		if calculateTier(game.Name, normTerm, termTokens) == 1 && ratingCount(game) > 0 {
+			hasExactRated = true
+			break
+		}
+	}
 
 	sort.SliceStable(finalGames, func(i, j int) bool {
+		if hasExactRated {
+			unratedA := ratingCount(finalGames[i]) == 0
+			unratedB := ratingCount(finalGames[j]) == 0
+			if unratedA != unratedB {
+				return !unratedA
+			}
+		}
 		tierA := calculateTier(finalGames[i].Name, normTerm, termTokens)
 		tierB := calculateTier(finalGames[j].Name, normTerm, termTokens)
 		if tierA != tierB {
 			return tierA < tierB
 		}
-		ratingA := 0
-		if finalGames[i].TotalRatingCount != nil {
-			ratingA = *finalGames[i].TotalRatingCount
-		}
-		ratingB := 0
-		if finalGames[j].TotalRatingCount != nil {
-			ratingB = *finalGames[j].TotalRatingCount
-		}
+		ratingA := ratingCount(finalGames[i])
+		ratingB := ratingCount(finalGames[j])
 		if ratingA != ratingB {
 			return ratingA > ratingB
 		}
@@ -215,16 +225,7 @@ func shouldGroupIntoParent(g igdbclient.Game, parentName string) bool {
 	if !hasParent {
 		return false
 	}
-	if g.GameType == igdbclient.GameTypeRemake {
-		return false
-	}
-	if g.GameType == igdbclient.GameTypeStandaloneExpansion {
-		return false
-	}
-	if g.GameType == igdbclient.GameTypeRemaster {
-		return parentName != "" && normalizeString(g.Name) == normalizeString(parentName)
-	}
-	return true
+	return parentName != "" && normalizeString(g.Name) == normalizeString(parentName)
 }
 
 func resolveTargetParentID(startID int64, gamesByID map[int64]*igdbclient.Game) int64 {
@@ -260,6 +261,7 @@ func mergePlatforms(target *[]igdbclient.Platform, extra []igdbclient.Platform) 
 		}
 	}
 	for _, p := range extra {
+		p.Name = platformDisplayName(p.Name)
 		norm := strings.ToLower(strings.TrimSpace(p.Name))
 		if (p.ID > 0 && seenID[p.ID]) || (norm != "" && seenName[norm]) {
 			continue
@@ -271,6 +273,43 @@ func mergePlatforms(target *[]igdbclient.Platform, extra []igdbclient.Platform) 
 			seenName[norm] = true
 		}
 		*target = append(*target, p)
+	}
+}
+
+func deduplicateGames(games []igdbclient.Game) []igdbclient.Game {
+	unique := make([]igdbclient.Game, 0, len(games))
+	seen := make(map[int64]bool, len(games))
+	for _, game := range games {
+		if seen[game.ID] {
+			continue
+		}
+		seen[game.ID] = true
+		unique = append(unique, game)
+	}
+	return unique
+}
+
+func normalizeGamePlatforms(game *igdbclient.Game) {
+	platforms := make([]igdbclient.Platform, 0, len(game.Platforms))
+	mergePlatforms(&platforms, game.Platforms)
+	game.Platforms = platforms
+	if game.ParentGame != nil {
+		parentPlatforms := make([]igdbclient.Platform, 0, len(game.ParentGame.Platforms))
+		mergePlatforms(&parentPlatforms, game.ParentGame.Platforms)
+		game.ParentGame.Platforms = parentPlatforms
+	}
+}
+
+func platformDisplayName(name string) string {
+	switch name {
+	case "PC (Microsoft Windows)":
+		return "PC"
+	case "Super Nintendo Entertainment System":
+		return "Super Nintendo"
+	case "Nintendo Entertainment System":
+		return "NES"
+	default:
+		return name
 	}
 }
 
@@ -296,7 +335,7 @@ func calculateTier(name, normTerm string, termTokens []string) int {
 	if normName == normTerm {
 		return 1
 	}
-	if strings.HasPrefix(normName, normTerm) {
+	if strings.HasPrefix(normName, normTerm) && (len(normName) == len(normTerm) || normName[len(normTerm)] == ' ') {
 		return 2
 	}
 	if len(termTokens) > 0 && containsAllTokens(normName, termTokens) {
@@ -306,12 +345,27 @@ func calculateTier(name, normTerm string, termTokens []string) int {
 }
 
 func containsAllTokens(normName string, tokens []string) bool {
-	for _, t := range tokens {
-		if !strings.Contains(normName, t) {
+	words := strings.Fields(normName)
+	for i, token := range tokens {
+		matched := false
+		for _, word := range words {
+			if (i == len(tokens)-1 && strings.HasPrefix(word, token)) || (i != len(tokens)-1 && strings.Contains(word, token)) {
+				matched = true
+				break
+			}
+		}
+		if !matched {
 			return false
 		}
 	}
 	return true
+}
+
+func ratingCount(game igdbclient.Game) int {
+	if game.TotalRatingCount == nil {
+		return 0
+	}
+	return *game.TotalRatingCount
 }
 
 func (svc *IGDBService) BuscarJogo(ctx context.Context, id int64) (*igdbclient.Game, error) {

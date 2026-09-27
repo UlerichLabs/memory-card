@@ -103,6 +103,10 @@ type Image struct {
 	URL     string `json:"url,omitempty"`
 }
 
+type multiqueryResult struct {
+	Result []Game `json:"result"`
+}
+
 func (img *Image) EnsureURL() {
 	if img != nil && img.URL == "" && img.ImageID != "" {
 		img.URL = "//images.igdb.com/igdb/image/upload/t_thumb/" + img.ImageID + ".jpg"
@@ -139,11 +143,14 @@ func (c *Client) SearchGames(ctx context.Context, query string) ([]Game, error) 
 	if query == "" {
 		return []Game{}, nil
 	}
-	body := fmt.Sprintf("fields id, name, first_release_date, summary, cover.image_id, genres.name, game_type, version_parent, total_rating_count, platforms.name, parent_game.id, parent_game.name, parent_game.first_release_date, parent_game.cover.image_id, parent_game.platforms.name; search %q; limit 50;", query)
-	games, err := c.games(ctx, body)
-	if err != nil {
+	escapedQuery := escapeApicalypse(query)
+	fields := "fields id, name, first_release_date, summary, cover.image_id, genres.name, game_type, version_parent, total_rating_count, platforms.name, parent_game.id, parent_game.name, parent_game.first_release_date, parent_game.cover.image_id, parent_game.platforms.name;"
+	body := fmt.Sprintf("query games \"search\" {\n%s\nwhere name = \"%s\";\nlimit 50;\n};\nquery games \"contains\" {\n%s\nwhere name ~ *\"%s\"*;\nlimit 50;\n};", fields, escapedQuery, fields, escapedQuery)
+	var queries []multiqueryResult
+	if err := c.query(ctx, "multiquery", body, &queries); err != nil {
 		return nil, err
 	}
+	games := mergeGames(queries)
 	for i := range games {
 		games[i].Cover.EnsureURL()
 		if games[i].ParentGame != nil {
@@ -151,6 +158,26 @@ func (c *Client) SearchGames(ctx context.Context, query string) ([]Game, error) 
 		}
 	}
 	return games, nil
+}
+
+func escapeApicalypse(value string) string {
+	value = strings.ReplaceAll(value, `\`, `\\`)
+	return strings.ReplaceAll(value, `"`, `\"`)
+}
+
+func mergeGames(queries []multiqueryResult) []Game {
+	games := make([]Game, 0)
+	seen := make(map[int64]bool)
+	for _, query := range queries {
+		for _, game := range query.Result {
+			if seen[game.ID] {
+				continue
+			}
+			seen[game.ID] = true
+			games = append(games, game)
+		}
+	}
+	return games
 }
 
 func (c *Client) GameDetails(ctx context.Context, id int64) (*Game, error) {
