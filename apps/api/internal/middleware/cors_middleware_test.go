@@ -16,8 +16,8 @@ func TestCORS_Requisicoes(t *testing.T) {
 		status               int
 		called               bool
 	}{
-		{"preflight", "http://localhost:5173", http.MethodOptions, 204, false},
-		{"post autorizado", "http://localhost:5173", http.MethodPost, 401, true},
+		{"preflight", "http://localhost:5180", http.MethodOptions, 204, false},
+		{"post autorizado", "http://localhost:5180", http.MethodPost, 401, true},
 		{"segunda origem", "https://app.example.com", http.MethodPost, 401, true},
 		{"origem proibida", "http://localhost:5174", http.MethodOptions, 403, false},
 		{"post proibido", "https://evil.example.com", http.MethodPost, 403, false},
@@ -26,7 +26,7 @@ func TestCORS_Requisicoes(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			called := false
 			router := gin.New()
-			router.Use(CORS([]string{"http://localhost:5173", "https://app.example.com"}))
+			router.Use(CORS([]string{"http://localhost:5180", "https://app.example.com"}))
 			router.POST("/api/v1/auth/register", func(c *gin.Context) { called = true; c.Status(http.StatusUnauthorized) })
 			req := httptest.NewRequest(tc.method, "/api/v1/auth/register", nil)
 			req.Header.Set("Origin", tc.origin)

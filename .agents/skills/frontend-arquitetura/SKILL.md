@@ -69,4 +69,4 @@ apps/web/src/
 
 ## Docker
 
-Frontend roda containerizado junto do backend via `docker-compose.yml` (build multi-stage: Node para build, Nginx alpine para servir estatico), porta 5173 em dev. Ver historia MEMOR-49 no Huly.
+Frontend roda containerizado junto do backend via `docker-compose.yml` (build multi-stage: Node para build, Nginx alpine para servir estatico), porta 5180 em dev. Ver historia MEMOR-49 no Huly.

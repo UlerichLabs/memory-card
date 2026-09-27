@@ -41,7 +41,7 @@ func LoadEmail() (EmailConfig, error) {
 		cfg.Modo = "log"
 	}
 	if cfg.ResetURL == "" {
-		cfg.ResetURL = "http://localhost:5173/redefinir-senha"
+		cfg.ResetURL = "http://localhost:5180/redefinir-senha"
 	}
 	if cfg.Modo != "smtp" && cfg.Modo != "log" {
 		return EmailConfig{}, fmt.Errorf("EMAIL_SENDER_MODE deve ser smtp ou log")

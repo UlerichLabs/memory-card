@@ -10,11 +10,11 @@ Na raiz do repositório, configure `.env` a partir de `.env.example` e execute:
 ```sh
 docker compose up --build -d
 curl -sf http://localhost:18080/api/v1/health
-curl -sf http://localhost:5173/
+curl -sf http://localhost:5180/
 docker compose down
 ```
 
-Abra http://localhost:5173 para verificar `Status da API: ok` no navegador.
+Abra http://localhost:5180 para verificar `Status da API: ok` no navegador.
 O backend usa a porta 18080 no host porque a 8080 está ocupada pelo FlowLoop.
 O PostgreSQL continua na porta 5432. `down` preserva o volume do banco; não use
 `down -v` para encerrar o ambiente com dados que deseja manter.
@@ -30,7 +30,7 @@ cp .env.example .env.local
 npm run dev
 ```
 
-Pare o serviço `web` antes de iniciar o Vite: ambos usam 5173.
+Pare o serviço `web` antes de iniciar o Vite: ambos usam 5180.
 
 ## Configuração da API
 

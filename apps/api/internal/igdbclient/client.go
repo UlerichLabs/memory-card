@@ -42,14 +42,44 @@ type Client struct {
 	nextRequest  time.Time
 }
 
+const (
+	GameTypeMainGame            = 0
+	GameTypeDLC                 = 1
+	GameTypeExpansion           = 2
+	GameTypeBundle              = 3
+	GameTypeStandaloneExpansion = 4
+	GameTypeMod                 = 5
+	GameTypeEpisode             = 6
+	GameTypeSeason              = 7
+	GameTypeRemake              = 8
+	GameTypeRemaster            = 9
+	GameTypeExpandedGame        = 10
+	GameTypePort                = 11
+	GameTypeFork                = 12
+	GameTypePack                = 13
+	GameTypeUpdate              = 14
+)
+
 type Game struct {
+	ID               int64       `json:"id"`
+	Name             string      `json:"name"`
+	Cover            *Image      `json:"cover,omitempty"`
+	FirstReleaseDate *int64      `json:"first_release_date,omitempty"`
+	Platforms        []Platform  `json:"platforms,omitempty"`
+	Genres           []Genre     `json:"genres,omitempty"`
+	Summary          string      `json:"summary,omitempty"`
+	GameType         int         `json:"game_type"`
+	VersionParent    *int64      `json:"version_parent,omitempty"`
+	TotalRatingCount *int        `json:"total_rating_count,omitempty"`
+	ParentGame       *ParentGame `json:"parent_game,omitempty"`
+}
+
+type ParentGame struct {
 	ID               int64      `json:"id"`
 	Name             string     `json:"name"`
-	Cover            *Image     `json:"cover,omitempty"`
 	FirstReleaseDate *int64     `json:"first_release_date,omitempty"`
+	Cover            *Image     `json:"cover,omitempty"`
 	Platforms        []Platform `json:"platforms,omitempty"`
-	Genres           []Genre    `json:"genres,omitempty"`
-	Summary          string     `json:"summary,omitempty"`
 }
 
 type Platform struct {
@@ -68,8 +98,15 @@ type Franchise struct {
 }
 
 type Image struct {
-	ID  int64  `json:"id"`
-	URL string `json:"url"`
+	ID      int64  `json:"id"`
+	ImageID string `json:"image_id,omitempty"`
+	URL     string `json:"url,omitempty"`
+}
+
+func (img *Image) EnsureURL() {
+	if img != nil && img.URL == "" && img.ImageID != "" {
+		img.URL = "//images.igdb.com/igdb/image/upload/t_thumb/" + img.ImageID + ".jpg"
+	}
 }
 
 type accessToken struct {
@@ -102,7 +139,18 @@ func (c *Client) SearchGames(ctx context.Context, query string) ([]Game, error) 
 	if query == "" {
 		return []Game{}, nil
 	}
-	return c.games(ctx, fmt.Sprintf("fields id,name,cover.url,first_release_date,summary; search %q; limit 50;", query))
+	body := fmt.Sprintf("fields id, name, first_release_date, summary, cover.image_id, genres.name, game_type, version_parent, total_rating_count, platforms.name, parent_game.id, parent_game.name, parent_game.first_release_date, parent_game.cover.image_id, parent_game.platforms.name; search %q; limit 50;", query)
+	games, err := c.games(ctx, body)
+	if err != nil {
+		return nil, err
+	}
+	for i := range games {
+		games[i].Cover.EnsureURL()
+		if games[i].ParentGame != nil {
+			games[i].ParentGame.Cover.EnsureURL()
+		}
+	}
+	return games, nil
 }
 
 func (c *Client) GameDetails(ctx context.Context, id int64) (*Game, error) {
@@ -110,6 +158,7 @@ func (c *Client) GameDetails(ctx context.Context, id int64) (*Game, error) {
 	if err != nil || len(games) == 0 {
 		return nil, err
 	}
+	games[0].Cover.EnsureURL()
 	return &games[0], nil
 }
 

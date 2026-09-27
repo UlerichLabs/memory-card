@@ -102,8 +102,10 @@ func (h *IGDBHandler) respond(c *gin.Context, data any, err error) {
 	switch {
 	case errors.Is(err, service.ErrTermoIGDBVazio):
 		status, code = http.StatusBadRequest, "igdb.search.empty"
-	case errors.Is(err, igdbclient.ErrRateLimited):
+	case errors.Is(err, service.ErrIGDBRateLimit), errors.Is(err, igdbclient.ErrRateLimited):
 		status, code = http.StatusTooManyRequests, "igdb.rate_limited"
+	case errors.Is(err, service.ErrIGDBIndisponivel):
+		status, code = http.StatusBadGateway, "igdb.unavailable"
 	default:
 		slog.ErrorContext(c.Request.Context(), "falha no proxy IGDB", "error", err)
 	}
