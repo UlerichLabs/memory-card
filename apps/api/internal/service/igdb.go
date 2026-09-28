@@ -16,8 +16,10 @@ import (
 
 var (
 	ErrTermoIGDBVazio        = errors.New("igdb.search.empty")
+	ErrTermoIGDBCurto        = errors.New("igdb.search.too_short")
 	ErrIGDBIndisponivel      = errors.New("igdb.unavailable")
 	ErrIGDBRateLimit         = errors.New("igdb.rate_limited")
+	ErrIGDBQueryInvalida     = errors.New("igdb.query.invalid")
 	ErrJogoIGDBNaoEncontrado = errors.New("jogos.not_found")
 )
 
@@ -47,9 +49,12 @@ func NewIGDBService(client IGDBClient, cache IGDBSnapshotRepository) *IGDBServic
 }
 
 func (svc *IGDBService) BuscarJogos(ctx context.Context, termo string) ([]igdbclient.Game, error) {
-	termo = strings.TrimSpace(termo)
+	termo = sanitizarTermoIGDB(termo)
 	if termo == "" {
 		return nil, ErrTermoIGDBVazio
+	}
+	if len([]rune(termo)) < 2 {
+		return nil, ErrTermoIGDBCurto
 	}
 	games, err := svc.client.SearchGames(ctx, termo)
 	if err != nil {
@@ -112,8 +117,8 @@ func (svc *IGDBService) BuscarJogos(ctx context.Context, termo string) ([]igdbcl
 		return false
 	})
 
-	if len(finalGames) > 10 {
-		finalGames = finalGames[:10]
+	if len(finalGames) > 20 {
+		finalGames = finalGames[:20]
 	}
 
 	return finalGames, nil
@@ -231,10 +236,26 @@ func ratingCount(game igdbclient.Game) int {
 }
 
 func traduzErroIGDB(err error) error {
+	if errors.Is(err, igdbclient.ErrQueryInvalid) {
+		return fmt.Errorf("%w: %w", ErrIGDBQueryInvalida, err)
+	}
 	if errors.Is(err, igdbclient.ErrRateLimited) {
 		return fmt.Errorf("%w: %w", ErrIGDBRateLimit, err)
 	}
 	return fmt.Errorf("%w: %w", ErrIGDBIndisponivel, err)
+}
+
+func sanitizarTermoIGDB(value string) string {
+	var sanitized strings.Builder
+	for _, character := range value {
+		switch character {
+		case '"', '\\', '*', ';':
+			sanitized.WriteRune(' ')
+		default:
+			sanitized.WriteRune(character)
+		}
+	}
+	return strings.Join(strings.Fields(strings.TrimRight(strings.TrimSpace(sanitized.String()), ".")), " ")
 }
 
 func (svc *IGDBService) BuscarJogo(ctx context.Context, id int64) (*igdbclient.Game, error) {

@@ -23,7 +23,6 @@ type mockJogosService struct {
 	atualizarFn func(ctx context.Context, params repository.AtualizarJogoZeradoParams) (*repository.JogoZerado, error)
 	excluirFn   func(ctx context.Context, id int32, usuarioID int32) error
 }
-
 func (m *mockJogosService) CriarJogoZerado(ctx context.Context, params repository.CriarJogoZeradoParams) (*repository.JogoZerado, error) {
 	if m.criarFn != nil {
 		return m.criarFn(ctx, params)
@@ -505,4 +504,3 @@ func TestJogosHandler_ExcluirJogo_IDInvalido(t *testing.T) {
 		t.Fatalf("esperava status 400, obteve %d: %s", w.Code, w.Body.String())
 	}
 }
-

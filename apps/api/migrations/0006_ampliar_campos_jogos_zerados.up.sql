@@ -1,0 +1,3 @@
+ALTER TABLE jogos_zerados
+    ALTER COLUMN genero TYPE VARCHAR(150),
+    ALTER COLUMN console TYPE VARCHAR(100);

@@ -341,6 +341,86 @@ func TestJogosService_AtualizarJogoZerado_Validacoes(t *testing.T) {
 	}
 }
 
+func TestJogosService_CamposMuitoLongos_CriarEAtualizar(t *testing.T) {
+	now := time.Now()
+	criarBase := repository.CriarJogoZeradoParams{
+		Nome: "Jogo", Console: "Console", Genero: "Genero", Tipo: "Tipo",
+		FinalizadoEm: now, TempoJogado: 1, Nota: 10, Dificuldade: "A",
+	}
+	atualizarBase := repository.AtualizarJogoZeradoParams{
+		ID: 1, UsuarioID: 42, Nome: "Jogo", Console: "Console", Genero: "Genero", Tipo: "Tipo",
+		FinalizadoEm: now, TempoJogado: 1, Nota: 10, Dificuldade: "A",
+	}
+	tests := []struct {
+		name         string
+		modifyCreate func(*repository.CriarJogoZeradoParams)
+		modifyUpdate func(*repository.AtualizarJogoZeradoParams)
+		expected     error
+	}{
+		{"nome", func(p *repository.CriarJogoZeradoParams) { p.Nome = strings.Repeat("a", 201) }, func(p *repository.AtualizarJogoZeradoParams) { p.Nome = strings.Repeat("a", 201) }, ErrNomeMuitoLongo},
+		{"console", func(p *repository.CriarJogoZeradoParams) { p.Console = strings.Repeat("a", 101) }, func(p *repository.AtualizarJogoZeradoParams) { p.Console = strings.Repeat("a", 101) }, ErrConsoleMuitoLongo},
+		{"genero", func(p *repository.CriarJogoZeradoParams) { p.Genero = strings.Repeat("a", 151) }, func(p *repository.AtualizarJogoZeradoParams) { p.Genero = strings.Repeat("a", 151) }, ErrGeneroMuitoLongo},
+		{"tipo", func(p *repository.CriarJogoZeradoParams) { p.Tipo = strings.Repeat("a", 51) }, func(p *repository.AtualizarJogoZeradoParams) { p.Tipo = strings.Repeat("a", 51) }, ErrTipoMuitoLongo},
+		{"condicao", func(p *repository.CriarJogoZeradoParams) { p.CondicaoZeramento = strings.Repeat("a", 501) }, func(p *repository.AtualizarJogoZeradoParams) { p.CondicaoZeramento = strings.Repeat("a", 501) }, ErrCondicaoZeramentoInvalida},
+	}
+	for _, tc := range tests {
+		t.Run("criar_"+tc.name, func(t *testing.T) {
+			params := criarBase
+			tc.modifyCreate(&params)
+			_, err := NewJogosService(&mockJogosRepo{}).CriarJogoZerado(context.Background(), params)
+			if !errors.Is(err, tc.expected) {
+				t.Fatalf("esperava %v, obteve %v", tc.expected, err)
+			}
+		})
+		t.Run("atualizar_"+tc.name, func(t *testing.T) {
+			params := atualizarBase
+			tc.modifyUpdate(&params)
+			_, err := NewJogosService(&mockJogosRepo{}).AtualizarJogoZerado(context.Background(), params)
+			if !errors.Is(err, tc.expected) {
+				t.Fatalf("esperava %v, obteve %v", tc.expected, err)
+			}
+		})
+	}
+}
+
+func TestJogosService_CamposAmpliados_Sucesso(t *testing.T) {
+	repo := &mockJogosRepo{criarFn: func(ctx context.Context, params repository.CriarJogoZeradoParams) (*repository.JogoZerado, error) {
+		return &repository.JogoZerado{Nome: params.Nome, Console: params.Console, Genero: params.Genero}, nil
+	}}
+	params := repository.CriarJogoZeradoParams{
+		Nome: "Jogo", Console: strings.Repeat("c", 60), Genero: strings.Repeat("g", 100),
+		FinalizadoEm: time.Now(), TempoJogado: 1, Nota: 10, Dificuldade: "A",
+	}
+	if _, err := NewJogosService(repo).CriarJogoZerado(context.Background(), params); err != nil {
+		t.Fatalf("esperava sucesso, obteve %v", err)
+	}
+}
+
+func TestJogosService_SQLSTATE22001_ViraErroDeCampo(t *testing.T) {
+	for _, field := range []struct {
+		name     string
+		column   string
+		expected error
+	}{
+		{"nome", "nome", ErrNomeMuitoLongo},
+		{"console", "console", ErrConsoleMuitoLongo},
+		{"genero", "genero", ErrGeneroMuitoLongo},
+		{"tipo", "tipo", ErrTipoMuitoLongo},
+		{"condicao", "condicao_zeramento", ErrCondicaoZeramentoInvalida},
+	} {
+		t.Run(field.name, func(t *testing.T) {
+			repo := &mockJogosRepo{criarFn: func(ctx context.Context, params repository.CriarJogoZeradoParams) (*repository.JogoZerado, error) {
+				return nil, &pgconn.PgError{Code: "22001", ColumnName: field.column}
+			}}
+			params := repository.CriarJogoZeradoParams{Nome: "Jogo", Console: "Console", FinalizadoEm: time.Now(), TempoJogado: 1, Nota: 10, Dificuldade: "A"}
+			_, err := NewJogosService(repo).CriarJogoZerado(context.Background(), params)
+			if !errors.Is(err, field.expected) {
+				t.Fatalf("esperava %v, obteve %v", field.expected, err)
+			}
+		})
+	}
+}
+
 func TestJogosService_ExcluirJogoZerado_Sucesso(t *testing.T) {
 	var excluirChamado bool
 	repo := &mockJogosRepo{
@@ -376,4 +456,3 @@ func TestJogosService_ExcluirJogoZerado_NaoEncontrado(t *testing.T) {
 		t.Fatalf("esperava ErrJogoNaoEncontrado, obteve: %v", err)
 	}
 }
-

@@ -1,11 +1,13 @@
 package igdbclient
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -102,6 +104,36 @@ func TestClientRateLimit(t *testing.T) {
 	_, err := client.SearchGames(context.Background(), "game")
 	if !errors.Is(err, ErrRateLimited) {
 		t.Fatalf("error=%v", err)
+	}
+}
+
+func TestClientQueryInvalidAndLogsResponse(t *testing.T) {
+	server := mockIGDB(t, http.StatusBadRequest, `{"message":"invalid query"}`)
+	defer server.Close()
+	var logs bytes.Buffer
+	previous := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&logs, nil)))
+	defer slog.SetDefault(previous)
+	client := New(Config{ClientID: "client", ClientSecret: "secret", HTTPClient: server.Client(), TokenURL: server.URL + "/oauth", APIURL: server.URL + "/v4"})
+	_, err := client.SearchGames(context.Background(), "game")
+	if !errors.Is(err, ErrQueryInvalid) {
+		t.Fatalf("esperava erro de query inválida, obteve %v", err)
+	}
+	if !contains(logs.String(), "status=400") || !contains(logs.String(), "invalid query") {
+		t.Fatalf("log sem status/corpo: %s", logs.String())
+	}
+	if contains(logs.String(), "secret") {
+		t.Fatalf("log expôs credencial: %s", logs.String())
+	}
+}
+
+func TestClientServerErrorIsUnavailable(t *testing.T) {
+	server := mockIGDB(t, http.StatusBadGateway, `{"message":"upstream"}`)
+	defer server.Close()
+	client := New(Config{ClientID: "client", ClientSecret: "secret", HTTPClient: server.Client(), TokenURL: server.URL + "/oauth", APIURL: server.URL + "/v4"})
+	_, err := client.SearchGames(context.Background(), "game")
+	if !errors.Is(err, ErrUnavailable) {
+		t.Fatalf("esperava indisponibilidade, obteve %v", err)
 	}
 }
 
@@ -299,10 +331,10 @@ func TestClientSearchGamesEscapesQuery(t *testing.T) {
 	if _, err := client.SearchGames(context.Background(), `Chrono "Tr`); err != nil {
 		t.Fatal(err)
 	}
-	if contains(requestBody, `search "Chrono "Tr`) || contains(requestBody, `where name ~ *"Chrono "Tr`) || contains(requestBody, `where name = "Chrono "Tr`) {
+	if contains(requestBody, `Chrono "Tr`) || contains(requestBody, `\\`) || contains(requestBody, `*;`) {
 		t.Fatalf("query não foi sanitizada: %q", requestBody)
 	}
-	if !contains(requestBody, `\"Tr`) {
-		t.Fatalf("query escapada ausente: %q", requestBody)
+	if !contains(requestBody, `"Chrono"`) || !contains(requestBody, `"Tr"`) {
+		t.Fatalf("termos sanitizados ausentes: %q", requestBody)
 	}
 }

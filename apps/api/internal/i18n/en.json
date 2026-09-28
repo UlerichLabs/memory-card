@@ -20,6 +20,7 @@
   "auth.password_change.same_password": "The new password must be different from the current password.",
   "auth.password_change.success": "Password changed successfully.",
   "igdb.search.empty": "Please enter a search term.",
+  "igdb.search.too_short": "Enter at least 2 characters to search.",
   "igdb.unavailable": "Unable to search games right now. Please try again shortly.",
   "igdb.rate_limited": "Too many searches in a short time. Please wait and try again.",
   "igdb.invalid_id": "Invalid identifier.",
@@ -35,5 +36,10 @@
   "jogos.condicao_zeramento_too_long": "Completion condition must be up to 500 characters.",
   "jogos.destaque_ano_conflito": "There is already a highlight for this year.",
   "jogos.not_found": "Game not found.",
-  "jogos.invalid_id": "Invalid game identifier."
+  "jogos.invalid_id": "Invalid game identifier.",
+  "jogos.nome_too_long": "Game name must be 200 characters or fewer.",
+  "jogos.console_too_long": "Console must be 100 characters or fewer.",
+  "jogos.genero_too_long": "Genre must be 150 characters or fewer.",
+  "jogos.tipo_too_long": "Type must be 50 characters or fewer.",
+  "igdb.query_invalid": "The search could not be processed. Try another term."
 }

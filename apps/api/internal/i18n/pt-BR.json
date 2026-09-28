@@ -20,6 +20,7 @@
   "auth.password_change.same_password": "A nova senha deve ser diferente da atual.",
   "auth.password_change.success": "Senha alterada com sucesso.",
   "igdb.search.empty": "Informe um termo de busca.",
+  "igdb.search.too_short": "Informe pelo menos 2 caracteres para buscar.",
   "igdb.unavailable": "Não foi possível buscar jogos no momento. Tente novamente em instantes.",
   "igdb.rate_limited": "Muitas buscas em pouco tempo. Aguarde um instante e tente novamente.",
   "igdb.invalid_id": "Identificador inválido.",
@@ -35,5 +36,10 @@
   "jogos.condicao_zeramento_too_long": "A condição de zeramento deve ter no máximo 500 caracteres.",
   "jogos.destaque_ano_conflito": "já existe um destaque para este ano",
   "jogos.not_found": "Jogo não encontrado.",
-  "jogos.invalid_id": "Identificador de jogo inválido."
+  "jogos.invalid_id": "Identificador de jogo inválido.",
+  "jogos.nome_too_long": "O nome deve ter no máximo 200 caracteres.",
+  "jogos.console_too_long": "O console deve ter no máximo 100 caracteres.",
+  "jogos.genero_too_long": "O gênero deve ter no máximo 150 caracteres.",
+  "jogos.tipo_too_long": "O tipo deve ter no máximo 50 caracteres.",
+  "igdb.query_invalid": "A busca não pôde ser processada. Tente outro termo."
 }

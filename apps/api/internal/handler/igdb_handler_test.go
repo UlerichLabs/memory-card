@@ -63,8 +63,10 @@ func TestIGDBHandlerSearchErrors(t *testing.T) {
 		body string
 	}{
 		{name: "empty", err: service.ErrTermoIGDBVazio, code: http.StatusBadRequest, body: `"codigo":"igdb.search.empty"`},
+		{name: "too short", err: service.ErrTermoIGDBCurto, code: http.StatusBadRequest, body: `"codigo":"igdb.search.too_short"`},
 		{name: "rate limit", err: service.ErrIGDBRateLimit, code: http.StatusTooManyRequests, body: `"codigo":"igdb.rate_limited"`},
 		{name: "unavailable", err: service.ErrIGDBIndisponivel, code: http.StatusServiceUnavailable, body: `"codigo":"igdb.unavailable"`},
+		{name: "query invalid", err: service.ErrIGDBQueryInvalida, code: http.StatusBadGateway, body: `"codigo":"igdb.query_invalid"`},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

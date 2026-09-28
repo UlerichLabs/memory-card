@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
@@ -17,6 +18,7 @@ var (
 	ErrAuthentication = errors.New("igdb authentication failed")
 	ErrRateLimited    = errors.New("igdb rate limit exceeded")
 	ErrUnavailable    = errors.New("igdb unavailable")
+	ErrQueryInvalid   = errors.New("igdb query rejected")
 )
 
 type Config struct {
@@ -129,7 +131,7 @@ func New(cfg Config) *Client {
 }
 
 func (c *Client) SearchGames(ctx context.Context, query string) ([]Game, error) {
-	query = strings.TrimSpace(query)
+	query = sanitizeSearchTerm(query)
 	if query == "" {
 		return []Game{}, nil
 	}
@@ -145,7 +147,7 @@ func (c *Client) SearchGames(ctx context.Context, query string) ([]Game, error) 
 	games := mergeGames(queries)
 	if len(games) == 0 {
 		var err error
-		games, err = c.games(ctx, fmt.Sprintf("%s where %s & %s; limit 50;", fields, containsWhere, filter))
+		games, err = c.games(ctx, fmt.Sprintf("%s where %s & %s; limit 500;", fields, containsWhere, filter))
 		if err != nil {
 			return nil, err
 		}
@@ -159,6 +161,19 @@ func (c *Client) SearchGames(ctx context.Context, query string) ([]Game, error) 
 func escapeApicalypse(value string) string {
 	value = strings.ReplaceAll(value, `\`, `\\`)
 	return strings.ReplaceAll(value, `"`, `\"`)
+}
+
+func sanitizeSearchTerm(value string) string {
+	var sanitized strings.Builder
+	for _, character := range value {
+		switch character {
+		case '"', '\\', '*', ';':
+			sanitized.WriteRune(' ')
+		default:
+			sanitized.WriteRune(character)
+		}
+	}
+	return strings.Join(strings.Fields(strings.TrimRight(strings.TrimSpace(sanitized.String()), ".")), " ")
 }
 
 func buildContainsWhere(value string) string {
@@ -255,16 +270,29 @@ func (c *Client) query(ctx context.Context, endpoint, body string, target any) e
 		return fmt.Errorf("%w: %v", ErrUnavailable, err)
 	}
 	defer response.Body.Close()
+	responseBody, readErr := io.ReadAll(io.LimitReader(response.Body, 4<<20))
+	if readErr != nil {
+		return fmt.Errorf("ler resposta IGDB: %w", ErrUnavailable)
+	}
+	if response.StatusCode != http.StatusOK {
+		slog.ErrorContext(ctx, "resposta não 200 do IGDB", "status", response.StatusCode, "body", string(responseBody))
+	}
 	if response.StatusCode == http.StatusTooManyRequests {
 		return ErrRateLimited
 	}
 	if response.StatusCode == http.StatusUnauthorized || response.StatusCode == http.StatusForbidden {
 		return ErrAuthentication
 	}
-	if response.StatusCode < 200 || response.StatusCode >= 300 {
+	if response.StatusCode == http.StatusBadRequest {
+		return ErrQueryInvalid
+	}
+	if response.StatusCode >= 500 {
 		return fmt.Errorf("%w: status %d", ErrUnavailable, response.StatusCode)
 	}
-	if err := json.NewDecoder(io.LimitReader(response.Body, 4<<20)).Decode(target); err != nil {
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		return fmt.Errorf("%w: status %d", ErrQueryInvalid, response.StatusCode)
+	}
+	if err := json.Unmarshal(responseBody, target); err != nil {
 		return fmt.Errorf("decodificar resposta IGDB: %w", ErrUnavailable)
 	}
 	return nil
