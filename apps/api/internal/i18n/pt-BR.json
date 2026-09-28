@@ -41,5 +41,11 @@
   "jogos.console_muito_longo": "O console deve ter no máximo 100 caracteres.",
   "jogos.genero_muito_longo": "O gênero deve ter no máximo 150 caracteres.",
   "jogos.tipo_muito_longo": "O tipo deve ter no máximo 50 caracteres.",
-  "igdb.query_invalid": "A busca não pôde ser processada. Tente outro termo."
+  "igdb.query_invalid": "A busca não pôde ser processada. Tente outro termo.",
+  "jogos.pagina_invalida": "Página inválida.",
+  "jogos.por_pagina_invalido": "Quantidade por página inválida.",
+  "jogos.nota_filtro_invalida": "A nota deve estar entre 1 e 11.",
+  "jogos.nota_faixa_invalida": "A nota mínima não pode ser maior que a nota máxima.",
+  "jogos.ano_invalido": "Ano inválido.",
+  "jogos.dificuldade_invalida": "A dificuldade deve ser C, B, A, AA ou AAA."
 }

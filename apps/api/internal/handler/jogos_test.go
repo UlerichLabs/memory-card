@@ -21,9 +21,11 @@ import (
 )
 
 type mockJogosService struct {
-	criarFn     func(ctx context.Context, params repository.CriarJogoZeradoParams) (*repository.JogoZerado, error)
-	atualizarFn func(ctx context.Context, params repository.AtualizarJogoZeradoParams) (*repository.JogoZerado, error)
-	excluirFn   func(ctx context.Context, id int32, usuarioID int32) error
+	criarFn        func(ctx context.Context, params repository.CriarJogoZeradoParams) (*repository.JogoZerado, error)
+	atualizarFn    func(ctx context.Context, params repository.AtualizarJogoZeradoParams) (*repository.JogoZerado, error)
+	excluirFn      func(ctx context.Context, id int32, usuarioID int32) error
+	listarFn       func(ctx context.Context, params service.ListarJogosParams) (*service.ResultadoListagem, error)
+	obterFiltrosFn func(ctx context.Context, usuarioID int32) (*repository.OpcoesFiltros, error)
 }
 
 func (m *mockJogosService) CriarJogoZerado(ctx context.Context, params repository.CriarJogoZeradoParams) (*repository.JogoZerado, error) {
@@ -45,6 +47,20 @@ func (m *mockJogosService) ExcluirJogoZerado(ctx context.Context, id int32, usua
 		return m.excluirFn(ctx, id, usuarioID)
 	}
 	return nil
+}
+
+func (m *mockJogosService) ListarJogosZerados(ctx context.Context, params service.ListarJogosParams) (*service.ResultadoListagem, error) {
+	if m.listarFn != nil {
+		return m.listarFn(ctx, params)
+	}
+	return nil, nil
+}
+
+func (m *mockJogosService) ObterOpcoesFiltros(ctx context.Context, usuarioID int32) (*repository.OpcoesFiltros, error) {
+	if m.obterFiltrosFn != nil {
+		return m.obterFiltrosFn(ctx, usuarioID)
+	}
+	return nil, nil
 }
 
 func generateTestAccessToken(t *testing.T, secret, subject string) string {
@@ -613,6 +629,8 @@ func TestJogosHandler_NaoAutorizado_SemToken(t *testing.T) {
 	privadas.POST("/jogos", h.CriarJogo)
 	privadas.PUT("/jogos/:id", h.AtualizarJogo)
 	privadas.DELETE("/jogos/:id", h.ExcluirJogo)
+	privadas.GET("/jogos", h.ListarJogos)
+	privadas.GET("/jogos/filtros", h.ObterFiltros)
 
 	endpoints := []struct {
 		name   string
@@ -623,6 +641,8 @@ func TestJogosHandler_NaoAutorizado_SemToken(t *testing.T) {
 		{"criar_sem_token", http.MethodPost, "/api/v1/jogos", `{"nome":"Jogo"}`},
 		{"atualizar_sem_token", http.MethodPut, "/api/v1/jogos/1", `{"nome":"Jogo"}`},
 		{"excluir_sem_token", http.MethodDelete, "/api/v1/jogos/1", ""},
+		{"listar_sem_token", http.MethodGet, "/api/v1/jogos", ""},
+		{"filtros_sem_token", http.MethodGet, "/api/v1/jogos/filtros", ""},
 	}
 
 	for _, ep := range endpoints {
@@ -978,11 +998,19 @@ func TestJogosHandler_ErroInterno_500(t *testing.T) {
 		excluirFn: func(ctx context.Context, id int32, usuarioID int32) error {
 			return unexpectedErr
 		},
+		listarFn: func(ctx context.Context, params service.ListarJogosParams) (*service.ResultadoListagem, error) {
+			return nil, unexpectedErr
+		},
+		obterFiltrosFn: func(ctx context.Context, usuarioID int32) (*repository.OpcoesFiltros, error) {
+			return nil, unexpectedErr
+		},
 	}
 	h := NewJogosHandler(svc)
 	privadas.POST("/jogos", h.CriarJogo)
 	privadas.PUT("/jogos/:id", h.AtualizarJogo)
 	privadas.DELETE("/jogos/:id", h.ExcluirJogo)
+	privadas.GET("/jogos", h.ListarJogos)
+	privadas.GET("/jogos/filtros", h.ObterFiltros)
 
 	payload := jogoTestPayload{
 		Nome:         "Jogo",
@@ -1048,4 +1076,236 @@ func TestJogosHandler_ErroInterno_500(t *testing.T) {
 			t.Fatalf("esperava codigo server.internal_error, obteve %s", resp.Error.Codigo)
 		}
 	})
+
+	t.Run("listar_500", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/jogos", nil)
+		req.Header.Set("Authorization", "Bearer "+generateTestAccessToken(t, secret, "42"))
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		if w.Code != http.StatusInternalServerError {
+			t.Fatalf("esperava status 500, obteve %d", w.Code)
+		}
+		var resp jogoErrorResponse
+		if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+			t.Fatal(err)
+		}
+		if resp.Error.Codigo != "server.internal_error" {
+			t.Fatalf("esperava codigo server.internal_error, obteve %s", resp.Error.Codigo)
+		}
+	})
+
+	t.Run("filtros_500", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/jogos/filtros", nil)
+		req.Header.Set("Authorization", "Bearer "+generateTestAccessToken(t, secret, "42"))
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		if w.Code != http.StatusInternalServerError {
+			t.Fatalf("esperava status 500, obteve %d", w.Code)
+		}
+		var resp jogoErrorResponse
+		if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+			t.Fatal(err)
+		}
+		if resp.Error.Codigo != "server.internal_error" {
+			t.Fatalf("esperava codigo server.internal_error, obteve %s", resp.Error.Codigo)
+		}
+	})
 }
+
+func TestJogosHandler_ListarJogos_Sucesso(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	secret := uuid.NewString()
+	tokens, err := service.NewAuthToken(secret, time.Hour, 24*time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var capturado service.ListarJogosParams
+	svc := &mockJogosService{
+		listarFn: func(ctx context.Context, params service.ListarJogosParams) (*service.ResultadoListagem, error) {
+			capturado = params
+			return &service.ResultadoListagem{
+				Jogos: []*repository.JogoZerado{
+					{
+						ID:          1,
+						Nome:        "Super Mario World",
+						Console:     "SNES",
+						TempoJogado: 3600,
+						Nota:        10,
+						Dificuldade: "A",
+					},
+				},
+				Total:        1,
+				TotalPaginas: 1,
+				Pagina:       *params.Pagina,
+				PorPagina:    *params.PorPagina,
+			}, nil
+		},
+	}
+
+	router := gin.New()
+	privadas := middleware.GrupoPrivado(router, tokens)
+	h := NewJogosHandler(svc)
+	privadas.GET("/jogos", h.ListarJogos)
+
+	url := "/api/v1/jogos?pagina=2&por_pagina=10&busca=mario&console=SNES&genero=Platform&tipo=Campanha&nota_min=8&nota_max=10&ano=2024&dificuldade=A"
+	req := httptest.NewRequest(http.MethodGet, url, nil)
+	req.Header.Set("Authorization", "Bearer "+generateTestAccessToken(t, secret, "42"))
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("esperava status 200, obteve %d: %s", w.Code, w.Body.String())
+	}
+
+	if capturado.UsuarioID != 42 {
+		t.Fatalf("esperava usuarioID 42, obteve %d", capturado.UsuarioID)
+	}
+	if capturado.Pagina == nil || *capturado.Pagina != 2 {
+		t.Fatalf("esperava pagina 2, obteve %v", capturado.Pagina)
+	}
+	if capturado.PorPagina == nil || *capturado.PorPagina != 10 {
+		t.Fatalf("esperava por_pagina 10, obteve %v", capturado.PorPagina)
+	}
+	if capturado.Busca != "mario" || capturado.Console != "SNES" || capturado.Genero != "Platform" || capturado.Tipo != "Campanha" || capturado.Dificuldade != "A" {
+		t.Fatalf("filtros de texto incorretos: %+v", capturado)
+	}
+	if capturado.NotaMin == nil || *capturado.NotaMin != 8 || capturado.NotaMax == nil || *capturado.NotaMax != 10 || capturado.Ano == nil || *capturado.Ano != 2024 {
+		t.Fatalf("filtros numericos incorretos: %+v", capturado)
+	}
+
+	var resp struct {
+		Data []map[string]any `json:"data"`
+		Meta struct {
+			Pagina       int   `json:"pagina"`
+			PorPagina    int   `json:"por_pagina"`
+			Total        int64 `json:"total"`
+			TotalPaginas int   `json:"total_paginas"`
+		} `json:"meta"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(resp.Data) != 1 || resp.Meta.Total != 1 || resp.Meta.Pagina != 2 || resp.Meta.PorPagina != 10 || resp.Meta.TotalPaginas != 1 {
+		t.Fatalf("resposta inesperada: %+v", resp)
+	}
+}
+
+func TestJogosHandler_ListarJogos_Validacoes(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	secret := uuid.NewString()
+	tokens, err := service.NewAuthToken(secret, time.Hour, 24*time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	testes := []struct {
+		nome           string
+		query          string
+		serviceErr     error
+		esperadoCodigo string
+	}{
+		{"pagina nao inteira", "?pagina=abc", nil, "jogos.pagina_invalida"},
+		{"pagina zero via service", "?pagina=0", service.ErrPaginaInvalida, "jogos.pagina_invalida"},
+		{"por_pagina nao inteira", "?por_pagina=xyz", nil, "jogos.por_pagina_invalido"},
+		{"por_pagina zero via service", "?por_pagina=0", service.ErrPorPaginaInvalido, "jogos.por_pagina_invalido"},
+		{"nota_min nao inteira", "?nota_min=abc", nil, "jogos.nota_filtro_invalida"},
+		{"nota_min invalida via service", "?nota_min=12", service.ErrNotaFiltroInvalida, "jogos.nota_filtro_invalida"},
+		{"nota_max nao inteira", "?nota_max=abc", nil, "jogos.nota_filtro_invalida"},
+		{"nota_max invalida via service", "?nota_max=0", service.ErrNotaFiltroInvalida, "jogos.nota_filtro_invalida"},
+		{"faixa notas invalida", "?nota_min=10&nota_max=5", service.ErrNotaFaixaInvalida, "jogos.nota_faixa_invalida"},
+		{"ano nao inteiro", "?ano=abc", nil, "jogos.ano_invalido"},
+		{"ano invalido via service", "?ano=1969", service.ErrAnoInvalido, "jogos.ano_invalido"},
+		{"dificuldade invalida via service", "?dificuldade=INVALIDA", service.ErrDificuldadeInvalida, "jogos.dificuldade_invalida"},
+	}
+
+	for _, tt := range testes {
+		t.Run(tt.nome, func(t *testing.T) {
+			svc := &mockJogosService{
+				listarFn: func(ctx context.Context, params service.ListarJogosParams) (*service.ResultadoListagem, error) {
+					if tt.serviceErr != nil {
+						return nil, tt.serviceErr
+					}
+					return &service.ResultadoListagem{}, nil
+				},
+			}
+			router := gin.New()
+			privadas := middleware.GrupoPrivado(router, tokens)
+			h := NewJogosHandler(svc)
+			privadas.GET("/jogos", h.ListarJogos)
+
+			req := httptest.NewRequest(http.MethodGet, "/api/v1/jogos"+tt.query, nil)
+			req.Header.Set("Authorization", "Bearer "+generateTestAccessToken(t, secret, "42"))
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, req)
+
+			if w.Code != http.StatusBadRequest {
+				t.Fatalf("esperava status 400, obteve %d: %s", w.Code, w.Body.String())
+			}
+			var resp jogoErrorResponse
+			if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+				t.Fatal(err)
+			}
+			if resp.Error.Codigo != tt.esperadoCodigo {
+				t.Fatalf("esperava codigo %s, obteve %s", tt.esperadoCodigo, resp.Error.Codigo)
+			}
+		})
+	}
+}
+
+func TestJogosHandler_ObterFiltros_Sucesso(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	secret := uuid.NewString()
+	tokens, err := service.NewAuthToken(secret, time.Hour, 24*time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	svc := &mockJogosService{
+		obterFiltrosFn: func(ctx context.Context, usuarioID int32) (*repository.OpcoesFiltros, error) {
+			if usuarioID != 42 {
+				t.Fatalf("esperava usuarioID 42, obteve %d", usuarioID)
+			}
+			return &repository.OpcoesFiltros{
+				Consoles: []string{"Game Boy Color", "PlayStation 5"},
+				Generos:  []string{"Action", "Adventure"},
+				Tipos:    []string{"Campanha", "DLC"},
+				Anos:     []int{2026, 2025},
+			}, nil
+		},
+	}
+
+	router := gin.New()
+	privadas := middleware.GrupoPrivado(router, tokens)
+	h := NewJogosHandler(svc)
+	privadas.GET("/jogos/filtros", h.ObterFiltros)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/jogos/filtros", nil)
+	req.Header.Set("Authorization", "Bearer "+generateTestAccessToken(t, secret, "42"))
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("esperava status 200, obteve %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp struct {
+		Data struct {
+			Consoles []string `json:"consoles"`
+			Generos  []string `json:"generos"`
+			Tipos    []string `json:"tipos"`
+			Anos     []int    `json:"anos"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(resp.Data.Consoles) != 2 || len(resp.Data.Generos) != 2 || len(resp.Data.Tipos) != 2 || len(resp.Data.Anos) != 2 {
+		t.Fatalf("opcoes incorretas: %+v", resp.Data)
+	}
+}
+

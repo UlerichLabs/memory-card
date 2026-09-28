@@ -9,14 +9,54 @@ INSERT INTO jogos_zerados (
 
 -- name: ListarJogosZerados :many
 SELECT * FROM jogos_zerados
-WHERE usuario_id = $1
+WHERE usuario_id = sqlc.arg('usuario_id')
   AND deleted_at IS NULL
-  AND ($2::varchar IS NULL OR console = $2)
-  AND ($3::varchar IS NULL OR genero = $3)
-  AND ($4::int IS NULL OR nota = $4)
-  AND ($5::text IS NULL OR nome ILIKE '%' || $5 || '%')
-ORDER BY finalizado_em DESC
-LIMIT $6 OFFSET $7;
+  AND (sqlc.narg('busca')::text IS NULL OR unaccent(nome) ILIKE unaccent('%' || sqlc.narg('busca')::text || '%'))
+  AND (sqlc.narg('console')::varchar IS NULL OR console = sqlc.narg('console'))
+  AND (sqlc.narg('genero')::text IS NULL OR unaccent(genero) ILIKE unaccent('%' || sqlc.narg('genero')::text || '%'))
+  AND (sqlc.narg('tipo')::varchar IS NULL OR LOWER(tipo) = LOWER(sqlc.narg('tipo')))
+  AND (sqlc.narg('nota_min')::int IS NULL OR nota >= sqlc.narg('nota_min'))
+  AND (sqlc.narg('nota_max')::int IS NULL OR nota <= sqlc.narg('nota_max'))
+  AND (sqlc.narg('ano')::int IS NULL OR EXTRACT(YEAR FROM finalizado_em) = sqlc.narg('ano'))
+  AND (sqlc.narg('dificuldade')::varchar IS NULL OR dificuldade = sqlc.narg('dificuldade')::dificuldade)
+ORDER BY finalizado_em DESC, id DESC
+LIMIT sqlc.arg('limite')::int OFFSET sqlc.arg('offset_val')::int;
+
+-- name: ContarJogosZerados :one
+SELECT COUNT(*) FROM jogos_zerados
+WHERE usuario_id = sqlc.arg('usuario_id')
+  AND deleted_at IS NULL
+  AND (sqlc.narg('busca')::text IS NULL OR unaccent(nome) ILIKE unaccent('%' || sqlc.narg('busca')::text || '%'))
+  AND (sqlc.narg('console')::varchar IS NULL OR console = sqlc.narg('console'))
+  AND (sqlc.narg('genero')::text IS NULL OR unaccent(genero) ILIKE unaccent('%' || sqlc.narg('genero')::text || '%'))
+  AND (sqlc.narg('tipo')::varchar IS NULL OR LOWER(tipo) = LOWER(sqlc.narg('tipo')))
+  AND (sqlc.narg('nota_min')::int IS NULL OR nota >= sqlc.narg('nota_min'))
+  AND (sqlc.narg('nota_max')::int IS NULL OR nota <= sqlc.narg('nota_max'))
+  AND (sqlc.narg('ano')::int IS NULL OR EXTRACT(YEAR FROM finalizado_em) = sqlc.narg('ano'))
+  AND (sqlc.narg('dificuldade')::varchar IS NULL OR dificuldade = sqlc.narg('dificuldade')::dificuldade);
+
+-- name: ObterConsolesUsuario :many
+SELECT DISTINCT console
+FROM jogos_zerados
+WHERE usuario_id = $1 AND deleted_at IS NULL AND console != ''
+ORDER BY console ASC;
+
+-- name: ObterGenerosUsuario :many
+SELECT DISTINCT genero
+FROM jogos_zerados
+WHERE usuario_id = $1 AND deleted_at IS NULL AND genero IS NOT NULL AND genero != '';
+
+-- name: ObterTiposUsuario :many
+SELECT DISTINCT tipo
+FROM jogos_zerados
+WHERE usuario_id = $1 AND deleted_at IS NULL AND tipo IS NOT NULL AND tipo != ''
+ORDER BY tipo ASC;
+
+-- name: ObterAnosUsuario :many
+SELECT DISTINCT EXTRACT(YEAR FROM finalizado_em)::int AS ano
+FROM jogos_zerados
+WHERE usuario_id = $1 AND deleted_at IS NULL
+ORDER BY ano DESC;
 
 -- name: BuscarJogoPorID :one
 SELECT * FROM jogos_zerados WHERE id = $1 AND usuario_id = $2 AND deleted_at IS NULL;
