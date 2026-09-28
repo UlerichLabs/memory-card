@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -571,4 +572,480 @@ func TestJogosHandler_CamposMuitoLongos(t *testing.T) {
 			}
 		})
 	}
+}
+
+type jogoTestPayload struct {
+	Nome                string  `json:"nome"`
+	Console             string  `json:"console"`
+	Genero              string  `json:"genero,omitempty"`
+	Tipo                string  `json:"tipo,omitempty"`
+	IniciadoEm          *string `json:"iniciado_em,omitempty"`
+	FinalizadoEm        string  `json:"finalizado_em"`
+	TempoJogadoHoras    int     `json:"tempo_jogado_horas,omitempty"`
+	TempoJogadoMinutos  int     `json:"tempo_jogado_minutos,omitempty"`
+	TempoJogadoSegundos int     `json:"tempo_jogado_segundos,omitempty"`
+	TempoJogado         *int32  `json:"tempo_jogado,omitempty"`
+	Nota                int32   `json:"nota"`
+	Dificuldade         string  `json:"dificuldade"`
+	Review              string  `json:"review,omitempty"`
+	Destaque            bool    `json:"destaque,omitempty"`
+}
+
+type jogoErrorResponse struct {
+	Error struct {
+		Codigo   string `json:"codigo"`
+		Mensagem string `json:"mensagem"`
+	} `json:"error"`
+}
+
+func TestJogosHandler_NaoAutorizado_SemToken(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	secret := uuid.NewString()
+	tokens, err := service.NewAuthToken(secret, time.Hour, 24*time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	router := gin.New()
+	privadas := middleware.GrupoPrivado(router, tokens)
+	svc := &mockJogosService{}
+	h := NewJogosHandler(svc)
+	privadas.POST("/jogos", h.CriarJogo)
+	privadas.PUT("/jogos/:id", h.AtualizarJogo)
+	privadas.DELETE("/jogos/:id", h.ExcluirJogo)
+
+	endpoints := []struct {
+		name   string
+		method string
+		url    string
+		body   string
+	}{
+		{"criar_sem_token", http.MethodPost, "/api/v1/jogos", `{"nome":"Jogo"}`},
+		{"atualizar_sem_token", http.MethodPut, "/api/v1/jogos/1", `{"nome":"Jogo"}`},
+		{"excluir_sem_token", http.MethodDelete, "/api/v1/jogos/1", ""},
+	}
+
+	for _, ep := range endpoints {
+		t.Run(ep.name, func(t *testing.T) {
+			req := httptest.NewRequest(ep.method, ep.url, strings.NewReader(ep.body))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, req)
+
+			if w.Code != http.StatusUnauthorized {
+				t.Fatalf("esperava status 401, obteve %d", w.Code)
+			}
+			var resp jogoErrorResponse
+			if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+				t.Fatal(err)
+			}
+			if resp.Error.Codigo != "auth.session.unauthorized" {
+				t.Fatalf("esperava codigo auth.session.unauthorized, obteve %s", resp.Error.Codigo)
+			}
+		})
+	}
+}
+
+func TestJogosHandler_ValidacoesEntrada_400(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	secret := uuid.NewString()
+	tokens, err := service.NewAuthToken(secret, time.Hour, 24*time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	iniciadoInvalido := "data-invalida"
+	tempoNegativo := int32(-1)
+
+	tests := []struct {
+		name           string
+		rawJSON        string
+		payload        *jogoTestPayload
+		serviceErr     error
+		expectedCodigo string
+	}{
+		{
+			name:           "json_malformado",
+			rawJSON:        `{"nome": "incompleto`,
+			expectedCodigo: "jogos.invalid_input",
+		},
+		{
+			name: "finalizado_em_obrigatorio_vazio",
+			payload: &jogoTestPayload{
+				Nome:         "Jogo",
+				Console:      "Console",
+				FinalizadoEm: "   ",
+			},
+			expectedCodigo: "jogos.finalizado_em_required",
+		},
+		{
+			name: "finalizado_em_formato_invalido",
+			payload: &jogoTestPayload{
+				Nome:         "Jogo",
+				Console:      "Console",
+				FinalizadoEm: "invalida",
+			},
+			expectedCodigo: "jogos.finalizado_em_invalid",
+		},
+		{
+			name: "iniciado_em_formato_invalido",
+			payload: &jogoTestPayload{
+				Nome:         "Jogo",
+				Console:      "Console",
+				FinalizadoEm: "2026-05-10",
+				IniciadoEm:   &iniciadoInvalido,
+			},
+			expectedCodigo: "jogos.iniciado_em_invalid",
+		},
+		{
+			name: "tempo_jogado_horas_negativo",
+			payload: &jogoTestPayload{
+				Nome:             "Jogo",
+				Console:          "Console",
+				FinalizadoEm:     "2026-05-10",
+				TempoJogadoHoras: -2,
+			},
+			expectedCodigo: "jogos.tempo_jogado_invalid",
+		},
+		{
+			name: "tempo_jogado_minutos_maior_59",
+			payload: &jogoTestPayload{
+				Nome:               "Jogo",
+				Console:            "Console",
+				FinalizadoEm:       "2026-05-10",
+				TempoJogadoMinutos: 60,
+			},
+			expectedCodigo: "jogos.tempo_jogado_invalid",
+		},
+		{
+			name: "tempo_jogado_segundos_maior_59",
+			payload: &jogoTestPayload{
+				Nome:                "Jogo",
+				Console:             "Console",
+				FinalizadoEm:        "2026-05-10",
+				TempoJogadoSegundos: 60,
+			},
+			expectedCodigo: "jogos.tempo_jogado_invalid",
+		},
+		{
+			name: "tempo_jogado_direto_negativo",
+			payload: &jogoTestPayload{
+				Nome:         "Jogo",
+				Console:      "Console",
+				FinalizadoEm: "2026-05-10",
+				TempoJogado:  &tempoNegativo,
+			},
+			expectedCodigo: "jogos.tempo_jogado_invalid",
+		},
+		{
+			name: "service_nome_obrigatorio",
+			payload: &jogoTestPayload{
+				Nome:         "Jogo",
+				Console:      "Console",
+				FinalizadoEm: "2026-05-10",
+			},
+			serviceErr:     service.ErrNomeObrigatorio,
+			expectedCodigo: "jogos.nome_required",
+		},
+		{
+			name: "service_console_obrigatorio",
+			payload: &jogoTestPayload{
+				Nome:         "Jogo",
+				Console:      "Console",
+				FinalizadoEm: "2026-05-10",
+			},
+			serviceErr:     service.ErrConsoleObrigatorio,
+			expectedCodigo: "jogos.console_required",
+		},
+		{
+			name: "service_finalizado_em_obrigatorio",
+			payload: &jogoTestPayload{
+				Nome:         "Jogo",
+				Console:      "Console",
+				FinalizadoEm: "2026-05-10",
+			},
+			serviceErr:     service.ErrFinalizadoEmObrigatorio,
+			expectedCodigo: "jogos.finalizado_em_required",
+		},
+		{
+			name: "service_tempo_jogado_invalido",
+			payload: &jogoTestPayload{
+				Nome:         "Jogo",
+				Console:      "Console",
+				FinalizadoEm: "2026-05-10",
+			},
+			serviceErr:     service.ErrTempoJogadoInvalido,
+			expectedCodigo: "jogos.tempo_jogado_invalid",
+		},
+		{
+			name: "service_dificuldade_invalida",
+			payload: &jogoTestPayload{
+				Nome:         "Jogo",
+				Console:      "Console",
+				FinalizadoEm: "2026-05-10",
+			},
+			serviceErr:     service.ErrDificuldadeInvalida,
+			expectedCodigo: "jogos.dificuldade_invalid",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run("criar_"+tc.name, func(t *testing.T) {
+			router := gin.New()
+			privadas := middleware.GrupoPrivado(router, tokens)
+			svc := &mockJogosService{
+				criarFn: func(ctx context.Context, params repository.CriarJogoZeradoParams) (*repository.JogoZerado, error) {
+					if tc.serviceErr != nil {
+						return nil, tc.serviceErr
+					}
+					return &repository.JogoZerado{}, nil
+				},
+			}
+			h := NewJogosHandler(svc)
+			privadas.POST("/jogos", h.CriarJogo)
+
+			var payloadBytes []byte
+			if tc.rawJSON != "" {
+				payloadBytes = []byte(tc.rawJSON)
+			} else {
+				payloadBytes, _ = json.Marshal(tc.payload)
+			}
+
+			req := httptest.NewRequest(http.MethodPost, "/api/v1/jogos", bytes.NewReader(payloadBytes))
+			req.Header.Set("Authorization", "Bearer "+generateTestAccessToken(t, secret, "42"))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, req)
+
+			if w.Code != http.StatusBadRequest {
+				t.Fatalf("esperava status 400, obteve %d: %s", w.Code, w.Body.String())
+			}
+			var resp jogoErrorResponse
+			if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+				t.Fatal(err)
+			}
+			if resp.Error.Codigo != tc.expectedCodigo {
+				t.Fatalf("esperava codigo %s, obteve %s", tc.expectedCodigo, resp.Error.Codigo)
+			}
+		})
+
+		t.Run("atualizar_"+tc.name, func(t *testing.T) {
+			router := gin.New()
+			privadas := middleware.GrupoPrivado(router, tokens)
+			svc := &mockJogosService{
+				atualizarFn: func(ctx context.Context, params repository.AtualizarJogoZeradoParams) (*repository.JogoZerado, error) {
+					if tc.serviceErr != nil {
+						return nil, tc.serviceErr
+					}
+					return &repository.JogoZerado{}, nil
+				},
+			}
+			h := NewJogosHandler(svc)
+			privadas.PUT("/jogos/:id", h.AtualizarJogo)
+
+			var payloadBytes []byte
+			if tc.rawJSON != "" {
+				payloadBytes = []byte(tc.rawJSON)
+			} else {
+				payloadBytes, _ = json.Marshal(tc.payload)
+			}
+
+			req := httptest.NewRequest(http.MethodPut, "/api/v1/jogos/1", bytes.NewReader(payloadBytes))
+			req.Header.Set("Authorization", "Bearer "+generateTestAccessToken(t, secret, "42"))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, req)
+
+			if w.Code != http.StatusBadRequest {
+				t.Fatalf("esperava status 400, obteve %d: %s", w.Code, w.Body.String())
+			}
+			var resp jogoErrorResponse
+			if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+				t.Fatal(err)
+			}
+			if resp.Error.Codigo != tc.expectedCodigo {
+				t.Fatalf("esperava codigo %s, obteve %s", tc.expectedCodigo, resp.Error.Codigo)
+			}
+		})
+	}
+}
+
+func TestJogosHandler_NaoEncontrado_Cenarios(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	secret := uuid.NewString()
+	tokens, err := service.NewAuthToken(secret, time.Hour, 24*time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	scenarios := []struct {
+		name string
+		id   string
+	}{
+		{"inexistente", "999"},
+		{"outro_usuario", "50"},
+		{"ja_excluido", "100"},
+	}
+
+	for _, sc := range scenarios {
+		t.Run("atualizar_"+sc.name, func(t *testing.T) {
+			router := gin.New()
+			privadas := middleware.GrupoPrivado(router, tokens)
+			svc := &mockJogosService{
+				atualizarFn: func(ctx context.Context, params repository.AtualizarJogoZeradoParams) (*repository.JogoZerado, error) {
+					return nil, service.ErrJogoNaoEncontrado
+				},
+			}
+			h := NewJogosHandler(svc)
+			privadas.PUT("/jogos/:id", h.AtualizarJogo)
+
+			payload := jogoTestPayload{
+				Nome:         "Jogo",
+				Console:      "Console",
+				FinalizadoEm: "2026-05-10",
+				Nota:         10,
+				Dificuldade:  "A",
+			}
+			body, _ := json.Marshal(payload)
+
+			req := httptest.NewRequest(http.MethodPut, "/api/v1/jogos/"+sc.id, bytes.NewReader(body))
+			req.Header.Set("Authorization", "Bearer "+generateTestAccessToken(t, secret, "42"))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, req)
+
+			if w.Code != http.StatusNotFound {
+				t.Fatalf("esperava status 404, obteve %d", w.Code)
+			}
+			var resp jogoErrorResponse
+			if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+				t.Fatal(err)
+			}
+			if resp.Error.Codigo != "jogos.not_found" {
+				t.Fatalf("esperava codigo jogos.not_found, obteve %s", resp.Error.Codigo)
+			}
+		})
+
+		t.Run("excluir_"+sc.name, func(t *testing.T) {
+			router := gin.New()
+			privadas := middleware.GrupoPrivado(router, tokens)
+			svc := &mockJogosService{
+				excluirFn: func(ctx context.Context, id int32, usuarioID int32) error {
+					return service.ErrJogoNaoEncontrado
+				},
+			}
+			h := NewJogosHandler(svc)
+			privadas.DELETE("/jogos/:id", h.ExcluirJogo)
+
+			req := httptest.NewRequest(http.MethodDelete, "/api/v1/jogos/"+sc.id, nil)
+			req.Header.Set("Authorization", "Bearer "+generateTestAccessToken(t, secret, "42"))
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, req)
+
+			if w.Code != http.StatusNotFound {
+				t.Fatalf("esperava status 404, obteve %d", w.Code)
+			}
+			var resp jogoErrorResponse
+			if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+				t.Fatal(err)
+			}
+			if resp.Error.Codigo != "jogos.not_found" {
+				t.Fatalf("esperava codigo jogos.not_found, obteve %s", resp.Error.Codigo)
+			}
+		})
+	}
+}
+
+func TestJogosHandler_ErroInterno_500(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	secret := uuid.NewString()
+	tokens, err := service.NewAuthToken(secret, time.Hour, 24*time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	unexpectedErr := errors.New("falha interna")
+
+	router := gin.New()
+	privadas := middleware.GrupoPrivado(router, tokens)
+	svc := &mockJogosService{
+		criarFn: func(ctx context.Context, params repository.CriarJogoZeradoParams) (*repository.JogoZerado, error) {
+			return nil, unexpectedErr
+		},
+		atualizarFn: func(ctx context.Context, params repository.AtualizarJogoZeradoParams) (*repository.JogoZerado, error) {
+			return nil, unexpectedErr
+		},
+		excluirFn: func(ctx context.Context, id int32, usuarioID int32) error {
+			return unexpectedErr
+		},
+	}
+	h := NewJogosHandler(svc)
+	privadas.POST("/jogos", h.CriarJogo)
+	privadas.PUT("/jogos/:id", h.AtualizarJogo)
+	privadas.DELETE("/jogos/:id", h.ExcluirJogo)
+
+	payload := jogoTestPayload{
+		Nome:         "Jogo",
+		Console:      "Console",
+		FinalizadoEm: "2026-05-10",
+		Nota:         10,
+		Dificuldade:  "A",
+	}
+	body, _ := json.Marshal(payload)
+
+	t.Run("criar_500", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/jogos", bytes.NewReader(body))
+		req.Header.Set("Authorization", "Bearer "+generateTestAccessToken(t, secret, "42"))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		if w.Code != http.StatusInternalServerError {
+			t.Fatalf("esperava status 500, obteve %d", w.Code)
+		}
+		var resp jogoErrorResponse
+		if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+			t.Fatal(err)
+		}
+		if resp.Error.Codigo != "server.internal_error" {
+			t.Fatalf("esperava codigo server.internal_error, obteve %s", resp.Error.Codigo)
+		}
+	})
+
+	t.Run("atualizar_500", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPut, "/api/v1/jogos/1", bytes.NewReader(body))
+		req.Header.Set("Authorization", "Bearer "+generateTestAccessToken(t, secret, "42"))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		if w.Code != http.StatusInternalServerError {
+			t.Fatalf("esperava status 500, obteve %d", w.Code)
+		}
+		var resp jogoErrorResponse
+		if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+			t.Fatal(err)
+		}
+		if resp.Error.Codigo != "server.internal_error" {
+			t.Fatalf("esperava codigo server.internal_error, obteve %s", resp.Error.Codigo)
+		}
+	})
+
+	t.Run("excluir_500", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodDelete, "/api/v1/jogos/1", nil)
+		req.Header.Set("Authorization", "Bearer "+generateTestAccessToken(t, secret, "42"))
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		if w.Code != http.StatusInternalServerError {
+			t.Fatalf("esperava status 500, obteve %d", w.Code)
+		}
+		var resp jogoErrorResponse
+		if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+			t.Fatal(err)
+		}
+		if resp.Error.Codigo != "server.internal_error" {
+			t.Fatalf("esperava codigo server.internal_error, obteve %s", resp.Error.Codigo)
+		}
+	})
 }

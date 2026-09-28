@@ -217,25 +217,51 @@ func TestJogosService_AtualizarJogoZerado_Sucesso(t *testing.T) {
 }
 
 func TestJogosService_AtualizarJogoZerado_NaoEncontrado(t *testing.T) {
-	repo := &mockJogosRepo{
-		atualizarFn: func(ctx context.Context, params repository.AtualizarJogoZeradoParams) (*repository.JogoZerado, error) {
-			return nil, pgx.ErrNoRows
+	tests := []struct {
+		name      string
+		id        int32
+		usuarioID int32
+	}{
+		{
+			name:      "inexistente",
+			id:        999,
+			usuarioID: 42,
+		},
+		{
+			name:      "outro usuario",
+			id:        1,
+			usuarioID: 99,
+		},
+		{
+			name:      "ja excluido",
+			id:        2,
+			usuarioID: 42,
 		},
 	}
 
-	svc := NewJogosService(repo)
-	_, err := svc.AtualizarJogoZerado(context.Background(), repository.AtualizarJogoZeradoParams{
-		ID:           999,
-		UsuarioID:    42,
-		Nome:         "Inexistente",
-		Console:      "SNES",
-		FinalizadoEm: time.Now(),
-		TempoJogado:  100,
-		Nota:         8,
-		Dificuldade:  "B",
-	})
-	if !errors.Is(err, ErrJogoNaoEncontrado) {
-		t.Fatalf("esperava ErrJogoNaoEncontrado, obteve: %v", err)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := &mockJogosRepo{
+				atualizarFn: func(ctx context.Context, params repository.AtualizarJogoZeradoParams) (*repository.JogoZerado, error) {
+					return nil, pgx.ErrNoRows
+				},
+			}
+
+			svc := NewJogosService(repo)
+			_, err := svc.AtualizarJogoZerado(context.Background(), repository.AtualizarJogoZeradoParams{
+				ID:           tc.id,
+				UsuarioID:    tc.usuarioID,
+				Nome:         "Inexistente",
+				Console:      "SNES",
+				FinalizadoEm: time.Now(),
+				TempoJogado:  100,
+				Nota:         8,
+				Dificuldade:  "B",
+			})
+			if !errors.Is(err, ErrJogoNaoEncontrado) {
+				t.Fatalf("esperava ErrJogoNaoEncontrado, obteve: %v", err)
+			}
+		})
 	}
 }
 
@@ -429,7 +455,7 @@ func TestJogosService_ReviewLimiteESemValor(t *testing.T) {
 }
 
 func TestJogosService_SQLSTATE22001_ViraErroDeCampo(t *testing.T) {
-	for _, field := range []struct {
+	tests := []struct {
 		name     string
 		column   string
 		expected error
@@ -439,15 +465,29 @@ func TestJogosService_SQLSTATE22001_ViraErroDeCampo(t *testing.T) {
 		{"genero", "genero", ErrGeneroMuitoLongo},
 		{"tipo", "tipo", ErrTipoMuitoLongo},
 		{"review", "review", ErrReviewMuitoLongo},
-	} {
-		t.Run(field.name, func(t *testing.T) {
+		{"desconhecido", "outro", ErrReviewMuitoLongo},
+	}
+
+	for _, tc := range tests {
+		t.Run("criar_"+tc.name, func(t *testing.T) {
 			repo := &mockJogosRepo{criarFn: func(ctx context.Context, params repository.CriarJogoZeradoParams) (*repository.JogoZerado, error) {
-				return nil, &pgconn.PgError{Code: "22001", ColumnName: field.column}
+				return nil, &pgconn.PgError{Code: "22001", ColumnName: tc.column}
 			}}
 			params := repository.CriarJogoZeradoParams{Nome: "Jogo", Console: "Console", FinalizadoEm: time.Now(), TempoJogado: 1, Nota: 10, Dificuldade: "A"}
 			_, err := NewJogosService(repo).CriarJogoZerado(context.Background(), params)
-			if !errors.Is(err, field.expected) {
-				t.Fatalf("esperava %v, obteve %v", field.expected, err)
+			if !errors.Is(err, tc.expected) {
+				t.Fatalf("esperava %v, obteve %v", tc.expected, err)
+			}
+		})
+
+		t.Run("atualizar_"+tc.name, func(t *testing.T) {
+			repo := &mockJogosRepo{atualizarFn: func(ctx context.Context, params repository.AtualizarJogoZeradoParams) (*repository.JogoZerado, error) {
+				return nil, &pgconn.PgError{Code: "22001", ColumnName: tc.column}
+			}}
+			params := repository.AtualizarJogoZeradoParams{ID: 1, UsuarioID: 42, Nome: "Jogo", Console: "Console", FinalizadoEm: time.Now(), TempoJogado: 1, Nota: 10, Dificuldade: "A"}
+			_, err := NewJogosService(repo).AtualizarJogoZerado(context.Background(), params)
+			if !errors.Is(err, tc.expected) {
+				t.Fatalf("esperava %v, obteve %v", tc.expected, err)
 			}
 		})
 	}
@@ -476,15 +516,121 @@ func TestJogosService_ExcluirJogoZerado_Sucesso(t *testing.T) {
 }
 
 func TestJogosService_ExcluirJogoZerado_NaoEncontrado(t *testing.T) {
-	repo := &mockJogosRepo{
-		excluirFn: func(ctx context.Context, id int32, usuarioID int32) error {
-			return pgx.ErrNoRows
+	tests := []struct {
+		name      string
+		id        int32
+		usuarioID int32
+	}{
+		{
+			name:      "inexistente",
+			id:        999,
+			usuarioID: 42,
+		},
+		{
+			name:      "outro usuario",
+			id:        1,
+			usuarioID: 99,
+		},
+		{
+			name:      "ja excluido",
+			id:        2,
+			usuarioID: 42,
 		},
 	}
 
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := &mockJogosRepo{
+				excluirFn: func(ctx context.Context, id int32, usuarioID int32) error {
+					return pgx.ErrNoRows
+				},
+			}
+
+			svc := NewJogosService(repo)
+			err := svc.ExcluirJogoZerado(context.Background(), tc.id, tc.usuarioID)
+			if !errors.Is(err, ErrJogoNaoEncontrado) {
+				t.Fatalf("esperava ErrJogoNaoEncontrado, obteve: %v", err)
+			}
+		})
+	}
+}
+
+func TestJogosService_ConflitoDestaque_CodigoString23505(t *testing.T) {
+	now := time.Now()
+	repoCriar := &mockJogosRepo{
+		criarFn: func(ctx context.Context, params repository.CriarJogoZeradoParams) (*repository.JogoZerado, error) {
+			return nil, &pgconn.PgError{Code: "23505"}
+		},
+	}
+	svcCriar := NewJogosService(repoCriar)
+	_, err := svcCriar.CriarJogoZerado(context.Background(), repository.CriarJogoZeradoParams{
+		UsuarioID:    1,
+		Nome:         "Zelda",
+		Console:      "NES",
+		FinalizadoEm: now,
+		TempoJogado:  100,
+		Nota:         10,
+		Dificuldade:  "A",
+		Destaque:     true,
+	})
+	if !errors.Is(err, ErrDestaqueAnoConflito) {
+		t.Fatalf("esperava ErrDestaqueAnoConflito, obteve: %v", err)
+	}
+
+	repoAtualizar := &mockJogosRepo{
+		atualizarFn: func(ctx context.Context, params repository.AtualizarJogoZeradoParams) (*repository.JogoZerado, error) {
+			return nil, &pgconn.PgError{Code: "23505"}
+		},
+	}
+	svcAtualizar := NewJogosService(repoAtualizar)
+	_, err = svcAtualizar.AtualizarJogoZerado(context.Background(), repository.AtualizarJogoZeradoParams{
+		ID:           1,
+		UsuarioID:    1,
+		Nome:         "Zelda",
+		Console:      "NES",
+		FinalizadoEm: now,
+		TempoJogado:  100,
+		Nota:         10,
+		Dificuldade:  "A",
+		Destaque:     true,
+	})
+	if !errors.Is(err, ErrDestaqueAnoConflito) {
+		t.Fatalf("esperava ErrDestaqueAnoConflito, obteve: %v", err)
+	}
+}
+
+func TestJogosService_ErroInesperadoRepositorio(t *testing.T) {
+	dbErr := errors.New("db error")
+	repo := &mockJogosRepo{
+		criarFn: func(ctx context.Context, params repository.CriarJogoZeradoParams) (*repository.JogoZerado, error) {
+			return nil, dbErr
+		},
+		atualizarFn: func(ctx context.Context, params repository.AtualizarJogoZeradoParams) (*repository.JogoZerado, error) {
+			return nil, dbErr
+		},
+		excluirFn: func(ctx context.Context, id int32, usuarioID int32) error {
+			return dbErr
+		},
+	}
 	svc := NewJogosService(repo)
-	err := svc.ExcluirJogoZerado(context.Background(), 999, 42)
-	if !errors.Is(err, ErrJogoNaoEncontrado) {
-		t.Fatalf("esperava ErrJogoNaoEncontrado, obteve: %v", err)
+	now := time.Now()
+
+	_, err := svc.CriarJogoZerado(context.Background(), repository.CriarJogoZeradoParams{
+		UsuarioID: 1, Nome: "Jogo", Console: "NES", FinalizadoEm: now, TempoJogado: 1, Nota: 10, Dificuldade: "A",
+	})
+	if !errors.Is(err, dbErr) {
+		t.Fatalf("esperava dbErr, obteve: %v", err)
+	}
+
+	_, err = svc.AtualizarJogoZerado(context.Background(), repository.AtualizarJogoZeradoParams{
+		ID: 1, UsuarioID: 1, Nome: "Jogo", Console: "NES", FinalizadoEm: now, TempoJogado: 1, Nota: 10, Dificuldade: "A",
+	})
+	if !errors.Is(err, dbErr) {
+		t.Fatalf("esperava dbErr, obteve: %v", err)
+	}
+
+	err = svc.ExcluirJogoZerado(context.Background(), 1, 1)
+	if !errors.Is(err, dbErr) {
+		t.Fatalf("esperava dbErr, obteve: %v", err)
 	}
 }
