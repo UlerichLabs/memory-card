@@ -41,5 +41,11 @@
   "jogos.console_muito_longo": "Console must be 100 characters or fewer.",
   "jogos.genero_muito_longo": "Genre must be 150 characters or fewer.",
   "jogos.tipo_muito_longo": "Type must be 50 characters or fewer.",
-  "igdb.query_invalid": "The search could not be processed. Try another term."
+  "igdb.query_invalid": "The search could not be processed. Try another term.",
+  "jogos.pagina_invalida": "Invalid page.",
+  "jogos.por_pagina_invalido": "Invalid items per page.",
+  "jogos.nota_filtro_invalida": "Rating must be between 1 and 11.",
+  "jogos.nota_faixa_invalida": "Minimum rating cannot be greater than maximum rating.",
+  "jogos.ano_invalido": "Invalid year.",
+  "jogos.dificuldade_invalida": "Difficulty must be C, B, A, AA or AAA."
 }

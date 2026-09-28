@@ -133,6 +133,8 @@ func run() error {
 	jogosRepo := repository.NewJogosRepository(queries)
 	jogosService := service.NewJogosService(jogosRepo)
 	jogosHandler := handler.NewJogosHandler(jogosService)
+	privadas.GET("/jogos", jogosHandler.ListarJogos)
+	privadas.GET("/jogos/filtros", jogosHandler.ObterFiltros)
 	privadas.POST("/jogos", jogosHandler.CriarJogo)
 	privadas.PUT("/jogos/:id", jogosHandler.AtualizarJogo)
 	privadas.DELETE("/jogos/:id", jogosHandler.ExcluirJogo)

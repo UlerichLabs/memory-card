@@ -69,6 +69,22 @@ type jogoEnvelope struct {
 	Data repository.JogoZerado `json:"data"`
 }
 
+type listagemMeta struct {
+	Pagina       int   `json:"pagina"`
+	PorPagina    int   `json:"por_pagina"`
+	Total        int64 `json:"total"`
+	TotalPaginas int   `json:"total_paginas"`
+}
+
+type listagemEnvelope struct {
+	Data []repository.JogoZerado `json:"data"`
+	Meta listagemMeta            `json:"meta"`
+}
+
+type filtrosEnvelope struct {
+	Data repository.OpcoesFiltros `json:"data"`
+}
+
 type erroEnvelope struct {
 	Error struct {
 		Codigo   string `json:"codigo"`
@@ -148,6 +164,8 @@ func setupIntegrationEnv(t *testing.T) *postgresIntegrationEnv {
 	privadas.POST("/jogos", h.CriarJogo)
 	privadas.PUT("/jogos/:id", h.AtualizarJogo)
 	privadas.DELETE("/jogos/:id", h.ExcluirJogo)
+	privadas.GET("/jogos", h.ListarJogos)
+	privadas.GET("/jogos/filtros", h.ObterFiltros)
 
 	return &postgresIntegrationEnv{
 		pool:    pool,
@@ -680,6 +698,486 @@ func TestIntegration_JogosZerados(t *testing.T) {
 		}
 		if pgErr.Code != "23514" {
 			t.Fatalf("esperava codigo postgres 23514 (check_violation), obteve: %s", pgErr.Code)
+		}
+	})
+
+	t.Run("9_Ordenacao_FinalizadoEm_Desc_Id_Desc", func(t *testing.T) {
+		usuarioID := criarUsuarioTeste(t, env.pool)
+		token := gerarAccessTokenTeste(t, env.secret, usuarioID)
+
+		mesmoMomento := time.Date(2025, 6, 15, 12, 0, 0, 0, time.UTC)
+		momentoAnterior := time.Date(2025, 1, 1, 10, 0, 0, 0, time.UTC)
+
+		j1, err := env.repo.Criar(context.Background(), repository.CriarJogoZeradoParams{
+			UsuarioID:    usuarioID,
+			Nome:         "Jogo Antigo",
+			Console:      "SNES",
+			FinalizadoEm: momentoAnterior,
+			TempoJogado:  3600,
+			Nota:         8,
+			Dificuldade:  "B",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		j2, err := env.repo.Criar(context.Background(), repository.CriarJogoZeradoParams{
+			UsuarioID:    usuarioID,
+			Nome:         "Jogo Mesmo Momento 1",
+			Console:      "SNES",
+			FinalizadoEm: mesmoMomento,
+			TempoJogado:  3600,
+			Nota:         9,
+			Dificuldade:  "A",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		j3, err := env.repo.Criar(context.Background(), repository.CriarJogoZeradoParams{
+			UsuarioID:    usuarioID,
+			Nome:         "Jogo Mesmo Momento 2",
+			Console:      "SNES",
+			FinalizadoEm: mesmoMomento,
+			TempoJogado:  3600,
+			Nota:         10,
+			Dificuldade:  "AA",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/jogos", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		w := httptest.NewRecorder()
+		env.router.ServeHTTP(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("esperava 200, obteve %d: %s", w.Code, w.Body.String())
+		}
+
+		var resp listagemEnvelope
+		if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+			t.Fatal(err)
+		}
+
+		if len(resp.Data) != 3 {
+			t.Fatalf("esperava 3 jogos, obteve %d", len(resp.Data))
+		}
+		if resp.Data[0].ID != j3.ID || resp.Data[1].ID != j2.ID || resp.Data[2].ID != j1.ID {
+			t.Fatalf("ordem incorreta: obteve [%d, %d, %d], esperava [%d, %d, %d]",
+				resp.Data[0].ID, resp.Data[1].ID, resp.Data[2].ID, j3.ID, j2.ID, j1.ID)
+		}
+	})
+
+	t.Run("10_Paginacao_30_Registros", func(t *testing.T) {
+		usuarioID := criarUsuarioTeste(t, env.pool)
+		token := gerarAccessTokenTeste(t, env.secret, usuarioID)
+
+		baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+		for i := 1; i <= 30; i++ {
+			_, err := env.repo.Criar(context.Background(), repository.CriarJogoZeradoParams{
+				UsuarioID:    usuarioID,
+				Nome:         fmt.Sprintf("Jogo Paginado %02d", i),
+				Console:      "SNES",
+				FinalizadoEm: baseTime.Add(time.Duration(i) * time.Hour),
+				TempoJogado:  1000,
+				Nota:         8,
+				Dificuldade:  "A",
+			})
+			if err != nil {
+				t.Fatalf("falha ao criar jogo %d: %v", i, err)
+			}
+		}
+
+		reqP1 := httptest.NewRequest(http.MethodGet, "/api/v1/jogos?pagina=1&por_pagina=24", nil)
+		reqP1.Header.Set("Authorization", "Bearer "+token)
+		wP1 := httptest.NewRecorder()
+		env.router.ServeHTTP(wP1, reqP1)
+		if wP1.Code != http.StatusOK {
+			t.Fatalf("pagina 1 esperava 200, obteve %d: %s", wP1.Code, wP1.Body.String())
+		}
+		var respP1 listagemEnvelope
+		_ = json.Unmarshal(wP1.Body.Bytes(), &respP1)
+		if len(respP1.Data) != 24 || respP1.Meta.Total != 30 || respP1.Meta.TotalPaginas != 2 || respP1.Meta.Pagina != 1 || respP1.Meta.PorPagina != 24 {
+			t.Fatalf("pagina 1 com dados ou meta incorreto: %+v", respP1.Meta)
+		}
+
+		reqP2 := httptest.NewRequest(http.MethodGet, "/api/v1/jogos?pagina=2&por_pagina=24", nil)
+		reqP2.Header.Set("Authorization", "Bearer "+token)
+		wP2 := httptest.NewRecorder()
+		env.router.ServeHTTP(wP2, reqP2)
+		if wP2.Code != http.StatusOK {
+			t.Fatalf("pagina 2 esperava 200, obteve %d: %s", wP2.Code, wP2.Body.String())
+		}
+		var respP2 listagemEnvelope
+		_ = json.Unmarshal(wP2.Body.Bytes(), &respP2)
+		if len(respP2.Data) != 6 || respP2.Meta.Total != 30 || respP2.Meta.TotalPaginas != 2 || respP2.Meta.Pagina != 2 || respP2.Meta.PorPagina != 24 {
+			t.Fatalf("pagina 2 com dados ou meta incorreto: len=%d meta=%+v", len(respP2.Data), respP2.Meta)
+		}
+
+		reqP3 := httptest.NewRequest(http.MethodGet, "/api/v1/jogos?pagina=3&por_pagina=24", nil)
+		reqP3.Header.Set("Authorization", "Bearer "+token)
+		wP3 := httptest.NewRecorder()
+		env.router.ServeHTTP(wP3, reqP3)
+		if wP3.Code != http.StatusOK {
+			t.Fatalf("pagina 3 esperava 200, obteve %d: %s", wP3.Code, wP3.Body.String())
+		}
+		var respP3 listagemEnvelope
+		_ = json.Unmarshal(wP3.Body.Bytes(), &respP3)
+		if len(respP3.Data) != 0 || respP3.Meta.Total != 30 || respP3.Meta.TotalPaginas != 2 || respP3.Meta.Pagina != 3 || respP3.Meta.PorPagina != 24 {
+			t.Fatalf("pagina 3 com dados ou meta incorreto: len=%d meta=%+v", len(respP3.Data), respP3.Meta)
+		}
+	})
+
+	t.Run("11_SoftDelete_ExcluidoNaoApareceEmListagemNemFiltros", func(t *testing.T) {
+		usuarioID := criarUsuarioTeste(t, env.pool)
+		token := gerarAccessTokenTeste(t, env.secret, usuarioID)
+
+		jExcluir, err := env.repo.Criar(context.Background(), repository.CriarJogoZeradoParams{
+			UsuarioID:    usuarioID,
+			Nome:         "Jogo a Excluir",
+			Console:      "ConsoleUnicoExcluido",
+			Genero:       "GeneroUnicoExcluido",
+			Tipo:         "TipoUnicoExcluido",
+			FinalizadoEm: time.Date(2023, 5, 1, 0, 0, 0, 0, time.UTC),
+			TempoJogado:  1000,
+			Nota:         7,
+			Dificuldade:  "B",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		_, err = env.repo.Criar(context.Background(), repository.CriarJogoZeradoParams{
+			UsuarioID:    usuarioID,
+			Nome:         "Jogo Que Fica",
+			Console:      "ConsoleAtivo",
+			Genero:       "GeneroAtivo",
+			Tipo:         "TipoAtivo",
+			FinalizadoEm: time.Date(2025, 5, 1, 0, 0, 0, 0, time.UTC),
+			TempoJogado:  2000,
+			Nota:         9,
+			Dificuldade:  "A",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		reqDel := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/api/v1/jogos/%d", jExcluir.ID), nil)
+		reqDel.Header.Set("Authorization", "Bearer "+token)
+		wDel := httptest.NewRecorder()
+		env.router.ServeHTTP(wDel, reqDel)
+		if wDel.Code != http.StatusNoContent {
+			t.Fatalf("esperava 204 ao excluir, obteve %d", wDel.Code)
+		}
+
+		reqListar := httptest.NewRequest(http.MethodGet, "/api/v1/jogos", nil)
+		reqListar.Header.Set("Authorization", "Bearer "+token)
+		wListar := httptest.NewRecorder()
+		env.router.ServeHTTP(wListar, reqListar)
+		var respListar listagemEnvelope
+		_ = json.Unmarshal(wListar.Body.Bytes(), &respListar)
+		if len(respListar.Data) != 1 || respListar.Data[0].Nome != "Jogo Que Fica" {
+			t.Fatalf("listagem contem itens excluidos ou incorretos: %+v", respListar.Data)
+		}
+
+		reqFiltros := httptest.NewRequest(http.MethodGet, "/api/v1/jogos/filtros", nil)
+		reqFiltros.Header.Set("Authorization", "Bearer "+token)
+		wFiltros := httptest.NewRecorder()
+		env.router.ServeHTTP(wFiltros, reqFiltros)
+		var respFiltros filtrosEnvelope
+		_ = json.Unmarshal(wFiltros.Body.Bytes(), &respFiltros)
+
+		for _, c := range respFiltros.Data.Consoles {
+			if c == "ConsoleUnicoExcluido" {
+				t.Fatal("console de registro excluido apareceu nos filtros")
+			}
+		}
+		for _, g := range respFiltros.Data.Generos {
+			if g == "GeneroUnicoExcluido" {
+				t.Fatal("genero de registro excluido apareceu nos filtros")
+			}
+		}
+		for _, tip := range respFiltros.Data.Tipos {
+			if tip == "TipoUnicoExcluido" {
+				t.Fatal("tipo de registro excluido apareceu nos filtros")
+			}
+		}
+		for _, a := range respFiltros.Data.Anos {
+			if a == 2023 {
+				t.Fatal("ano de registro excluido apareceu nos filtros")
+			}
+		}
+	})
+
+	t.Run("12_Isolamento_UsuarioB_NaoVe_RegistrosUsuarioA", func(t *testing.T) {
+		usuarioA := criarUsuarioTeste(t, env.pool)
+		usuarioB := criarUsuarioTeste(t, env.pool)
+		tokenB := gerarAccessTokenTeste(t, env.secret, usuarioB)
+
+		_, err := env.repo.Criar(context.Background(), repository.CriarJogoZeradoParams{
+			UsuarioID:    usuarioA,
+			Nome:         "Exclusivo Usuario A",
+			Console:      "Console A",
+			Genero:       "Genero A",
+			Tipo:         "Tipo A",
+			FinalizadoEm: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
+			TempoJogado:  1000,
+			Nota:         10,
+			Dificuldade:  "AAA",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		reqListar := httptest.NewRequest(http.MethodGet, "/api/v1/jogos", nil)
+		reqListar.Header.Set("Authorization", "Bearer "+tokenB)
+		wListar := httptest.NewRecorder()
+		env.router.ServeHTTP(wListar, reqListar)
+		var respListar listagemEnvelope
+		_ = json.Unmarshal(wListar.Body.Bytes(), &respListar)
+		if len(respListar.Data) != 0 || respListar.Meta.Total != 0 {
+			t.Fatalf("usuario B viu dados do usuario A na listagem: %+v", respListar)
+		}
+
+		reqFiltros := httptest.NewRequest(http.MethodGet, "/api/v1/jogos/filtros", nil)
+		reqFiltros.Header.Set("Authorization", "Bearer "+tokenB)
+		wFiltros := httptest.NewRecorder()
+		env.router.ServeHTTP(wFiltros, reqFiltros)
+		var respFiltros filtrosEnvelope
+		_ = json.Unmarshal(wFiltros.Body.Bytes(), &respFiltros)
+		if len(respFiltros.Data.Consoles) != 0 || len(respFiltros.Data.Generos) != 0 || len(respFiltros.Data.Tipos) != 0 || len(respFiltros.Data.Anos) != 0 {
+			t.Fatalf("usuario B viu filtros do usuario A: %+v", respFiltros.Data)
+		}
+	})
+
+	t.Run("13_Unaccent_BuscaCaseInsensitiveESemAcento", func(t *testing.T) {
+		usuarioID := criarUsuarioTeste(t, env.pool)
+		token := gerarAccessTokenTeste(t, env.secret, usuarioID)
+
+		now := time.Now()
+		_, err := env.repo.Criar(context.Background(), repository.CriarJogoZeradoParams{
+			UsuarioID: usuarioID, Nome: "Pokémon Red", Console: "Game Boy", FinalizadoEm: now, TempoJogado: 1000, Nota: 10, Dificuldade: "A",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		_, err = env.repo.Criar(context.Background(), repository.CriarJogoZeradoParams{
+			UsuarioID: usuarioID, Nome: "Pokemon Stadium", Console: "N64", FinalizadoEm: now, TempoJogado: 1000, Nota: 8, Dificuldade: "B",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		_, err = env.repo.Criar(context.Background(), repository.CriarJogoZeradoParams{
+			UsuarioID: usuarioID, Nome: "The Legend of Zelda", Console: "NES", FinalizadoEm: now, TempoJogado: 1000, Nota: 9, Dificuldade: "AA",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		verificarBusca := func(termo string, quantidadeEsperada int) {
+			req := httptest.NewRequest(http.MethodGet, "/api/v1/jogos?busca="+termo, nil)
+			req.Header.Set("Authorization", "Bearer "+token)
+			w := httptest.NewRecorder()
+			env.router.ServeHTTP(w, req)
+			if w.Code != http.StatusOK {
+				t.Fatalf("busca %s retornou %d: %s", termo, w.Code, w.Body.String())
+			}
+			var resp listagemEnvelope
+			_ = json.Unmarshal(w.Body.Bytes(), &resp)
+			if len(resp.Data) != quantidadeEsperada {
+				t.Fatalf("busca %q esperava %d resultados, obteve %d", termo, quantidadeEsperada, len(resp.Data))
+			}
+		}
+
+		verificarBusca("pokemon", 2)
+		verificarBusca("Pokémon", 2)
+		verificarBusca("ZELDA", 1)
+	})
+
+	t.Run("14_Escape_Curinga_BuscaLiteralPorPorcento", func(t *testing.T) {
+		usuarioID := criarUsuarioTeste(t, env.pool)
+		token := gerarAccessTokenTeste(t, env.secret, usuarioID)
+
+		now := time.Now()
+		_, err := env.repo.Criar(context.Background(), repository.CriarJogoZeradoParams{
+			UsuarioID: usuarioID, Nome: "100% Orange Juice", Console: "PC", FinalizadoEm: now, TempoJogado: 1000, Nota: 8, Dificuldade: "B",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		_, err = env.repo.Criar(context.Background(), repository.CriarJogoZeradoParams{
+			UsuarioID: usuarioID, Nome: "Super Mario World", Console: "SNES", FinalizadoEm: now, TempoJogado: 1000, Nota: 10, Dificuldade: "A",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/jogos?busca=%25", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		w := httptest.NewRecorder()
+		env.router.ServeHTTP(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("esperava 200, obteve %d: %s", w.Code, w.Body.String())
+		}
+		var resp listagemEnvelope
+		_ = json.Unmarshal(w.Body.Bytes(), &resp)
+		if len(resp.Data) != 1 || resp.Data[0].Nome != "100% Orange Juice" {
+			t.Fatalf("busca por '%%' deveria retornar apenas '100%% Orange Juice', obteve: %+v", resp.Data)
+		}
+	})
+
+	t.Run("15_GeneroComposto", func(t *testing.T) {
+		usuarioID := criarUsuarioTeste(t, env.pool)
+		token := gerarAccessTokenTeste(t, env.secret, usuarioID)
+
+		now := time.Now()
+		_, err := env.repo.Criar(context.Background(), repository.CriarJogoZeradoParams{
+			UsuarioID: usuarioID, Nome: "Smash Bros", Console: "N64", Genero: "Fighting, Platform, Hack and slash", FinalizadoEm: now, TempoJogado: 1000, Nota: 9, Dificuldade: "A",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/jogos?genero=platform", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		w := httptest.NewRecorder()
+		env.router.ServeHTTP(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("esperava 200, obteve %d: %s", w.Code, w.Body.String())
+		}
+		var resp listagemEnvelope
+		_ = json.Unmarshal(w.Body.Bytes(), &resp)
+		if len(resp.Data) != 1 || resp.Data[0].Nome != "Smash Bros" {
+			t.Fatalf("filtro por 'platform' nao encontrou genero composto: %+v", resp.Data)
+		}
+	})
+
+	t.Run("16_CombinacaoDeFiltros", func(t *testing.T) {
+		usuarioID := criarUsuarioTeste(t, env.pool)
+		token := gerarAccessTokenTeste(t, env.secret, usuarioID)
+
+		data2025 := time.Date(2025, 7, 10, 0, 0, 0, 0, time.UTC)
+		data2024 := time.Date(2024, 7, 10, 0, 0, 0, 0, time.UTC)
+
+		jMatch, err := env.repo.Criar(context.Background(), repository.CriarJogoZeradoParams{
+			UsuarioID: usuarioID, Nome: "Match Total", Console: "SNES", Tipo: "Campanha", FinalizadoEm: data2025, TempoJogado: 1000, Nota: 10, Dificuldade: "AA",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		_, _ = env.repo.Criar(context.Background(), repository.CriarJogoZeradoParams{
+			UsuarioID: usuarioID, Nome: "Console Errado", Console: "NES", Tipo: "Campanha", FinalizadoEm: data2025, TempoJogado: 1000, Nota: 10, Dificuldade: "AA",
+		})
+
+		_, _ = env.repo.Criar(context.Background(), repository.CriarJogoZeradoParams{
+			UsuarioID: usuarioID, Nome: "Nota Baixa", Console: "SNES", Tipo: "Campanha", FinalizadoEm: data2025, TempoJogado: 1000, Nota: 6, Dificuldade: "AA",
+		})
+
+		_, _ = env.repo.Criar(context.Background(), repository.CriarJogoZeradoParams{
+			UsuarioID: usuarioID, Nome: "Ano Errado", Console: "SNES", Tipo: "Campanha", FinalizadoEm: data2024, TempoJogado: 1000, Nota: 10, Dificuldade: "AA",
+		})
+
+		_, _ = env.repo.Criar(context.Background(), repository.CriarJogoZeradoParams{
+			UsuarioID: usuarioID, Nome: "Dificuldade Errada", Console: "SNES", Tipo: "Campanha", FinalizadoEm: data2025, TempoJogado: 1000, Nota: 10, Dificuldade: "C",
+		})
+
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/jogos?console=SNES&nota_min=8&nota_max=10&ano=2025&dificuldade=AA", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		w := httptest.NewRecorder()
+		env.router.ServeHTTP(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("esperava 200, obteve %d: %s", w.Code, w.Body.String())
+		}
+		var resp listagemEnvelope
+		_ = json.Unmarshal(w.Body.Bytes(), &resp)
+		if len(resp.Data) != 1 || resp.Data[0].ID != jMatch.ID {
+			t.Fatalf("combinacao de filtros retornou dados inesperados: %+v", resp.Data)
+		}
+	})
+
+	t.Run("17_Filtros_Unicos_Limpos_Ordenados", func(t *testing.T) {
+		usuarioID := criarUsuarioTeste(t, env.pool)
+		token := gerarAccessTokenTeste(t, env.secret, usuarioID)
+
+		_, err := env.repo.Criar(context.Background(), repository.CriarJogoZeradoParams{
+			UsuarioID:    usuarioID,
+			Nome:         "Jogo 1",
+			Console:      "SNES",
+			Genero:       "Action, Adventure",
+			Tipo:         "Campanha",
+			FinalizadoEm: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
+			TempoJogado:  1000,
+			Nota:         8,
+			Dificuldade:  "A",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		_, err = env.repo.Criar(context.Background(), repository.CriarJogoZeradoParams{
+			UsuarioID:    usuarioID,
+			Nome:         "Jogo 2",
+			Console:      "PlayStation 5",
+			Genero:       "Adventure, RPG",
+			Tipo:         "DLC",
+			FinalizadoEm: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+			TempoJogado:  1000,
+			Nota:         9,
+			Dificuldade:  "AA",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		_, err = env.repo.Criar(context.Background(), repository.CriarJogoZeradoParams{
+			UsuarioID:    usuarioID,
+			Nome:         "Jogo 3",
+			Console:      "Game Boy Advance",
+			Genero:       "RPG",
+			Tipo:         "100%",
+			FinalizadoEm: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
+			TempoJogado:  1000,
+			Nota:         10,
+			Dificuldade:  "AAA",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/jogos/filtros", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		w := httptest.NewRecorder()
+		env.router.ServeHTTP(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("esperava 200, obteve %d: %s", w.Code, w.Body.String())
+		}
+		var resp filtrosEnvelope
+		_ = json.Unmarshal(w.Body.Bytes(), &resp)
+
+		if len(resp.Data.Consoles) != 3 || resp.Data.Consoles[0] != "Game Boy Advance" || resp.Data.Consoles[1] != "PlayStation 5" || resp.Data.Consoles[2] != "SNES" {
+			t.Fatalf("consoles ordenados incorretamente: %+v", resp.Data.Consoles)
+		}
+
+		if len(resp.Data.Generos) != 3 || resp.Data.Generos[0] != "Action" || resp.Data.Generos[1] != "Adventure" || resp.Data.Generos[2] != "RPG" {
+			t.Fatalf("generos deduplicados e ordenados incorretamente: %+v", resp.Data.Generos)
+		}
+
+		if len(resp.Data.Tipos) != 3 || resp.Data.Tipos[0] != "100%" || resp.Data.Tipos[1] != "Campanha" || resp.Data.Tipos[2] != "DLC" {
+			t.Fatalf("tipos ordenados incorretamente: %+v", resp.Data.Tipos)
+		}
+
+		if len(resp.Data.Anos) != 3 || resp.Data.Anos[0] != 2026 || resp.Data.Anos[1] != 2025 || resp.Data.Anos[2] != 2024 {
+			t.Fatalf("anos ordenados descendentemente incorretamente: %+v", resp.Data.Anos)
 		}
 	})
 }

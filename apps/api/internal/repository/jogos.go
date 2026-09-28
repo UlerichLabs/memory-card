@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -70,10 +72,33 @@ type AtualizarJogoZeradoParams struct {
 	IgdbDescricao string
 }
 
+type ListarJogosZeradosParams struct {
+	UsuarioID   int32
+	Busca       string
+	Console     string
+	Genero      string
+	Tipo        string
+	NotaMin     *int32
+	NotaMax     *int32
+	Ano         *int32
+	Dificuldade string
+	Pagina      int
+	PorPagina   int
+}
+
+type OpcoesFiltros struct {
+	Consoles []string `json:"consoles"`
+	Generos  []string `json:"generos"`
+	Tipos    []string `json:"tipos"`
+	Anos     []int    `json:"anos"`
+}
+
 type JogosRepository interface {
 	Criar(ctx context.Context, params CriarJogoZeradoParams) (*JogoZerado, error)
 	Atualizar(ctx context.Context, params AtualizarJogoZeradoParams) (*JogoZerado, error)
 	Excluir(ctx context.Context, id int32, usuarioID int32) error
+	Listar(ctx context.Context, params ListarJogosZeradosParams) ([]*JogoZerado, int64, error)
+	ObterFiltros(ctx context.Context, usuarioID int32) (*OpcoesFiltros, error)
 }
 
 type SQLJogosRepository struct {
@@ -220,6 +245,162 @@ func (r *SQLJogosRepository) Excluir(ctx context.Context, id int32, usuarioID in
 		return pgx.ErrNoRows
 	}
 	return nil
+}
+
+func (r *SQLJogosRepository) Listar(ctx context.Context, params ListarJogosZeradosParams) ([]*JogoZerado, int64, error) {
+	var busca pgtype.Text
+	if params.Busca != "" {
+		busca = pgtype.Text{String: params.Busca, Valid: true}
+	}
+
+	var console pgtype.Text
+	if params.Console != "" {
+		console = pgtype.Text{String: params.Console, Valid: true}
+	}
+
+	var genero pgtype.Text
+	if params.Genero != "" {
+		genero = pgtype.Text{String: params.Genero, Valid: true}
+	}
+
+	var tipo pgtype.Text
+	if params.Tipo != "" {
+		tipo = pgtype.Text{String: params.Tipo, Valid: true}
+	}
+
+	var notaMin pgtype.Int4
+	if params.NotaMin != nil {
+		notaMin = pgtype.Int4{Int32: *params.NotaMin, Valid: true}
+	}
+
+	var notaMax pgtype.Int4
+	if params.NotaMax != nil {
+		notaMax = pgtype.Int4{Int32: *params.NotaMax, Valid: true}
+	}
+
+	var ano pgtype.Int4
+	if params.Ano != nil {
+		ano = pgtype.Int4{Int32: *params.Ano, Valid: true}
+	}
+
+	var dificuldade pgtype.Text
+	if params.Dificuldade != "" {
+		dificuldade = pgtype.Text{String: params.Dificuldade, Valid: true}
+	}
+
+	total, err := r.queries.ContarJogosZerados(ctx, db.ContarJogosZeradosParams{
+		UsuarioID:   params.UsuarioID,
+		Busca:       busca,
+		Console:     console,
+		Genero:      genero,
+		Tipo:        tipo,
+		NotaMin:     notaMin,
+		NotaMax:     notaMax,
+		Ano:         ano,
+		Dificuldade: dificuldade,
+	})
+	if err != nil {
+		return nil, 0, fmt.Errorf("contar jogos zerados: %w", err)
+	}
+
+	if total == 0 {
+		return []*JogoZerado{}, 0, nil
+	}
+
+	offset := int32((params.Pagina - 1) * params.PorPagina)
+	limite := int32(params.PorPagina)
+
+	rows, err := r.queries.ListarJogosZerados(ctx, db.ListarJogosZeradosParams{
+		UsuarioID:   params.UsuarioID,
+		Busca:       busca,
+		Console:     console,
+		Genero:      genero,
+		Tipo:        tipo,
+		NotaMin:     notaMin,
+		NotaMax:     notaMax,
+		Ano:         ano,
+		Dificuldade: dificuldade,
+		OffsetVal:   offset,
+		Limite:      limite,
+	})
+	if err != nil {
+		return nil, 0, fmt.Errorf("listar jogos zerados: %w", err)
+	}
+
+	jogos := make([]*JogoZerado, 0, len(rows))
+	for _, row := range rows {
+		jogo := mapearJogoZerado(row)
+		jogo.IgdbDescricao = ""
+		jogos = append(jogos, jogo)
+	}
+
+	return jogos, total, nil
+}
+
+func (r *SQLJogosRepository) ObterFiltros(ctx context.Context, usuarioID int32) (*OpcoesFiltros, error) {
+	consoles, err := r.queries.ObterConsolesUsuario(ctx, usuarioID)
+	if err != nil {
+		return nil, fmt.Errorf("obter consoles: %w", err)
+	}
+	if consoles == nil {
+		consoles = []string{}
+	}
+
+	rawGeneros, err := r.queries.ObterGenerosUsuario(ctx, usuarioID)
+	if err != nil {
+		return nil, fmt.Errorf("obter generos: %w", err)
+	}
+	generosMap := make(map[string]struct{})
+	for _, g := range rawGeneros {
+		if g.Valid && g.String != "" {
+			for _, part := range strings.Split(g.String, ",") {
+				trimmed := strings.TrimSpace(part)
+				if trimmed != "" {
+					generosMap[trimmed] = struct{}{}
+				}
+			}
+		}
+	}
+	generos := make([]string, 0, len(generosMap))
+	for g := range generosMap {
+		generos = append(generos, g)
+	}
+	sort.Strings(generos)
+
+	rawTipos, err := r.queries.ObterTiposUsuario(ctx, usuarioID)
+	if err != nil {
+		return nil, fmt.Errorf("obter tipos: %w", err)
+	}
+	tiposMap := make(map[string]struct{})
+	for _, t := range rawTipos {
+		if t.Valid && t.String != "" {
+			trimmed := strings.TrimSpace(t.String)
+			if trimmed != "" {
+				tiposMap[trimmed] = struct{}{}
+			}
+		}
+	}
+	tipos := make([]string, 0, len(tiposMap))
+	for t := range tiposMap {
+		tipos = append(tipos, t)
+	}
+	sort.Strings(tipos)
+
+	rawAnos, err := r.queries.ObterAnosUsuario(ctx, usuarioID)
+	if err != nil {
+		return nil, fmt.Errorf("obter anos: %w", err)
+	}
+	anos := make([]int, 0, len(rawAnos))
+	for _, a := range rawAnos {
+		anos = append(anos, int(a))
+	}
+
+	return &OpcoesFiltros{
+		Consoles: consoles,
+		Generos:  generos,
+		Tipos:    tipos,
+		Anos:     anos,
+	}, nil
 }
 
 func mapearJogoZerado(row db.JogosZerado) *JogoZerado {

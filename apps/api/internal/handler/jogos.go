@@ -22,6 +22,8 @@ type JogosServicer interface {
 	CriarJogoZerado(ctx context.Context, params repository.CriarJogoZeradoParams) (*repository.JogoZerado, error)
 	AtualizarJogoZerado(ctx context.Context, params repository.AtualizarJogoZeradoParams) (*repository.JogoZerado, error)
 	ExcluirJogoZerado(ctx context.Context, id int32, usuarioID int32) error
+	ListarJogosZerados(ctx context.Context, params service.ListarJogosParams) (*service.ResultadoListagem, error)
+	ObterOpcoesFiltros(ctx context.Context, usuarioID int32) (*repository.OpcoesFiltros, error)
 }
 
 type JogosHandler struct {
@@ -411,6 +413,173 @@ func (h *JogosHandler) ExcluirJogo(c *gin.Context) {
 	}
 
 	c.Status(http.StatusNoContent)
+}
+
+func (h *JogosHandler) ListarJogos(c *gin.Context) {
+	usuario, ok := middleware.UsuarioDoContexto(c.Request.Context())
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": gin.H{
+				"codigo":   "auth.session.unauthorized",
+				"mensagem": i18n.T(c.GetHeader("Accept-Language"), "auth.session.unauthorized"),
+			},
+		})
+		return
+	}
+
+	usuarioID, err := strconv.Atoi(usuario.ID)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": gin.H{
+				"codigo":   "auth.session.unauthorized",
+				"mensagem": i18n.T(c.GetHeader("Accept-Language"), "auth.session.unauthorized"),
+			},
+		})
+		return
+	}
+
+	lang := c.GetHeader("Accept-Language")
+
+	var pagina *int
+	if pStr := c.Query("pagina"); pStr != "" {
+		p, err := strconv.Atoi(pStr)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "jogos.pagina_invalida", "mensagem": i18n.T(lang, "jogos.pagina_invalida")}})
+			return
+		}
+		pagina = &p
+	}
+
+	var porPagina *int
+	if ppStr := c.Query("por_pagina"); ppStr != "" {
+		pp, err := strconv.Atoi(ppStr)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "jogos.por_pagina_invalido", "mensagem": i18n.T(lang, "jogos.por_pagina_invalido")}})
+			return
+		}
+		porPagina = &pp
+	}
+
+	var notaMin *int
+	if nmStr := c.Query("nota_min"); nmStr != "" {
+		nm, err := strconv.Atoi(nmStr)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "jogos.nota_filtro_invalida", "mensagem": i18n.T(lang, "jogos.nota_filtro_invalida")}})
+			return
+		}
+		notaMin = &nm
+	}
+
+	var notaMax *int
+	if nmStr := c.Query("nota_max"); nmStr != "" {
+		nm, err := strconv.Atoi(nmStr)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "jogos.nota_filtro_invalida", "mensagem": i18n.T(lang, "jogos.nota_filtro_invalida")}})
+			return
+		}
+		notaMax = &nm
+	}
+
+	var ano *int
+	if aStr := c.Query("ano"); aStr != "" {
+		a, err := strconv.Atoi(aStr)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "jogos.ano_invalido", "mensagem": i18n.T(lang, "jogos.ano_invalido")}})
+			return
+		}
+		ano = &a
+	}
+
+	params := service.ListarJogosParams{
+		UsuarioID:   int32(usuarioID),
+		Busca:       c.Query("busca"),
+		Console:     c.Query("console"),
+		Genero:      c.Query("genero"),
+		Tipo:        c.Query("tipo"),
+		NotaMin:     notaMin,
+		NotaMax:     notaMax,
+		Ano:         ano,
+		Dificuldade: c.Query("dificuldade"),
+		Pagina:      pagina,
+		PorPagina:   porPagina,
+	}
+
+	res, err := h.service.ListarJogosZerados(c.Request.Context(), params)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrPaginaInvalida):
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "jogos.pagina_invalida", "mensagem": i18n.T(lang, "jogos.pagina_invalida")}})
+		case errors.Is(err, service.ErrPorPaginaInvalido):
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "jogos.por_pagina_invalido", "mensagem": i18n.T(lang, "jogos.por_pagina_invalido")}})
+		case errors.Is(err, service.ErrNotaFiltroInvalida):
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "jogos.nota_filtro_invalida", "mensagem": i18n.T(lang, "jogos.nota_filtro_invalida")}})
+		case errors.Is(err, service.ErrNotaFaixaInvalida):
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "jogos.nota_faixa_invalida", "mensagem": i18n.T(lang, "jogos.nota_faixa_invalida")}})
+		case errors.Is(err, service.ErrAnoInvalido):
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "jogos.ano_invalido", "mensagem": i18n.T(lang, "jogos.ano_invalido")}})
+		case errors.Is(err, service.ErrDificuldadeInvalida):
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "jogos.dificuldade_invalida", "mensagem": i18n.T(lang, "jogos.dificuldade_invalida")}})
+		default:
+			slog.ErrorContext(c.Request.Context(), "falha ao listar jogos zerados", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"codigo": "server.internal_error", "mensagem": i18n.T(lang, "server.internal_error")}})
+		}
+		return
+	}
+
+	jogos := res.Jogos
+	if jogos == nil {
+		jogos = []*repository.JogoZerado{}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"data": jogos,
+		"meta": gin.H{
+			"pagina":        res.Pagina,
+			"por_pagina":    res.PorPagina,
+			"total":         res.Total,
+			"total_paginas": res.TotalPaginas,
+		},
+	})
+}
+
+func (h *JogosHandler) ObterFiltros(c *gin.Context) {
+	usuario, ok := middleware.UsuarioDoContexto(c.Request.Context())
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": gin.H{
+				"codigo":   "auth.session.unauthorized",
+				"mensagem": i18n.T(c.GetHeader("Accept-Language"), "auth.session.unauthorized"),
+			},
+		})
+		return
+	}
+
+	usuarioID, err := strconv.Atoi(usuario.ID)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": gin.H{
+				"codigo":   "auth.session.unauthorized",
+				"mensagem": i18n.T(c.GetHeader("Accept-Language"), "auth.session.unauthorized"),
+			},
+		})
+		return
+	}
+
+	filtros, err := h.service.ObterOpcoesFiltros(c.Request.Context(), int32(usuarioID))
+	if err != nil {
+		slog.ErrorContext(c.Request.Context(), "falha ao obter opcoes de filtros", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": gin.H{
+				"codigo":   "server.internal_error",
+				"mensagem": i18n.T(c.GetHeader("Accept-Language"), "server.internal_error"),
+			},
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"data": filtros,
+	})
 }
 
 func parseJogoID(c *gin.Context) (int32, bool) {

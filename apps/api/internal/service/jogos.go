@@ -28,20 +28,28 @@ var (
 	ErrConsoleMuitoLongo       = errors.New("jogos.console_muito_longo")
 	ErrGeneroMuitoLongo        = errors.New("jogos.genero_muito_longo")
 	ErrTipoMuitoLongo          = errors.New("jogos.tipo_muito_longo")
+	ErrPaginaInvalida          = errors.New("jogos.pagina_invalida")
+	ErrPorPaginaInvalido       = errors.New("jogos.por_pagina_invalido")
+	ErrNotaFiltroInvalida      = errors.New("jogos.nota_filtro_invalida")
+	ErrNotaFaixaInvalida       = errors.New("jogos.nota_faixa_invalida")
+	ErrAnoInvalido             = errors.New("jogos.ano_invalido")
 )
 
 type JogosRepository interface {
 	Criar(ctx context.Context, params repository.CriarJogoZeradoParams) (*repository.JogoZerado, error)
 	Atualizar(ctx context.Context, params repository.AtualizarJogoZeradoParams) (*repository.JogoZerado, error)
 	Excluir(ctx context.Context, id int32, usuarioID int32) error
+	Listar(ctx context.Context, params repository.ListarJogosZeradosParams) ([]*repository.JogoZerado, int64, error)
+	ObterFiltros(ctx context.Context, usuarioID int32) (*repository.OpcoesFiltros, error)
 }
 
 type JogosService struct {
 	repo JogosRepository
+	now  func() time.Time
 }
 
 func NewJogosService(repo JogosRepository) *JogosService {
-	return &JogosService{repo: repo}
+	return &JogosService{repo: repo, now: time.Now}
 }
 
 func validarJogoZerado(nome, console, genero, tipo, review string, finalizadoEm time.Time, tempoJogado, nota int32, dificuldade string) error {
@@ -159,4 +167,142 @@ func (s *JogosService) ExcluirJogoZerado(ctx context.Context, id int32, usuarioI
 		return fmt.Errorf("excluir jogo zerado: %w", err)
 	}
 	return nil
+}
+
+type ListarJogosParams struct {
+	UsuarioID   int32
+	Busca       string
+	Console     string
+	Genero      string
+	Tipo        string
+	NotaMin     *int
+	NotaMax     *int
+	Ano         *int
+	Dificuldade string
+	Pagina      *int
+	PorPagina   *int
+}
+
+type ResultadoListagem struct {
+	Jogos        []*repository.JogoZerado
+	Total        int64
+	TotalPaginas int
+	Pagina       int
+	PorPagina    int
+}
+
+func (s *JogosService) ListarJogosZerados(ctx context.Context, params ListarJogosParams) (*ResultadoListagem, error) {
+	pagina := 1
+	if params.Pagina != nil {
+		if *params.Pagina < 1 {
+			return nil, ErrPaginaInvalida
+		}
+		pagina = *params.Pagina
+	}
+
+	porPagina := 24
+	if params.PorPagina != nil {
+		if *params.PorPagina < 1 || *params.PorPagina > 100 {
+			return nil, ErrPorPaginaInvalido
+		}
+		porPagina = *params.PorPagina
+	}
+
+	var notaMinPtr *int32
+	if params.NotaMin != nil {
+		if *params.NotaMin < 1 || *params.NotaMin > 11 {
+			return nil, ErrNotaFiltroInvalida
+		}
+		v := int32(*params.NotaMin)
+		notaMinPtr = &v
+	}
+
+	var notaMaxPtr *int32
+	if params.NotaMax != nil {
+		if *params.NotaMax < 1 || *params.NotaMax > 11 {
+			return nil, ErrNotaFiltroInvalida
+		}
+		v := int32(*params.NotaMax)
+		notaMaxPtr = &v
+	}
+
+	if notaMinPtr != nil && notaMaxPtr != nil && *notaMinPtr > *notaMaxPtr {
+		return nil, ErrNotaFaixaInvalida
+	}
+
+	var anoPtr *int32
+	if params.Ano != nil {
+		anoLimite := s.now().Year() + 1
+		if *params.Ano < 1970 || *params.Ano > anoLimite {
+			return nil, ErrAnoInvalido
+		}
+		v := int32(*params.Ano)
+		anoPtr = &v
+	}
+
+	if params.Dificuldade != "" {
+		switch params.Dificuldade {
+		case "C", "B", "A", "AA", "AAA":
+		default:
+			return nil, ErrDificuldadeInvalida
+		}
+	}
+
+	termoBusca := strings.TrimSpace(params.Busca)
+	if termoBusca != "" {
+		termoBusca = escaparLike(termoBusca)
+	}
+
+	termoGenero := strings.TrimSpace(params.Genero)
+	if termoGenero != "" {
+		termoGenero = escaparLike(termoGenero)
+	}
+
+	termoConsole := strings.TrimSpace(params.Console)
+	termoTipo := strings.TrimSpace(params.Tipo)
+
+	jogos, total, err := s.repo.Listar(ctx, repository.ListarJogosZeradosParams{
+		UsuarioID:   params.UsuarioID,
+		Busca:       termoBusca,
+		Console:     termoConsole,
+		Genero:      termoGenero,
+		Tipo:        termoTipo,
+		NotaMin:     notaMinPtr,
+		NotaMax:     notaMaxPtr,
+		Ano:         anoPtr,
+		Dificuldade: params.Dificuldade,
+		Pagina:      pagina,
+		PorPagina:   porPagina,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("listar jogos zerados: %w", err)
+	}
+
+	var totalPaginas int
+	if total > 0 {
+		totalPaginas = int((total + int64(porPagina) - 1) / int64(porPagina))
+	}
+
+	return &ResultadoListagem{
+		Jogos:        jogos,
+		Total:        total,
+		TotalPaginas: totalPaginas,
+		Pagina:       pagina,
+		PorPagina:    porPagina,
+	}, nil
+}
+
+func escaparLike(s string) string {
+	s = strings.ReplaceAll(s, `\`, `\\`)
+	s = strings.ReplaceAll(s, `%`, `\%`)
+	s = strings.ReplaceAll(s, `_`, `\_`)
+	return s
+}
+
+func (s *JogosService) ObterOpcoesFiltros(ctx context.Context, usuarioID int32) (*repository.OpcoesFiltros, error) {
+	filtros, err := s.repo.ObterFiltros(ctx, usuarioID)
+	if err != nil {
+		return nil, fmt.Errorf("obter opcoes filtros: %w", err)
+	}
+	return filtros, nil
 }

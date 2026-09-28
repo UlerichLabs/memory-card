@@ -15,9 +15,11 @@ import (
 )
 
 type mockJogosRepo struct {
-	criarFn     func(ctx context.Context, params repository.CriarJogoZeradoParams) (*repository.JogoZerado, error)
-	atualizarFn func(ctx context.Context, params repository.AtualizarJogoZeradoParams) (*repository.JogoZerado, error)
-	excluirFn   func(ctx context.Context, id int32, usuarioID int32) error
+	criarFn        func(ctx context.Context, params repository.CriarJogoZeradoParams) (*repository.JogoZerado, error)
+	atualizarFn    func(ctx context.Context, params repository.AtualizarJogoZeradoParams) (*repository.JogoZerado, error)
+	excluirFn      func(ctx context.Context, id int32, usuarioID int32) error
+	listarFn       func(ctx context.Context, params repository.ListarJogosZeradosParams) ([]*repository.JogoZerado, int64, error)
+	obterFiltrosFn func(ctx context.Context, usuarioID int32) (*repository.OpcoesFiltros, error)
 }
 
 func (m *mockJogosRepo) Criar(ctx context.Context, params repository.CriarJogoZeradoParams) (*repository.JogoZerado, error) {
@@ -39,6 +41,20 @@ func (m *mockJogosRepo) Excluir(ctx context.Context, id int32, usuarioID int32) 
 		return m.excluirFn(ctx, id, usuarioID)
 	}
 	return errors.New("nao implementado")
+}
+
+func (m *mockJogosRepo) Listar(ctx context.Context, params repository.ListarJogosZeradosParams) ([]*repository.JogoZerado, int64, error) {
+	if m.listarFn != nil {
+		return m.listarFn(ctx, params)
+	}
+	return nil, 0, errors.New("nao implementado")
+}
+
+func (m *mockJogosRepo) ObterFiltros(ctx context.Context, usuarioID int32) (*repository.OpcoesFiltros, error) {
+	if m.obterFiltrosFn != nil {
+		return m.obterFiltrosFn(ctx, usuarioID)
+	}
+	return nil, errors.New("nao implementado")
 }
 
 func TestJogosService_CriarJogoZerado_Sucesso(t *testing.T) {
@@ -634,3 +650,206 @@ func TestJogosService_ErroInesperadoRepositorio(t *testing.T) {
 		t.Fatalf("esperava dbErr, obteve: %v", err)
 	}
 }
+
+func TestJogosService_ListarJogosZerados_SucessoEDefaults(t *testing.T) {
+	chamouRepo := false
+	var capturado repository.ListarJogosZeradosParams
+
+	repo := &mockJogosRepo{
+		listarFn: func(ctx context.Context, params repository.ListarJogosZeradosParams) ([]*repository.JogoZerado, int64, error) {
+			chamouRepo = true
+			capturado = params
+			return []*repository.JogoZerado{
+				{ID: 1, Nome: "Chrono Trigger"},
+			}, 1, nil
+		},
+	}
+
+	svc := NewJogosService(repo)
+	res, err := svc.ListarJogosZerados(context.Background(), ListarJogosParams{
+		UsuarioID: 42,
+	})
+	if err != nil {
+		t.Fatalf("erro inesperado: %v", err)
+	}
+	if !chamouRepo {
+		t.Fatal("esperava que o repositorio fosse chamado")
+	}
+	if capturado.UsuarioID != 42 {
+		t.Fatalf("esperava usuarioID 42, obteve %d", capturado.UsuarioID)
+	}
+	if capturado.Pagina != 1 || capturado.PorPagina != 24 {
+		t.Fatalf("esperava pagina=1 por_pagina=24, obteve %d, %d", capturado.Pagina, capturado.PorPagina)
+	}
+	if res.Pagina != 1 || res.PorPagina != 24 || res.Total != 1 || res.TotalPaginas != 1 {
+		t.Fatalf("meta incorreto: %+v", res)
+	}
+	if len(res.Jogos) != 1 {
+		t.Fatalf("esperava 1 jogo, obteve: %+v", res.Jogos)
+	}
+}
+
+func TestJogosService_ListarJogosZerados_PaginacaoTotal(t *testing.T) {
+	testes := []struct {
+		nome            string
+		total           int64
+		porPagina       int
+		esperadoPaginas int
+	}{
+		{"zero registros", 0, 24, 0},
+		{"menos de uma pagina", 10, 24, 1},
+		{"exatamente uma pagina", 24, 24, 1},
+		{"uma pagina e um item", 25, 24, 2},
+		{"duas paginas exatas", 48, 24, 2},
+	}
+
+	for _, tt := range testes {
+		t.Run(tt.nome, func(t *testing.T) {
+			repo := &mockJogosRepo{
+				listarFn: func(ctx context.Context, params repository.ListarJogosZeradosParams) ([]*repository.JogoZerado, int64, error) {
+					return []*repository.JogoZerado{}, tt.total, nil
+				},
+			}
+			svc := NewJogosService(repo)
+			res, err := svc.ListarJogosZerados(context.Background(), ListarJogosParams{
+				UsuarioID: 1,
+				PorPagina: &tt.porPagina,
+			})
+			if err != nil {
+				t.Fatalf("erro inesperado: %v", err)
+			}
+			if res.TotalPaginas != tt.esperadoPaginas {
+				t.Fatalf("esperava %d paginas, obteve %d", tt.esperadoPaginas, res.TotalPaginas)
+			}
+		})
+	}
+}
+
+func TestJogosService_ListarJogosZerados_Validacoes(t *testing.T) {
+	intPtr := func(i int) *int { return &i }
+	anoFuturoMaisDois := time.Now().Year() + 2
+
+	testes := []struct {
+		nome         string
+		params       ListarJogosParams
+		erroEsperado error
+	}{
+		{"pagina zero", ListarJogosParams{Pagina: intPtr(0)}, ErrPaginaInvalida},
+		{"pagina negativa", ListarJogosParams{Pagina: intPtr(-1)}, ErrPaginaInvalida},
+		{"por_pagina zero", ListarJogosParams{PorPagina: intPtr(0)}, ErrPorPaginaInvalido},
+		{"por_pagina 101", ListarJogosParams{PorPagina: intPtr(101)}, ErrPorPaginaInvalido},
+		{"por_pagina negativa", ListarJogosParams{PorPagina: intPtr(-5)}, ErrPorPaginaInvalido},
+		{"nota_min zero", ListarJogosParams{NotaMin: intPtr(0)}, ErrNotaFiltroInvalida},
+		{"nota_min 12", ListarJogosParams{NotaMin: intPtr(12)}, ErrNotaFiltroInvalida},
+		{"nota_max zero", ListarJogosParams{NotaMax: intPtr(0)}, ErrNotaFiltroInvalida},
+		{"nota_max 12", ListarJogosParams{NotaMax: intPtr(12)}, ErrNotaFiltroInvalida},
+		{"nota_min maior que nota_max", ListarJogosParams{NotaMin: intPtr(10), NotaMax: intPtr(5)}, ErrNotaFaixaInvalida},
+		{"ano anterior a 1970", ListarJogosParams{Ano: intPtr(1969)}, ErrAnoInvalido},
+		{"ano alem do limite futuro", ListarJogosParams{Ano: &anoFuturoMaisDois}, ErrAnoInvalido},
+		{"dificuldade invalida", ListarJogosParams{Dificuldade: "Z"}, ErrDificuldadeInvalida},
+	}
+
+	for _, tt := range testes {
+		t.Run(tt.nome, func(t *testing.T) {
+			svc := NewJogosService(&mockJogosRepo{})
+			_, err := svc.ListarJogosZerados(context.Background(), tt.params)
+			if !errors.Is(err, tt.erroEsperado) {
+				t.Fatalf("esperava erro %v, obteve %v", tt.erroEsperado, err)
+			}
+		})
+	}
+}
+
+func TestJogosService_ListarJogosZerados_TratamentoStringsEEscape(t *testing.T) {
+	var capturado repository.ListarJogosZeradosParams
+
+	repo := &mockJogosRepo{
+		listarFn: func(ctx context.Context, params repository.ListarJogosZeradosParams) ([]*repository.JogoZerado, int64, error) {
+			capturado = params
+			return []*repository.JogoZerado{}, 0, nil
+		},
+	}
+
+	svc := NewJogosService(repo)
+	_, err := svc.ListarJogosZerados(context.Background(), ListarJogosParams{
+		UsuarioID:   1,
+		Busca:       "  Zelda%_\\  ",
+		Console:     "  SNES  ",
+		Genero:      "  Action%_  ",
+		Tipo:        "  Campanha  ",
+		Dificuldade: "AA",
+	})
+	if err != nil {
+		t.Fatalf("erro inesperado: %v", err)
+	}
+
+	if capturado.Busca != `Zelda\%\_\\` {
+		t.Fatalf("esperava busca escapada, obteve %q", capturado.Busca)
+	}
+	if capturado.Genero != `Action\%\_` {
+		t.Fatalf("esperava genero escapado, obteve %q", capturado.Genero)
+	}
+	if capturado.Console != "SNES" {
+		t.Fatalf("esperava console sem espacos, obteve %q", capturado.Console)
+	}
+	if capturado.Tipo != "Campanha" {
+		t.Fatalf("esperava tipo sem espacos, obteve %q", capturado.Tipo)
+	}
+	if capturado.Dificuldade != "AA" {
+		t.Fatalf("esperava dificuldade AA, obteve %q", capturado.Dificuldade)
+	}
+}
+
+func TestJogosService_ListarJogosZerados_ErroRepositorio(t *testing.T) {
+	dbErr := errors.New("db listar error")
+	repo := &mockJogosRepo{
+		listarFn: func(ctx context.Context, params repository.ListarJogosZeradosParams) ([]*repository.JogoZerado, int64, error) {
+			return nil, 0, dbErr
+		},
+	}
+	svc := NewJogosService(repo)
+	_, err := svc.ListarJogosZerados(context.Background(), ListarJogosParams{UsuarioID: 1})
+	if !errors.Is(err, dbErr) {
+		t.Fatalf("esperava erro %v, obteve %v", dbErr, err)
+	}
+}
+
+func TestJogosService_ObterOpcoesFiltros_Sucesso(t *testing.T) {
+	esperado := &repository.OpcoesFiltros{
+		Consoles: []string{"NES", "SNES"},
+		Generos:  []string{"Action", "RPG"},
+		Tipos:    []string{"Campanha", "DLC"},
+		Anos:     []int{2025, 2024},
+	}
+	repo := &mockJogosRepo{
+		obterFiltrosFn: func(ctx context.Context, usuarioID int32) (*repository.OpcoesFiltros, error) {
+			if usuarioID != 99 {
+				t.Fatalf("esperava usuarioID 99, obteve %d", usuarioID)
+			}
+			return esperado, nil
+		},
+	}
+	svc := NewJogosService(repo)
+	res, err := svc.ObterOpcoesFiltros(context.Background(), 99)
+	if err != nil {
+		t.Fatalf("erro inesperado: %v", err)
+	}
+	if len(res.Consoles) != 2 || len(res.Generos) != 2 || len(res.Tipos) != 2 || len(res.Anos) != 2 {
+		t.Fatalf("resultado inesperado: %+v", res)
+	}
+}
+
+func TestJogosService_ObterOpcoesFiltros_ErroRepositorio(t *testing.T) {
+	dbErr := errors.New("db filtros error")
+	repo := &mockJogosRepo{
+		obterFiltrosFn: func(ctx context.Context, usuarioID int32) (*repository.OpcoesFiltros, error) {
+			return nil, dbErr
+		},
+	}
+	svc := NewJogosService(repo)
+	_, err := svc.ObterOpcoesFiltros(context.Background(), 1)
+	if !errors.Is(err, dbErr) {
+		t.Fatalf("esperava erro %v, obteve %v", dbErr, err)
+	}
+}
+
