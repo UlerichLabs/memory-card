@@ -23,7 +23,7 @@ export function GameFormDialog() {
 
   return (
     <Dialog open={isModalOpen} onOpenChange={(open) => !open && fecharModal()}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl bg-[var(--bg-surface)] border-[var(--border)] text-[var(--text-primary)] p-6">
+      <DialogContent className="flex !max-h-[calc(100vh-32px)] w-[min(1040px,calc(100vw-32px))] flex-col gap-5 overflow-hidden rounded-2xl border border-[var(--modal-border)] bg-[var(--modal-bg)] px-8 py-7 text-[var(--text-primary)] sm:max-w-none">
         <DialogHeader>
           <DialogTitle className="text-[20px] font-bold text-[var(--text-primary)]">
             {jogoEmEdicao ? 'Editar registro' : 'Registrar jogo'}

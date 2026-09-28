@@ -87,6 +87,77 @@
     --rating-high: #4ADE80;
     --success: #4ADE80;
     --danger: #E05A4E;
+    --modal-bg: #1e1f24;
+    --modal-border: #2f3037;
+    --chip-bg: #2f3140;
+    --chip-border: #454862;
+    --chip-text: #c9d3ff;
+    --scrollbar-thumb: #3a3c46;
+    --nota-button-bg: #25262c;
+    --nota-1-fill: #da3e3e;
+    --nota-1-fill-border: #e05c5c;
+    --nota-1-text: #e36363;
+    --nota-1-border: #633636;
+    --nota-2-fill: #da633e;
+    --nota-2-fill-border: #e07b5c;
+    --nota-2-text: #e38163;
+    --nota-2-border: #634036;
+    --nota-3-fill: #da873e;
+    --nota-3-fill-border: #e09a5c;
+    --nota-3-text: #e39f63;
+    --nota-3-border: #634b36;
+    --nota-4-fill: #daab3e;
+    --nota-4-fill-border: #e0b85c;
+    --nota-4-text: #e3bd63;
+    --nota-4-border: #635636;
+    --nota-5-fill: #dad03e;
+    --nota-5-fill-border: #e0d75c;
+    --nota-5-text: #e3db63;
+    --nota-5-border: #636036;
+    --nota-6-fill: #c3da3e;
+    --nota-6-fill-border: #cce05c;
+    --nota-6-text: #d0e363;
+    --nota-6-border: #5d6336;
+    --nota-7-fill: #9eda3e;
+    --nota-7-fill-border: #ade05c;
+    --nota-7-text: #b2e363;
+    --nota-7-border: #526336;
+    --nota-8-fill: #7ada3e;
+    --nota-8-fill-border: #8fe05c;
+    --nota-8-text: #94e363;
+    --nota-8-border: #476336;
+    --nota-9-fill: #56da3e;
+    --nota-9-fill-border: #70e05c;
+    --nota-9-text: #76e363;
+    --nota-9-border: #3c6336;
+    --nota-10-fill: #3eda4b;
+    --nota-10-fill-border: #5ce067;
+    --nota-10-text: #63e36e;
+    --nota-10-border: #366339;
+    --nota-11-fill: #f0be50;
+    --nota-11-fill-border: #ffd77a;
+    --nota-11-text: #f0be50;
+    --nota-11-border: #8a6d2c;
+    --dif-c-fill: #3eda4b;
+    --dif-c-fill-border: #5ce067;
+    --dif-c-text: #63e36e;
+    --dif-c-border: #366339;
+    --dif-b-fill: #82da3e;
+    --dif-b-fill-border: #95e05c;
+    --dif-b-text: #9be363;
+    --dif-b-border: #496336;
+    --dif-a-fill: #d5da3e;
+    --dif-a-fill-border: #dce05c;
+    --dif-a-text: #dfe363;
+    --dif-a-border: #626336;
+    --dif-aa-fill: #da8f3e;
+    --dif-aa-fill-border: #e0a05c;
+    --dif-aa-text: #e3a563;
+    --dif-aa-border: #634d36;
+    --dif-aaa-fill: #dd3c3c;
+    --dif-aaa-fill-border: #ee6363;
+    --dif-aaa-text: #e36363;
+    --dif-aaa-border: #633636;
 
     --background: #15161A;
     --foreground: #EDEDED;
@@ -136,7 +207,7 @@
 
 .custom-scrollbar {
     scrollbar-width: thin;
-    scrollbar-color: var(--border-subtle) var(--bg-surface);
+    scrollbar-color: var(--scrollbar-thumb) transparent;
 }
 
 .custom-scrollbar::-webkit-scrollbar {
@@ -145,11 +216,11 @@
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
-    background: var(--bg-surface);
+    background: transparent;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-    background-color: var(--border-subtle);
+    background-color: var(--scrollbar-thumb);
     border-radius: 9999px;
 }
 
@@ -167,15 +238,16 @@
     margin: 0;
 }
 
-@keyframes highlight-pulse {
-    0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--highlight-gold) 0%, transparent); }
-    50% { box-shadow: 0 0 18px 3px color-mix(in srgb, var(--highlight-gold) 45%, transparent); }
-}
+@keyframes pulsoOuro{0%,100%{box-shadow:0 0 0 0 rgba(240,190,80,.55),0 0 10px 1px rgba(240,190,80,.35)}50%{box-shadow:0 0 0 6px rgba(240,190,80,0),0 0 18px 4px rgba(240,190,80,.6)}}
+@keyframes brilhoOuro{0%,100%{filter:brightness(1)}50%{filter:brightness(1.15)}}
+@keyframes pulsoVermelho{0%,100%{box-shadow:0 0 0 0 rgba(230,70,70,.55),0 0 10px 1px rgba(230,70,70,.3)}50%{box-shadow:0 0 0 6px rgba(230,70,70,0),0 0 18px 4px rgba(230,70,70,.55)}}
 
-.highlight-pulse { animation: highlight-pulse 1.8s ease-in-out infinite; }
+.animate-pulso-ouro { animation: pulsoOuro 1.6s ease-in-out infinite; }
+.animate-brilho-ouro { animation: brilhoOuro 1.6s ease-in-out infinite; }
+.animate-pulso-vermelho { animation: pulsoVermelho 1.6s ease-in-out infinite; }
 
 @media (prefers-reduced-motion: reduce) {
-    .highlight-pulse { animation: none; }
+    .animate-pulso-ouro, .animate-brilho-ouro, .animate-pulso-vermelho { animation: none; }
 }
 
 @layer base {
