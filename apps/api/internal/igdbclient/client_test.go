@@ -137,6 +137,34 @@ func TestClientServerErrorIsUnavailable(t *testing.T) {
 	}
 }
 
+type roundTripperFunc func(*http.Request) (*http.Response, error)
+
+func (fn roundTripperFunc) RoundTrip(request *http.Request) (*http.Response, error) {
+	return fn(request)
+}
+
+func TestClientPreservesContextErrors(t *testing.T) {
+	client := New(Config{HTTPClient: &http.Client{Transport: roundTripperFunc(func(request *http.Request) (*http.Response, error) {
+		return nil, request.Context().Err()
+	})}})
+	client.token = "token"
+	client.tokenExpiry = time.Now().Add(time.Hour)
+
+	canceled, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err := client.SearchGames(canceled, "game")
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("esperava context.Canceled, obteve %v", err)
+	}
+
+	deadline, cancel := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
+	defer cancel()
+	_, err = client.SearchGames(deadline, "game")
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("esperava context.DeadlineExceeded, obteve %v", err)
+	}
+}
+
 func TestClientThrottlesConcurrentRequests(t *testing.T) {
 	var mu sync.Mutex
 	var starts []time.Time

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -67,6 +68,8 @@ func TestIGDBHandlerSearchErrors(t *testing.T) {
 		{name: "rate limit", err: service.ErrIGDBRateLimit, code: http.StatusTooManyRequests, body: `"codigo":"igdb.rate_limited"`},
 		{name: "unavailable", err: service.ErrIGDBIndisponivel, code: http.StatusServiceUnavailable, body: `"codigo":"igdb.unavailable"`},
 		{name: "query invalid", err: service.ErrIGDBQueryInvalida, code: http.StatusBadGateway, body: `"codigo":"igdb.query_invalid"`},
+		{name: "canceled", err: context.Canceled, code: 499, body: ""},
+		{name: "deadline exceeded", err: context.DeadlineExceeded, code: http.StatusServiceUnavailable, body: `"codigo":"igdb.unavailable"`},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -76,6 +79,9 @@ func TestIGDBHandlerSearchErrors(t *testing.T) {
 			router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/igdb/jogos/busca?q=game", nil))
 			if recorder.Code != test.code || !strings.Contains(recorder.Body.String(), test.body) {
 				t.Fatalf("status=%d body=%s", recorder.Code, recorder.Body.String())
+			}
+			if errors.Is(test.err, context.Canceled) && recorder.Body.Len() != 0 {
+				t.Fatalf("cancelamento deveria não ter corpo: %s", recorder.Body.String())
 			}
 		})
 	}

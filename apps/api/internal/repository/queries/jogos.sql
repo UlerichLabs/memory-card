@@ -2,7 +2,7 @@
 INSERT INTO jogos_zerados (
     usuario_id, igdb_id, nome, console, genero, tipo,
     iniciado_em, finalizado_em, tempo_jogado, nota,
-    dificuldade, condicao_zeramento, destaque, igdb_capa_url, igdb_descricao
+    dificuldade, review, destaque, igdb_capa_url, igdb_descricao
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
 ) RETURNING *;
@@ -33,7 +33,7 @@ UPDATE jogos_zerados SET
     tempo_jogado = $10,
     nota = $11,
     dificuldade = $12,
-    condicao_zeramento = $13,
+    review = $13,
     destaque = $14,
     igdb_capa_url = $15,
     igdb_descricao = $16,
@@ -45,4 +45,3 @@ RETURNING *;
 UPDATE jogos_zerados
 SET deleted_at = now()
 WHERE id = $1 AND usuario_id = $2 AND deleted_at IS NULL;
-
