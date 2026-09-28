@@ -116,10 +116,14 @@ func (h *IGDBHandler) respond(c *gin.Context, data any, err error) {
 	switch {
 	case errors.Is(err, service.ErrTermoIGDBVazio):
 		status, code = http.StatusBadRequest, "igdb.search.empty"
+	case errors.Is(err, service.ErrTermoIGDBCurto):
+		status, code = http.StatusBadRequest, "igdb.search.too_short"
 	case errors.Is(err, service.ErrIGDBRateLimit), errors.Is(err, igdbclient.ErrRateLimited):
 		status, code = http.StatusTooManyRequests, "igdb.rate_limited"
 	case errors.Is(err, service.ErrIGDBIndisponivel):
 		status, code = http.StatusServiceUnavailable, "igdb.unavailable"
+	case errors.Is(err, service.ErrIGDBQueryInvalida):
+		status, code = http.StatusBadGateway, "igdb.query_invalid"
 	case errors.Is(err, service.ErrJogoIGDBNaoEncontrado):
 		status, code = http.StatusNotFound, "jogos.not_found"
 	default:

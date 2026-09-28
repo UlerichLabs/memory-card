@@ -172,6 +172,14 @@ func (h *JogosHandler) CriarJogo(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "jogos.nome_required", "mensagem": i18n.T(lang, "jogos.nome_required")}})
 		case errors.Is(err, service.ErrConsoleObrigatorio):
 			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "jogos.console_required", "mensagem": i18n.T(lang, "jogos.console_required")}})
+		case errors.Is(err, service.ErrNomeMuitoLongo):
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "jogos.nome_too_long", "mensagem": i18n.T(lang, "jogos.nome_too_long")}})
+		case errors.Is(err, service.ErrConsoleMuitoLongo):
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "jogos.console_too_long", "mensagem": i18n.T(lang, "jogos.console_too_long")}})
+		case errors.Is(err, service.ErrGeneroMuitoLongo):
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "jogos.genero_too_long", "mensagem": i18n.T(lang, "jogos.genero_too_long")}})
+		case errors.Is(err, service.ErrTipoMuitoLongo):
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "jogos.tipo_too_long", "mensagem": i18n.T(lang, "jogos.tipo_too_long")}})
 		case errors.Is(err, service.ErrFinalizadoEmObrigatorio):
 			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "jogos.finalizado_em_required", "mensagem": i18n.T(lang, "jogos.finalizado_em_required")}})
 		case errors.Is(err, service.ErrTempoJogadoInvalido):
@@ -183,7 +191,7 @@ func (h *JogosHandler) CriarJogo(c *gin.Context) {
 		case errors.Is(err, service.ErrCondicaoZeramentoInvalida):
 			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "jogos.condicao_zeramento_too_long", "mensagem": i18n.T(lang, "jogos.condicao_zeramento_too_long")}})
 		case errors.Is(err, service.ErrDestaqueAnoConflito):
-			c.JSON(http.StatusConflict, gin.H{"error": gin.H{"codigo": "jogos.destaque_ano_conflito", "mensagem": "já existe um destaque para este ano"}})
+			c.JSON(http.StatusConflict, gin.H{"error": gin.H{"codigo": "jogos.destaque_ano_conflito", "mensagem": i18n.T(lang, "jogos.destaque_ano_conflito")}})
 		default:
 			slog.ErrorContext(c.Request.Context(), "falha ao criar jogo zerado", "error", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"codigo": "server.internal_error", "mensagem": i18n.T(lang, "server.internal_error")}})
@@ -320,6 +328,14 @@ func (h *JogosHandler) AtualizarJogo(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "jogos.nome_required", "mensagem": i18n.T(lang, "jogos.nome_required")}})
 		case errors.Is(err, service.ErrConsoleObrigatorio):
 			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "jogos.console_required", "mensagem": i18n.T(lang, "jogos.console_required")}})
+		case errors.Is(err, service.ErrNomeMuitoLongo):
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "jogos.nome_too_long", "mensagem": i18n.T(lang, "jogos.nome_too_long")}})
+		case errors.Is(err, service.ErrConsoleMuitoLongo):
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "jogos.console_too_long", "mensagem": i18n.T(lang, "jogos.console_too_long")}})
+		case errors.Is(err, service.ErrGeneroMuitoLongo):
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "jogos.genero_too_long", "mensagem": i18n.T(lang, "jogos.genero_too_long")}})
+		case errors.Is(err, service.ErrTipoMuitoLongo):
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "jogos.tipo_too_long", "mensagem": i18n.T(lang, "jogos.tipo_too_long")}})
 		case errors.Is(err, service.ErrFinalizadoEmObrigatorio):
 			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "jogos.finalizado_em_required", "mensagem": i18n.T(lang, "jogos.finalizado_em_required")}})
 		case errors.Is(err, service.ErrTempoJogadoInvalido):
@@ -331,7 +347,7 @@ func (h *JogosHandler) AtualizarJogo(c *gin.Context) {
 		case errors.Is(err, service.ErrCondicaoZeramentoInvalida):
 			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "jogos.condicao_zeramento_too_long", "mensagem": i18n.T(lang, "jogos.condicao_zeramento_too_long")}})
 		case errors.Is(err, service.ErrDestaqueAnoConflito):
-			c.JSON(http.StatusConflict, gin.H{"error": gin.H{"codigo": "jogos.destaque_ano_conflito", "mensagem": "já existe um destaque para este ano"}})
+			c.JSON(http.StatusConflict, gin.H{"error": gin.H{"codigo": "jogos.destaque_ano_conflito", "mensagem": i18n.T(lang, "jogos.destaque_ano_conflito")}})
 		case errors.Is(err, service.ErrJogoNaoEncontrado):
 			c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"codigo": "jogos.not_found", "mensagem": i18n.T(lang, "jogos.not_found")}})
 		default:

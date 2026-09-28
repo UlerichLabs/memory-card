@@ -407,7 +407,7 @@ func TestBuscarJogos_DesempateRatingEData(t *testing.T) {
 	})
 }
 
-func TestBuscarJogos_Limite10(t *testing.T) {
+func TestBuscarJogos_Limite20(t *testing.T) {
 	mock := &customSearchMock{
 		searchFn: func(ctx context.Context, query string) ([]igdbclient.Game, error) {
 			games := make([]igdbclient.Game, 20)
@@ -422,8 +422,8 @@ func TestBuscarJogos_Limite10(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(games) != 10 {
-		t.Fatalf("esperava exatamente 10 resultados no limite, obteve %d", len(games))
+	if len(games) != 20 {
+		t.Fatalf("esperava exatamente 20 resultados no limite, obteve %d", len(games))
 	}
 }
 
@@ -435,6 +435,7 @@ func TestBuscarJogos_ErrosTraduzidos(t *testing.T) {
 	}{
 		{"rate limit", igdbclient.ErrRateLimited, ErrIGDBRateLimit},
 		{"unavailable", igdbclient.ErrUnavailable, ErrIGDBIndisponivel},
+		{"query invalid", igdbclient.ErrQueryInvalid, ErrIGDBQueryInvalida},
 		{"authentication", igdbclient.ErrAuthentication, ErrIGDBIndisponivel},
 	}
 
@@ -451,6 +452,22 @@ func TestBuscarJogos_ErrosTraduzidos(t *testing.T) {
 				t.Fatalf("esperava erro %v, obteve %v", tc.targetErr, err)
 			}
 		})
+	}
+}
+
+func TestBuscarJogos_SanitizaTermoECurto(t *testing.T) {
+	mock := &customSearchMock{}
+	svc := NewIGDBService(mock, &cacheMock{items: make(map[string]any)})
+	_, err := svc.BuscarJogos(context.Background(), ` zelda\"*; `)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if mock.lastQuery != "zelda" {
+		t.Fatalf("termo sanitizado inesperado: %q", mock.lastQuery)
+	}
+	_, err = svc.BuscarJogos(context.Background(), ` a* `)
+	if !errors.Is(err, ErrTermoIGDBCurto) {
+		t.Fatalf("esperava termo curto, obteve %v", err)
 	}
 }
 
