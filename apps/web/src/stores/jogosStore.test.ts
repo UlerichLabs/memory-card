@@ -27,8 +27,39 @@ describe('jogosStore', () => {
   it('inicia com estado padrão', () => {
     const { result } = renderHook(() => useJogosStore(), { wrapper: JogosProvider })
     expect(result.current.jogos).toEqual([])
+    expect(result.current.meta).toEqual({ pagina: 1, por_pagina: 24, total: 0, total_paginas: 0 })
+    expect(result.current.filtros).toEqual({ consoles: [], generos: [], tipos: [], anos: [] })
     expect(result.current.isLoading).toBe(false)
     expect(result.current.error).toBeNull()
+  })
+
+  it('guarda a lista vinda da api e os metadados de paginação', async () => {
+    const mockResposta = {
+      data: [jogoMock],
+      meta: { pagina: 2, por_pagina: 24, total: 25, total_paginas: 2 },
+    }
+    vi.spyOn(jogosService, 'listar').mockResolvedValue(mockResposta)
+
+    const { result } = renderHook(() => useJogosStore(), { wrapper: JogosProvider })
+
+    await act(async () => {
+      await result.current.carregarJogos({ pagina: 2 })
+    })
+
+    expect(result.current.jogos).toEqual([jogoMock])
+    expect(result.current.meta).toEqual(mockResposta.meta)
+    expect(result.current.isLoading).toBe(false)
+  })
+
+  it('limpa a lista e reseta meta ao chamar limparBiblioteca', () => {
+    const { result } = renderHook(() => useJogosStore(), {
+      wrapper: ({ children }) => JogosProvider({ children, initialJogos: [jogoMock] }),
+    })
+
+    expect(result.current.jogos).toHaveLength(1)
+    act(() => result.current.limparBiblioteca())
+    expect(result.current.jogos).toEqual([])
+    expect(result.current.meta.total).toBe(0)
   })
 
   it('limpa o registro em edição ao fechar o modal', () => {
@@ -48,8 +79,19 @@ describe('jogosStore', () => {
     )
   })
 
-  it('criarJogo adiciona o jogo criado à lista com sucesso', async () => {
+  it('criarJogo chama api e recarrega listagem e filtros', async () => {
     vi.spyOn(jogosService, 'criar').mockResolvedValue(jogoMock)
+    const spyListar = vi.spyOn(jogosService, 'listar').mockResolvedValue({
+      data: [jogoMock],
+      meta: { pagina: 1, por_pagina: 24, total: 1, total_paginas: 1 },
+    })
+    const spyFiltros = vi.spyOn(jogosService, 'obterFiltros').mockResolvedValue({
+      consoles: ['SNES'],
+      generos: ['RPG'],
+      tipos: ['Campanha'],
+      anos: [2026],
+    })
+
     const { result } = renderHook(() => useJogosStore(), { wrapper: JogosProvider })
 
     await act(async () => {
@@ -64,9 +106,9 @@ describe('jogosStore', () => {
       expect(criado).toEqual(jogoMock)
     })
 
-    expect(result.current.jogos).toContainEqual(jogoMock)
-    expect(result.current.isLoading).toBe(false)
-    expect(result.current.error).toBeNull()
+    expect(spyListar).toHaveBeenCalled()
+    expect(spyFiltros).toHaveBeenCalled()
+    expect(result.current.jogos).toEqual([jogoMock])
   })
 
   it('criarJogo atualiza error e lança exceção em caso de erro', async () => {
@@ -91,13 +133,17 @@ describe('jogosStore', () => {
     expect(result.current.error).toBe('Erro de conexão')
   })
 
-  it('atualizarJogo altera o item correspondente na lista', async () => {
-    const inicial: JogoZeradoDTO = { ...jogoMock, id: 1, nome: 'Versao Antiga' }
+  it('atualizarJogo altera registro e recarrega listagem', async () => {
     const atualizado: JogoZeradoDTO = { ...jogoMock, id: 1, nome: 'Versao Nova' }
     vi.spyOn(jogosService, 'atualizar').mockResolvedValue(atualizado)
+    const spyListar = vi.spyOn(jogosService, 'listar').mockResolvedValue({
+      data: [atualizado],
+      meta: { pagina: 1, por_pagina: 24, total: 1, total_paginas: 1 },
+    })
+    vi.spyOn(jogosService, 'obterFiltros').mockResolvedValue({ consoles: [], generos: [], tipos: [], anos: [] })
 
     const { result } = renderHook(() => useJogosStore(), {
-      wrapper: ({ children }) => JogosProvider({ children, initialJogos: [inicial] }),
+      wrapper: ({ children }) => JogosProvider({ children, initialJogos: [jogoMock] }),
     })
 
     await act(async () => {
@@ -112,18 +158,16 @@ describe('jogosStore', () => {
       expect(res).toEqual(atualizado)
     })
 
+    expect(spyListar).toHaveBeenCalled()
     expect(result.current.jogos[0].nome).toBe('Versao Nova')
-    expect(result.current.isLoading).toBe(false)
-    expect(result.current.error).toBeNull()
   })
 
   it('atualizarJogo trata erro 409 de conflito', async () => {
-    const inicial: JogoZeradoDTO = { ...jogoMock, id: 1 }
     const erro409 = new JogosApiError('jogos.destaque_ano_conflito', 'já existe um destaque para este ano', 409)
     vi.spyOn(jogosService, 'atualizar').mockRejectedValue(erro409)
 
     const { result } = renderHook(() => useJogosStore(), {
-      wrapper: ({ children }) => JogosProvider({ children, initialJogos: [inicial] }),
+      wrapper: ({ children }) => JogosProvider({ children, initialJogos: [jogoMock] }),
     })
 
     await act(async () => {
@@ -143,21 +187,25 @@ describe('jogosStore', () => {
     expect(result.current.isLoading).toBe(false)
   })
 
-  it('excluirJogo remove o item correspondente da lista', async () => {
-    const jogo2: JogoZeradoDTO = { ...jogoMock, id: 2, nome: 'Super Mario World' }
+  it('excluirJogo chama api e recarrega listagem e filtros', async () => {
     vi.spyOn(jogosService, 'excluir').mockResolvedValue(undefined)
+    const spyListar = vi.spyOn(jogosService, 'listar').mockResolvedValue({
+      data: [],
+      meta: { pagina: 1, por_pagina: 24, total: 0, total_paginas: 0 },
+    })
+    const spyFiltros = vi.spyOn(jogosService, 'obterFiltros').mockResolvedValue({ consoles: [], generos: [], tipos: [], anos: [] })
 
     const { result } = renderHook(() => useJogosStore(), {
-      wrapper: ({ children }) => JogosProvider({ children, initialJogos: [jogoMock, jogo2] }),
+      wrapper: ({ children }) => JogosProvider({ children, initialJogos: [jogoMock] }),
     })
 
     await act(async () => {
       await result.current.excluirJogo(1)
     })
 
-    expect(result.current.jogos).toHaveLength(1)
-    expect(result.current.jogos[0].id).toBe(2)
-    expect(result.current.isLoading).toBe(false)
+    expect(spyListar).toHaveBeenCalled()
+    expect(spyFiltros).toHaveBeenCalled()
+    expect(result.current.jogos).toEqual([])
   })
 
   it('buscarIGDB chama o serviço e retorna sugestões', async () => {

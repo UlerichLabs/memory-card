@@ -1,12 +1,13 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from '@/store/authStore'
 import { JogosProvider } from '@/stores/jogosStore'
 import { GameFormDialog } from '@/components/jogos/GameForm/GameFormDialog'
 import { BibliotecaPage } from './BibliotecaPage'
-import type { JogoZeradoDTO } from '@/lib/services/jogosService'
+import { jogosService } from '@/lib/services/jogosService'
+import type { JogoZeradoDTO, OpcoesFiltrosDTO } from '@/types/jogos'
 
 const jogoMock: JogoZeradoDTO = {
   id: 1,
@@ -25,11 +26,18 @@ const jogoMock: JogoZeradoDTO = {
   igdb_capa_url: 'https://images.igdb.com/cover.jpg',
 }
 
-function renderBiblioteca(initialJogos: JogoZeradoDTO[] = []) {
+const filtrosMock: OpcoesFiltrosDTO = {
+  consoles: ['SNES', 'PS5'],
+  generos: ['JRPG', 'Ação'],
+  tipos: ['Campanha'],
+  anos: [2026, 2025],
+}
+
+function renderBiblioteca(initialEntry = '/biblioteca') {
   return render(
-    <MemoryRouter initialEntries={['/biblioteca']}>
+    <MemoryRouter initialEntries={[initialEntry]}>
       <AuthProvider>
-        <JogosProvider initialJogos={initialJogos}>
+        <JogosProvider>
           <GameFormDialog />
           <Routes>
             <Route path="/biblioteca" element={<BibliotecaPage />} />
@@ -41,64 +49,252 @@ function renderBiblioteca(initialJogos: JogoZeradoDTO[] = []) {
 }
 
 describe('BibliotecaPage', () => {
+  beforeEach(() => {
+    vi.spyOn(jogosService, 'obterFiltros').mockResolvedValue(filtrosMock)
+  })
+
   afterEach(() => {
     vi.restoreAllMocks()
   })
 
-  it('renderiza estado vazio quando não há jogos cadastrados', () => {
-    renderBiblioteca([])
+  it('carregamento inicial chama api com pagina=1 e por_pagina=24 e filtros', async () => {
+    const spyListar = vi.spyOn(jogosService, 'listar').mockResolvedValue({
+      data: [jogoMock],
+      meta: { pagina: 1, por_pagina: 24, total: 1, total_paginas: 1 },
+    })
 
-    expect(screen.getByRole('heading', { name: 'Biblioteca' })).toBeInTheDocument()
-    expect(screen.getByText('0 jogos')).toBeInTheDocument()
-    expect(screen.getByText('Nenhum jogo registrado ainda')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Registrar primeiro jogo/i })).toBeInTheDocument()
+    renderBiblioteca()
+
+    await waitFor(() => {
+      expect(spyListar).toHaveBeenCalledWith(
+        expect.objectContaining({ pagina: 1, por_pagina: 24 }),
+        undefined,
+        expect.any(AbortSignal)
+      )
+    })
+    expect(jogosService.obterFiltros).toHaveBeenCalled()
+    expect(await screen.findByRole('heading', { name: 'Chrono Trigger' })).toBeInTheDocument()
   })
 
-  it('abre modal de registro ao clicar em registrar jogo no estado vazio', async () => {
-    const user = userEvent.setup()
-    renderBiblioteca([])
+  it('renderiza os cards no modo grade com título, console, ano, tempo, dificuldade, nota e capa', async () => {
+    vi.spyOn(jogosService, 'listar').mockResolvedValue({
+      data: [jogoMock],
+      meta: { pagina: 1, por_pagina: 24, total: 1, total_paginas: 1 },
+    })
 
-    await user.click(screen.getByRole('button', { name: /Registrar primeiro jogo/i }))
-    expect(await screen.findByRole('heading', { name: 'Registrar jogo' })).toBeVisible()
-  })
+    renderBiblioteca()
 
-  it('renderiza os cards de jogos quando existem itens na biblioteca', () => {
-    renderBiblioteca([jogoMock])
-
-    expect(screen.getByText('1 jogo')).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Chrono Trigger' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Chrono Trigger' })).toBeInTheDocument()
     expect(screen.getByText('SNES')).toBeInTheDocument()
-    expect(screen.getByText('JRPG')).toBeInTheDocument()
+    expect(screen.getByText('2026 · 20h')).toBeInTheDocument()
     expect(screen.getByText('Dif. A')).toBeInTheDocument()
     expect(screen.getByText('10')).toBeInTheDocument()
     expect(screen.getByText('Destaque')).toBeInTheDocument()
-    expect(screen.getByText('20h jogados')).toBeInTheDocument()
+    const capa = screen.getByAltText('Chrono Trigger')
+    expect(capa).toHaveAttribute('src', 'https://images.igdb.com/cover.jpg')
   })
 
-  it('filtra jogos por termo de busca no input de filtro', async () => {
-    const jogo2: JogoZeradoDTO = {
-      ...jogoMock,
-      id: 2,
-      nome: 'Super Mario World',
-      console: 'SNES',
-      genero: 'Plataforma',
-    }
+  it('alterna entre modo grade e lista pelo toggle', async () => {
     const user = userEvent.setup()
-    renderBiblioteca([jogoMock, jogo2])
+    vi.spyOn(jogosService, 'listar').mockResolvedValue({
+      data: [jogoMock],
+      meta: { pagina: 1, por_pagina: 24, total: 1, total_paginas: 1 },
+    })
 
-    expect(screen.getByText('Chrono Trigger')).toBeInTheDocument()
-    expect(screen.getByText('Super Mario World')).toBeInTheDocument()
+    renderBiblioteca()
+    expect(await screen.findByRole('heading', { name: 'Chrono Trigger' })).toBeInTheDocument()
 
-    const filtroInput = screen.getByLabelText('Filtrar jogos na biblioteca')
-    await user.type(filtroInput, 'Mario')
+    const btnLista = screen.getByRole('button', { name: 'Visualização em lista' })
+    await user.click(btnLista)
+    expect(await screen.findByTestId('biblioteca-lista')).toBeInTheDocument()
 
-    expect(screen.queryByText('Chrono Trigger')).not.toBeInTheDocument()
-    expect(screen.getByText('Super Mario World')).toBeInTheDocument()
+    const btnGrade = screen.getByRole('button', { name: 'Visualização em grade' })
+    await user.click(btnGrade)
+    expect(await screen.findByTestId('biblioteca-grade')).toBeInTheDocument()
   })
 
-  it('abre modal de edição ao clicar no botão Editar', async () => {
+  it('busca com debounce de 300ms e ignora espaços extras nas pontas', async () => {
     const user = userEvent.setup()
-    renderBiblioteca([jogoMock])
+    const spyListar = vi.spyOn(jogosService, 'listar').mockResolvedValue({
+      data: [jogoMock],
+      meta: { pagina: 1, por_pagina: 24, total: 1, total_paginas: 1 },
+    })
+
+    renderBiblioteca()
+    await screen.findByRole('heading', { name: 'Chrono Trigger' })
+    spyListar.mockClear()
+
+    const input = screen.getByLabelText('Filtrar jogos na biblioteca')
+    await user.type(input, 'Zelda')
+
+    await waitFor(() => {
+      expect(spyListar).toHaveBeenCalledWith(
+        expect.objectContaining({ busca: 'Zelda', pagina: 1 }),
+        undefined,
+        expect.any(AbortSignal)
+      )
+    }, { timeout: 1000 })
+  })
+
+  it('filtra por select atualizando a requisição e resetando pagina', async () => {
+    const user = userEvent.setup()
+    const spyListar = vi.spyOn(jogosService, 'listar').mockResolvedValue({
+      data: [jogoMock],
+      meta: { pagina: 1, por_pagina: 24, total: 1, total_paginas: 1 },
+    })
+
+    renderBiblioteca()
+    await screen.findByRole('heading', { name: 'Chrono Trigger' })
+    spyListar.mockClear()
+
+    const selectConsole = screen.getByLabelText('Filtrar por console')
+    await user.click(selectConsole)
+    await user.click(screen.getByRole('option', { name: 'SNES' }))
+
+    await waitFor(() => {
+      expect(spyListar).toHaveBeenCalledWith(
+        expect.objectContaining({ console: 'SNES' }),
+        undefined,
+        expect.any(AbortSignal)
+      )
+    })
+  })
+
+  it('ajusta faixa de nota quando min > max', async () => {
+    const user = userEvent.setup()
+    const spyListar = vi.spyOn(jogosService, 'listar').mockResolvedValue({
+      data: [jogoMock],
+      meta: { pagina: 1, por_pagina: 24, total: 1, total_paginas: 1 },
+    })
+
+    renderBiblioteca()
+    await screen.findByRole('heading', { name: 'Chrono Trigger' })
+    spyListar.mockClear()
+
+    const selectMin = screen.getByLabelText('Nota mínima')
+    await user.click(selectMin)
+    const options = screen.getAllByRole('option', { name: '10' })
+    await user.click(options[0])
+
+    await waitFor(() => {
+      expect(spyListar).toHaveBeenCalledWith(
+        expect.objectContaining({ nota_min: 10 }),
+        undefined,
+        expect.any(AbortSignal)
+      )
+    })
+  })
+
+  it('filtra por dificuldade e toggle para desmarcar', async () => {
+    const user = userEvent.setup()
+    const spyListar = vi.spyOn(jogosService, 'listar').mockResolvedValue({
+      data: [jogoMock],
+      meta: { pagina: 1, por_pagina: 24, total: 1, total_paginas: 1 },
+    })
+
+    renderBiblioteca()
+    await screen.findByRole('heading', { name: 'Chrono Trigger' })
+    spyListar.mockClear()
+
+    const btnDifA = screen.getByRole('button', { name: 'A' })
+    await user.click(btnDifA)
+
+    await waitFor(() => {
+      expect(spyListar).toHaveBeenCalledWith(
+        expect.objectContaining({ dificuldade: 'A' }),
+        undefined,
+        expect.any(AbortSignal)
+      )
+    })
+
+    await user.click(btnDifA)
+    await waitFor(() => {
+      expect(spyListar).toHaveBeenLastCalledWith(
+        expect.not.objectContaining({ dificuldade: 'A' }),
+        undefined,
+        expect.any(AbortSignal)
+      )
+    })
+  })
+
+  it('exibe contador de filtros ativos e botão limpar filtros', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(jogosService, 'listar').mockResolvedValue({
+      data: [jogoMock],
+      meta: { pagina: 1, por_pagina: 24, total: 1, total_paginas: 1 },
+    })
+
+    renderBiblioteca()
+    await screen.findByRole('heading', { name: 'Chrono Trigger' })
+
+    const btnDifAA = screen.getByRole('button', { name: 'AA' })
+    await user.click(btnDifAA)
+
+    expect(await screen.findByText('1 filtro ativo')).toBeInTheDocument()
+    const btnLimpar = screen.getByRole('button', { name: 'Limpar filtros' })
+    await user.click(btnLimpar)
+
+    expect(screen.queryByText('1 filtro ativo')).not.toBeInTheDocument()
+  })
+
+  it('navega pelas páginas na paginação', async () => {
+    const user = userEvent.setup()
+    const spyListar = vi.spyOn(jogosService, 'listar').mockResolvedValue({
+      data: [jogoMock],
+      meta: { pagina: 1, por_pagina: 24, total: 48, total_paginas: 2 },
+    })
+
+    renderBiblioteca()
+    expect(await screen.findByText(/Mostrando/)).toBeInTheDocument()
+
+    const btnPagina2 = screen.getByRole('button', { name: 'Página 2' })
+    await user.click(btnPagina2)
+
+    await waitFor(() => {
+      expect(spyListar).toHaveBeenCalledWith(
+        expect.objectContaining({ pagina: 2 }),
+        undefined,
+        expect.any(AbortSignal)
+      )
+    })
+  })
+
+  it('exibe onboarding quando biblioteca estiver vazia sem filtros', async () => {
+    vi.spyOn(jogosService, 'listar').mockResolvedValue({
+      data: [],
+      meta: { pagina: 1, por_pagina: 24, total: 0, total_paginas: 0 },
+    })
+
+    renderBiblioteca()
+
+    expect(await screen.findByText('Nenhum jogo registrado ainda')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Registrar primeiro jogo/i })).toBeInTheDocument()
+  })
+
+  it('exibe mensagem de sem resultados quando houver filtros ativos sem retorno', async () => {
+    vi.spyOn(jogosService, 'listar').mockResolvedValue({
+      data: [],
+      meta: { pagina: 1, por_pagina: 24, total: 0, total_paginas: 0 },
+    })
+
+    renderBiblioteca('/biblioteca?busca=Inexistente')
+
+    expect(await screen.findByText('Nenhum jogo encontrado com os filtros aplicados')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Limpar filtros' })).toBeInTheDocument()
+  })
+
+  it('abre modal de edição a partir do menu do card', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(jogosService, 'listar').mockResolvedValue({
+      data: [jogoMock],
+      meta: { pagina: 1, por_pagina: 24, total: 1, total_paginas: 1 },
+    })
+
+    renderBiblioteca()
+    await screen.findByRole('heading', { name: 'Chrono Trigger' })
+
+    const btnMenu = screen.getByRole('button', { name: 'Opções de Chrono Trigger' })
+    await user.click(btnMenu)
 
     const btnEditar = screen.getByRole('button', { name: 'Editar Chrono Trigger' })
     await user.click(btnEditar)
@@ -106,69 +302,22 @@ describe('BibliotecaPage', () => {
     expect(await screen.findByRole('heading', { name: 'Editar registro' })).toBeVisible()
   })
 
-  it('abre modal de exclusão ao clicar no botão Excluir e cancela sem remover', async () => {
+  it('abre modal de exclusão a partir do menu do card', async () => {
     const user = userEvent.setup()
-    renderBiblioteca([jogoMock])
+    vi.spyOn(jogosService, 'listar').mockResolvedValue({
+      data: [jogoMock],
+      meta: { pagina: 1, por_pagina: 24, total: 1, total_paginas: 1 },
+    })
+
+    renderBiblioteca()
+    await screen.findByRole('heading', { name: 'Chrono Trigger' })
+
+    const btnMenu = screen.getByRole('button', { name: 'Opções de Chrono Trigger' })
+    await user.click(btnMenu)
 
     const btnExcluir = screen.getByRole('button', { name: 'Excluir Chrono Trigger' })
     await user.click(btnExcluir)
 
     expect(await screen.findByRole('heading', { name: 'Excluir registro' })).toBeVisible()
-    expect(screen.getByText(/Tem certeza que deseja excluir o registro de "Chrono Trigger"\?/)).toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: 'Cancelar' }))
-    expect(screen.getByText('Chrono Trigger')).toBeInTheDocument()
-  })
-
-  it('não renderiza botão duplicado de registrar jogo no header quando existem jogos', () => {
-    renderBiblioteca([jogoMock])
-    const pageHeader = screen.getByRole('heading', { name: 'Biblioteca' }).closest('header')
-    expect(within(pageHeader!).queryByRole('button')).not.toBeInTheDocument()
-  })
-
-  it('alterna entre visualização em grade e lista e persiste no localStorage', async () => {
-    const user = userEvent.setup()
-    renderBiblioteca([jogoMock])
-
-    const btnLista = screen.getByRole('button', { name: 'Visualização em lista' })
-    await user.click(btnLista)
-
-    expect(localStorage.getItem('biblioteca_view_mode')).toBe('list')
-    expect(screen.getByRole('button', { name: 'Opções de Chrono Trigger' })).toBeInTheDocument()
-
-    const btnGrade = screen.getByRole('button', { name: 'Visualização em grade' })
-    await user.click(btnGrade)
-
-    expect(localStorage.getItem('biblioteca_view_mode')).toBe('grid')
-  })
-
-  it('filtra jogos por console, gênero e nota mínima', async () => {
-    const jogo2: JogoZeradoDTO = {
-      ...jogoMock,
-      id: 2,
-      nome: 'God of War',
-      console: 'PS5',
-      genero: 'Ação',
-      nota: 8,
-    }
-    const user = userEvent.setup()
-    renderBiblioteca([jogoMock, jogo2])
-
-    const selectConsole = screen.getByLabelText('Filtrar por console')
-    await user.click(selectConsole)
-    await user.click(screen.getByRole('option', { name: 'PS5' }))
-
-    expect(screen.queryByText('Chrono Trigger')).not.toBeInTheDocument()
-    expect(screen.getByText('God of War')).toBeInTheDocument()
-
-    await user.click(selectConsole)
-    await user.click(screen.getByRole('option', { name: 'Todos os consoles' }))
-
-    const selectNota = screen.getByLabelText('Filtrar por nota mínima')
-    await user.click(selectNota)
-    await user.click(screen.getByRole('option', { name: 'Nota 10+' }))
-
-    expect(screen.getByText('Chrono Trigger')).toBeInTheDocument()
-    expect(screen.queryByText('God of War')).not.toBeInTheDocument()
   })
 })

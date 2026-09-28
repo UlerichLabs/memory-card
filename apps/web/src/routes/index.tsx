@@ -23,6 +23,7 @@ export function AppRoutes() {
               <Route path="/" element={<DashboardPage />} />
               <Route path="/conta/trocar-senha" element={<ContaTrocarSenhaPage />} />
               <Route path="/biblioteca" element={<BibliotecaPage />} />
+              <Route path="/biblioteca/:id" element={<EmConstrucaoPage modulo="Detalhes do Jogo" />} />
               <Route path="/jogos/novo" element={<Navigate to="/biblioteca" replace />} />
               <Route path="/jogos/:id/editar" element={<Navigate to="/biblioteca" replace />} />
               <Route path="/abandonados" element={<EmConstrucaoPage modulo="Abandonados" />} />
