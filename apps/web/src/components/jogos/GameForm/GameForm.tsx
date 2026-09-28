@@ -22,20 +22,27 @@ export interface GameFormProps {
   isEditing?: boolean
 }
 
+function limitarLista(itens: string[], limite: number): string {
+  return itens.reduce((resultado, item) => {
+    const proximo = resultado ? `${resultado}, ${item}` : item
+    return proximo.length <= limite ? proximo : resultado
+  }, '')
+}
+
 export function GameForm({ initialData, onSubmit, onCancel, isEditing = false }: GameFormProps) {
   const auth = useContext(AuthContext)
   const token = auth?.sessao?.access_token
   const form = useGameForm({ initialData, onSubmit })
   const detalheCarregado = useRef<number | null>(null)
   const selecaoAtual = useRef(0)
-  const { nome, setNome, consoleName, setConsoleName, genero, setGenero, tipo, setTipo, iniciadoEm, setIniciadoEm, finalizadoEm, setFinalizadoEm, horas, setHoras, minutos, setMinutos, segundos, setSegundos, nota, setNota, dificuldade, setDificuldade, condicao, setCondicao, destaque, setDestaque, igdbId, setIgdbId, igdbCapaUrl, setIgdbCapaUrl, igdbDescricao, setIgdbDescricao, plataformas, setPlataformas, errors, destaqueError, isSubmitting, handleSubmit } = form
+  const { nome, setNome, consoleName, setConsoleName, genero, setGenero, tipo, setTipo, iniciadoEm, setIniciadoEm, finalizadoEm, setFinalizadoEm, horas, setHoras, minutos, setMinutos, segundos, setSegundos, nota, setNota, dificuldade, setDificuldade, review, setReview, destaque, setDestaque, igdbId, setIgdbId, igdbCapaUrl, setIgdbCapaUrl, igdbDescricao, setIgdbDescricao, plataformas, setPlataformas, errors, destaqueError, isSubmitting, handleSubmit } = form
 
   useEffect(() => {
     if (!initialData?.igdb_id || detalheCarregado.current === initialData.igdb_id) return
     detalheCarregado.current = initialData.igdb_id
     jogosService.obterDetalhesIGDB(initialData.igdb_id, token).then((detalhes) => {
       if (detalhes.platforms?.length) setPlataformas(detalhes.platforms.map((item) => item.name))
-      if (!genero && detalhes.genres?.length) setGenero(detalhes.genres.map((item) => item.name).join(', '))
+      if (!genero && detalhes.genres?.length) setGenero(limitarLista(detalhes.genres.map((item) => item.name), 150))
       if (!igdbDescricao && detalhes.summary) setIgdbDescricao(detalhes.summary)
     }).catch(() => undefined)
   }, [initialData?.igdb_id, token, genero, igdbDescricao, setGenero, setPlataformas, setIgdbDescricao])
@@ -53,11 +60,11 @@ export function GameForm({ initialData, onSubmit, onCancel, isEditing = false }:
     try {
       const detalhes = await jogosService.obterDetalhesIGDB(sugestao.id, token)
       if (selecao !== selecaoAtual.current) return
-      if (detalhes.genres?.length) setGenero(detalhes.genres.map((item) => item.name).join(', '))
+      if (detalhes.genres?.length) setGenero(limitarLista(detalhes.genres.map((item) => item.name), 150))
       if (detalhes.summary) setIgdbDescricao(detalhes.summary)
       const nomes = detalhes.platforms?.map((item) => item.name) || []
       setPlataformas(nomes)
-      if (nomes.length === 1) setConsoleName(nomes[0])
+      if (nomes.length === 1) setConsoleName(limitarLista(nomes, 100))
     } catch (error: unknown) { if (error instanceof JogosApiError && error.status === 401) window.location.assign('/login'); setPlataformas([]) }
   }
 
@@ -75,16 +82,16 @@ export function GameForm({ initialData, onSubmit, onCancel, isEditing = false }:
               {destaque && <span className="absolute bottom-2 left-2 rounded-full bg-[var(--highlight-gold)] px-2 py-1 text-[10px] font-bold text-[var(--bg-primary)]">Jogo do ano</span>}
             </div>
             {destaqueError && <span className="text-xs text-[var(--danger)]">{destaqueError}</span>}
-            <div className="flex flex-col gap-1.5"><Label htmlFor="console" className="text-sm text-[var(--text-secondary)]">Plataforma *</Label>{igdbId ? <CustomSelect id="console" name="console" value={consoleName} onChange={setConsoleName} options={consoleOptions} placeholder="Selecione a plataforma" error={!!errors.console} ariaLabel="Plataforma" /> : <Input id="console" name="console" value={consoleName} onChange={(event) => setConsoleName(event.target.value)} placeholder="Ex: PC, PlayStation" aria-invalid={!!errors.console} className="bg-[var(--bg-surface-alt)] text-[var(--text-primary)]" />}{errors.console && <span className="text-xs text-[var(--danger)]">{errors.console}</span>}</div>
-            <div><Label htmlFor="genero" className="text-sm text-[var(--text-secondary)]">Gênero</Label><Input id="genero" value={genero} onChange={(event) => setGenero(event.target.value)} className="mt-1 bg-[var(--bg-surface-alt)] text-[var(--text-primary)]" /></div>
-            <div><Label htmlFor="tipo" className="text-sm text-[var(--text-secondary)]">Tipo</Label><Input id="tipo" value={tipo} onChange={(event) => setTipo(event.target.value)} className="mt-1 bg-[var(--bg-surface-alt)] text-[var(--text-primary)]" /></div>
+            <div className="flex flex-col gap-1.5"><Label htmlFor="console" className="text-sm text-[var(--text-secondary)]">Plataforma *</Label>{igdbId ? <CustomSelect id="console" name="console" value={consoleName} onChange={(value) => setConsoleName(value.slice(0, 100))} options={consoleOptions} placeholder="Selecione a plataforma" error={!!errors.console} ariaLabel="Plataforma" /> : <Input id="console" name="console" maxLength={100} value={consoleName} onChange={(event) => setConsoleName(event.target.value)} placeholder="Ex: PC, PlayStation" aria-invalid={!!errors.console} className="bg-[var(--bg-surface-alt)] text-[var(--text-primary)]" />}{errors.console && <span className="text-xs text-[var(--danger)]">{errors.console}</span>}</div>
+            <div><Label htmlFor="genero" className="text-sm text-[var(--text-secondary)]">Gênero</Label><Input id="genero" maxLength={150} value={genero} onChange={(event) => setGenero(event.target.value)} aria-invalid={!!errors.genero} className="mt-1 bg-[var(--bg-surface-alt)] text-[var(--text-primary)]" />{errors.genero && <span className="text-xs text-[var(--danger)]">{errors.genero}</span>}</div>
+            <div><Label htmlFor="tipo" className="text-sm text-[var(--text-secondary)]">Tipo</Label><Input id="tipo" maxLength={50} value={tipo} onChange={(event) => setTipo(event.target.value)} aria-invalid={!!errors.tipo} className="mt-1 bg-[var(--bg-surface-alt)] text-[var(--text-primary)]" />{errors.tipo && <span className="text-xs text-[var(--danger)]">{errors.tipo}</span>}</div>
           </div>
           <div className="flex min-w-0 flex-col gap-5">
             {igdbDescricao && <p id="igdb-descricao" className="line-clamp-3 text-sm leading-5 text-[var(--text-secondary)]">{igdbDescricao}</p>}
             <div className="grid min-w-0 gap-4 md:grid-cols-3"><DateInput id="iniciado_em" label="Iniciado em" value={iniciadoEm} onChange={setIniciadoEm} error={errors.iniciado_em} /><DateInput id="finalizado_em" label="Finalizado em *" value={finalizadoEm} onChange={setFinalizadoEm} error={errors.finalizado_em} /><div className="min-w-0"><Label className="text-sm text-[var(--text-secondary)]">Tempo jogado</Label><div className="mt-1"><TimeInput horas={horas} minutos={minutos} segundos={segundos} setHoras={setHoras} setMinutos={setMinutos} setSegundos={setSegundos} /></div>{(errors.tempo_jogado_minutos || errors.tempo_jogado_segundos) && <span className="text-xs text-[var(--danger)]">{errors.tempo_jogado_minutos || errors.tempo_jogado_segundos}</span>}</div></div>
             <DifficultyPicker value={dificuldade} onChange={(value) => setDificuldade(value as Dificuldade)} error={errors.dificuldade} />
             <RatingPicker value={nota} onChange={setNota} error={errors.nota} />
-            <div><div className="flex items-center justify-between"><Label htmlFor="condicao_zeramento" className="text-sm text-[var(--text-secondary)]">Review</Label><span className="text-xs text-[var(--text-muted)]">{condicao.length}/500</span></div><textarea id="condicao_zeramento" name="condicao_zeramento" maxLength={500} rows={4} value={condicao} onChange={(event) => setCondicao(event.target.value)} placeholder="O que achou do jogo? Final, dificuldade, como zerou…" className="mt-1 w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface-alt)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]" />{errors.condicao_zeramento && <span className="text-xs text-[var(--danger)]">{errors.condicao_zeramento}</span>}</div>
+            <div><div className="flex items-center justify-between"><Label htmlFor="review" className="text-sm text-[var(--text-secondary)]">Review</Label><span className="text-xs text-[var(--text-muted)]">{review.length}/5000</span></div><textarea id="review" name="review" maxLength={5000} rows={4} value={review} onChange={(event) => setReview(event.target.value)} aria-invalid={!!errors.review} placeholder="O que achou do jogo? Final, dificuldade, como zerou…" className="mt-1 w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface-alt)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]" />{errors.review && <span className="text-xs text-[var(--danger)]">{errors.review}</span>}</div>
           </div>
         </div>
       </div>

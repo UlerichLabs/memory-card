@@ -76,6 +76,19 @@ describe('GameForm', () => {
     await waitFor(() => expect(screen.getByLabelText(/Plataforma/i)).toHaveValue(''))
   })
 
+  it('mantém gêneros inteiros dentro do limite ao preencher pelo IGDB', async () => {
+    vi.spyOn(jogosService, 'buscarIGDB').mockResolvedValue([sugestao])
+    vi.spyOn(jogosService, 'obterDetalhesIGDB').mockResolvedValue({
+      ...sugestao,
+      genres: [{ id: 1, name: 'Ação' }, { id: 2, name: 'A'.repeat(150) }, { id: 3, name: 'RPG' }],
+    })
+    const user = userEvent.setup()
+    render(<GameForm onSubmit={vi.fn()} />)
+    await user.type(screen.getByLabelText(/Nome do jogo/i), 'Chrono')
+    await user.click(await screen.findByText('Chrono Trigger'))
+    await waitFor(() => expect(screen.getByLabelText('Gênero')).toHaveValue('Ação, RPG'))
+  })
+
   it('mascara data, valida data inválida e avança o tempo com Enter', async () => {
     const user = userEvent.setup()
     render(<GameForm onSubmit={vi.fn()} />)
@@ -104,7 +117,7 @@ describe('GameForm', () => {
     expect(screen.getByRole('button', { name: '10' })).toHaveAttribute('aria-pressed', 'true')
     const review = screen.getByLabelText('Review')
     await user.type(review, 'Final difícil')
-    expect(screen.getByText('13/500')).toBeInTheDocument()
+    expect(screen.getByText('13/5000')).toBeInTheDocument()
   })
 
   it('conflito 409 mostra mensagem junto à coroa', async () => {
@@ -119,6 +132,34 @@ describe('GameForm', () => {
     await user.click(screen.getByRole('button', { name: 'Normal' }))
     await user.click(screen.getByRole('button', { name: 'Marcar como jogo do ano' }))
     await user.click(screen.getByRole('button', { name: 'Salvar registro' }))
+    expect(onSubmit).toHaveBeenCalled()
     await waitFor(() => expect(screen.getByText('Destaque já utilizado')).toBeInTheDocument())
+  })
+
+  it('mapeia erro de review da API para o campo', async () => {
+    const onSubmit = vi.fn().mockRejectedValue(new JogosApiError('jogos.review_muito_longo', 'erro interno', 400))
+    const user = userEvent.setup()
+    render(<GameForm initialData={{ finalizado_em: '2026-02-01' }} onSubmit={onSubmit} />)
+    await user.type(screen.getByLabelText(/Nome do jogo/i), 'Elden Ring')
+    await user.type(screen.getByLabelText(/Plataforma/i), 'PC')
+    preencherObrigatorios()
+    await user.click(screen.getByRole('button', { name: '11' }))
+    await user.click(screen.getByRole('button', { name: 'Normal' }))
+    await user.click(screen.getByRole('button', { name: 'Salvar registro' }))
+    await waitFor(() => expect(screen.getByText('A review deve ter no máximo 5.000 caracteres.')).toBeInTheDocument())
+  })
+
+  it('usa mensagem genérica em português para erro desconhecido da API', async () => {
+    const onSubmit = vi.fn().mockRejectedValue(new JogosApiError('erro.desconhecido', 'Internal server error', 500))
+    const user = userEvent.setup()
+    render(<GameForm initialData={{ finalizado_em: '2026-02-01' }} onSubmit={onSubmit} />)
+    await user.type(screen.getByLabelText(/Nome do jogo/i), 'Elden Ring')
+    await user.type(screen.getByLabelText(/Plataforma/i), 'PC')
+    preencherObrigatorios()
+    await user.click(screen.getByRole('button', { name: '11' }))
+    await user.click(screen.getByRole('button', { name: 'Normal' }))
+    await user.click(screen.getByRole('button', { name: 'Salvar registro' }))
+    await waitFor(() => expect(screen.getByText('Não foi possível salvar o registro. Tente novamente.')).toBeInTheDocument())
+    expect(screen.queryByText('Internal server error')).not.toBeInTheDocument()
   })
 })

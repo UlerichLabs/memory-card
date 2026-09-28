@@ -13,7 +13,7 @@ export interface JogoZeradoDTO {
   tempo_jogado: number
   nota: number
   dificuldade: Dificuldade
-  condicao_zeramento?: string
+  review?: string | null
   destaque: boolean
   igdb_capa_url?: string
   igdb_descricao?: string
@@ -42,7 +42,7 @@ export interface SalvarJogoPayload {
   tempo_jogado_horas?: number; tempo_jogado_minutos?: number; tempo_jogado_segundos?: number; tempo_jogado?: number
   nota: number
   dificuldade: Dificuldade
-  condicao_zeramento?: string
+  review?: string | null
   destaque: boolean
   igdb_capa_url?: string
   igdb_descricao?: string
@@ -59,6 +59,16 @@ export class JogosApiError extends Error {
     this.status = status
   }
 }
+
+export const JOGOS_CAMPO_ERRO_MENSAGENS: Record<string, { campo: string; mensagem: string }> = {
+  'jogos.nome_muito_longo': { campo: 'nome', mensagem: 'O nome deve ter no máximo 200 caracteres.' },
+  'jogos.console_muito_longo': { campo: 'console', mensagem: 'A plataforma deve ter no máximo 100 caracteres.' },
+  'jogos.genero_muito_longo': { campo: 'genero', mensagem: 'O gênero deve ter no máximo 150 caracteres.' },
+  'jogos.tipo_muito_longo': { campo: 'tipo', mensagem: 'O tipo deve ter no máximo 50 caracteres.' },
+  'jogos.review_muito_longo': { campo: 'review', mensagem: 'A review deve ter no máximo 5.000 caracteres.' },
+}
+
+export const JOGOS_ERRO_GENERICO = 'Não foi possível salvar o registro. Tente novamente.'
 
 const baseUrl = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '')
 
@@ -92,8 +102,14 @@ export const jogosService = {
   atualizar: (id: number, payload: SalvarJogoPayload, token?: string) =>
     request<JogoZeradoDTO>(`/jogos/${id}`, { method: 'PUT', body: JSON.stringify(payload) }, token),
   excluir: (id: number, token?: string) => request<void>(`/jogos/${id}`, { method: 'DELETE' }, token),
-  buscarIGDB: (termo: string, token?: string, signal?: AbortSignal) =>
-    request<IGDBJogoSugestao[]>(`/igdb/jogos/busca?q=${encodeURIComponent(termo)}`, { method: 'GET', signal }, token),
+  buscarIGDB: async (termo: string, token?: string, signal?: AbortSignal) => {
+    try {
+      return await request<IGDBJogoSugestao[]>(`/igdb/jogos/busca?q=${encodeURIComponent(termo)}`, { method: 'GET', signal }, token)
+    } catch (error) {
+      if (signal?.aborted || (error instanceof DOMException && error.name === 'AbortError') || (error instanceof JogosApiError && error.status === 499)) return []
+      throw error
+    }
+  },
   obterDetalhesIGDB: (id: number, token?: string) =>
     request<IGDBJogoSugestao>(`/jogos/igdb/${id}`, { method: 'GET' }, token),
 }

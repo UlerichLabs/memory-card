@@ -15,7 +15,7 @@ const jogoMock: JogoZeradoDTO = {
   tempo_jogado: 72000,
   nota: 10,
   dificuldade: 'A',
-  condicao_zeramento: '100% dos finais',
+  review: '100% dos finais',
   destaque: false,
 }
 
