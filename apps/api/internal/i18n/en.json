@@ -33,13 +33,13 @@
   "jogos.tempo_jogado_invalid": "Played time must be positive.",
   "jogos.nota_invalid": "Rating must be between 1 and 11.",
   "jogos.dificuldade_invalid": "Difficulty must be C, B, A, AA or AAA.",
-  "jogos.condicao_zeramento_too_long": "Completion condition must be up to 500 characters.",
+  "jogos.review_muito_longo": "Review must be 5,000 characters or fewer.",
   "jogos.destaque_ano_conflito": "There is already a highlight for this year.",
   "jogos.not_found": "Game not found.",
   "jogos.invalid_id": "Invalid game identifier.",
-  "jogos.nome_too_long": "Game name must be 200 characters or fewer.",
-  "jogos.console_too_long": "Console must be 100 characters or fewer.",
-  "jogos.genero_too_long": "Genre must be 150 characters or fewer.",
-  "jogos.tipo_too_long": "Type must be 50 characters or fewer.",
+  "jogos.nome_muito_longo": "Game name must be 200 characters or fewer.",
+  "jogos.console_muito_longo": "Console must be 100 characters or fewer.",
+  "jogos.genero_muito_longo": "Genre must be 150 characters or fewer.",
+  "jogos.tipo_muito_longo": "Type must be 50 characters or fewer.",
   "igdb.query_invalid": "The search could not be processed. Try another term."
 }

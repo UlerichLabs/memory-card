@@ -267,6 +267,9 @@ func (c *Client) query(ctx context.Context, endpoint, body string, target any) e
 	req.Header.Set("Content-Type", "text/plain")
 	response, err := c.client.Do(req)
 	if err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return err
+		}
 		return fmt.Errorf("%w: %v", ErrUnavailable, err)
 	}
 	defer response.Body.Close()
@@ -315,6 +318,9 @@ func (c *Client) accessToken(ctx context.Context) (string, error) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	response, err := c.client.Do(req)
 	if err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return "", err
+		}
 		return "", fmt.Errorf("%w: %v", ErrAuthentication, err)
 	}
 	defer response.Body.Close()

@@ -46,7 +46,7 @@ type CriarJogoRequest struct {
 	TempoJogado         *int32  `json:"tempo_jogado"`
 	Nota                int32   `json:"nota"`
 	Dificuldade         string  `json:"dificuldade"`
-	CondicaoZeramento   string  `json:"condicao_zeramento"`
+	Review              string  `json:"review"`
 	Destaque            bool    `json:"destaque"`
 	IgdbCapaURL         string  `json:"igdb_capa_url"`
 	IgdbDescricao       string  `json:"igdb_descricao"`
@@ -149,21 +149,21 @@ func (h *JogosHandler) CriarJogo(c *gin.Context) {
 	}
 
 	jogo, err := h.service.CriarJogoZerado(c.Request.Context(), repository.CriarJogoZeradoParams{
-		UsuarioID:         int32(usuarioID),
-		IgdbID:            req.IgdbID,
-		Nome:              req.Nome,
-		Console:           req.Console,
-		Genero:            req.Genero,
-		Tipo:              req.Tipo,
-		IniciadoEm:        iniciadoEmPtr,
-		FinalizadoEm:      finalizadoEm,
-		TempoJogado:       tempoJogadoSegundos,
-		Nota:              req.Nota,
-		Dificuldade:       req.Dificuldade,
-		CondicaoZeramento: req.CondicaoZeramento,
-		Destaque:          req.Destaque,
-		IgdbCapaURL:       req.IgdbCapaURL,
-		IgdbDescricao:     req.IgdbDescricao,
+		UsuarioID:     int32(usuarioID),
+		IgdbID:        req.IgdbID,
+		Nome:          req.Nome,
+		Console:       req.Console,
+		Genero:        req.Genero,
+		Tipo:          req.Tipo,
+		IniciadoEm:    iniciadoEmPtr,
+		FinalizadoEm:  finalizadoEm,
+		TempoJogado:   tempoJogadoSegundos,
+		Nota:          req.Nota,
+		Dificuldade:   req.Dificuldade,
+		Review:        req.Review,
+		Destaque:      req.Destaque,
+		IgdbCapaURL:   req.IgdbCapaURL,
+		IgdbDescricao: req.IgdbDescricao,
 	})
 	if err != nil {
 		lang := c.GetHeader("Accept-Language")
@@ -173,13 +173,13 @@ func (h *JogosHandler) CriarJogo(c *gin.Context) {
 		case errors.Is(err, service.ErrConsoleObrigatorio):
 			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "jogos.console_required", "mensagem": i18n.T(lang, "jogos.console_required")}})
 		case errors.Is(err, service.ErrNomeMuitoLongo):
-			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "jogos.nome_too_long", "mensagem": i18n.T(lang, "jogos.nome_too_long")}})
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "jogos.nome_muito_longo", "mensagem": i18n.T(lang, "jogos.nome_muito_longo")}})
 		case errors.Is(err, service.ErrConsoleMuitoLongo):
-			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "jogos.console_too_long", "mensagem": i18n.T(lang, "jogos.console_too_long")}})
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "jogos.console_muito_longo", "mensagem": i18n.T(lang, "jogos.console_muito_longo")}})
 		case errors.Is(err, service.ErrGeneroMuitoLongo):
-			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "jogos.genero_too_long", "mensagem": i18n.T(lang, "jogos.genero_too_long")}})
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "jogos.genero_muito_longo", "mensagem": i18n.T(lang, "jogos.genero_muito_longo")}})
 		case errors.Is(err, service.ErrTipoMuitoLongo):
-			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "jogos.tipo_too_long", "mensagem": i18n.T(lang, "jogos.tipo_too_long")}})
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "jogos.tipo_muito_longo", "mensagem": i18n.T(lang, "jogos.tipo_muito_longo")}})
 		case errors.Is(err, service.ErrFinalizadoEmObrigatorio):
 			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "jogos.finalizado_em_required", "mensagem": i18n.T(lang, "jogos.finalizado_em_required")}})
 		case errors.Is(err, service.ErrTempoJogadoInvalido):
@@ -188,8 +188,8 @@ func (h *JogosHandler) CriarJogo(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "jogos.nota_invalid", "mensagem": i18n.T(lang, "jogos.nota_invalid")}})
 		case errors.Is(err, service.ErrDificuldadeInvalida):
 			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "jogos.dificuldade_invalid", "mensagem": i18n.T(lang, "jogos.dificuldade_invalid")}})
-		case errors.Is(err, service.ErrCondicaoZeramentoInvalida):
-			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "jogos.condicao_zeramento_too_long", "mensagem": i18n.T(lang, "jogos.condicao_zeramento_too_long")}})
+		case errors.Is(err, service.ErrReviewMuitoLongo):
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "jogos.review_muito_longo", "mensagem": i18n.T(lang, "jogos.review_muito_longo")}})
 		case errors.Is(err, service.ErrDestaqueAnoConflito):
 			c.JSON(http.StatusConflict, gin.H{"error": gin.H{"codigo": "jogos.destaque_ano_conflito", "mensagem": i18n.T(lang, "jogos.destaque_ano_conflito")}})
 		default:
@@ -304,22 +304,22 @@ func (h *JogosHandler) AtualizarJogo(c *gin.Context) {
 	}
 
 	jogo, err := h.service.AtualizarJogoZerado(c.Request.Context(), repository.AtualizarJogoZeradoParams{
-		ID:                jogoID,
-		UsuarioID:         int32(usuarioID),
-		IgdbID:            req.IgdbID,
-		Nome:              req.Nome,
-		Console:           req.Console,
-		Genero:            req.Genero,
-		Tipo:              req.Tipo,
-		IniciadoEm:        iniciadoEmPtr,
-		FinalizadoEm:      finalizadoEm,
-		TempoJogado:       tempoJogadoSegundos,
-		Nota:              req.Nota,
-		Dificuldade:       req.Dificuldade,
-		CondicaoZeramento: req.CondicaoZeramento,
-		Destaque:          req.Destaque,
-		IgdbCapaURL:       req.IgdbCapaURL,
-		IgdbDescricao:     req.IgdbDescricao,
+		ID:            jogoID,
+		UsuarioID:     int32(usuarioID),
+		IgdbID:        req.IgdbID,
+		Nome:          req.Nome,
+		Console:       req.Console,
+		Genero:        req.Genero,
+		Tipo:          req.Tipo,
+		IniciadoEm:    iniciadoEmPtr,
+		FinalizadoEm:  finalizadoEm,
+		TempoJogado:   tempoJogadoSegundos,
+		Nota:          req.Nota,
+		Dificuldade:   req.Dificuldade,
+		Review:        req.Review,
+		Destaque:      req.Destaque,
+		IgdbCapaURL:   req.IgdbCapaURL,
+		IgdbDescricao: req.IgdbDescricao,
 	})
 	if err != nil {
 		lang := c.GetHeader("Accept-Language")
@@ -329,13 +329,13 @@ func (h *JogosHandler) AtualizarJogo(c *gin.Context) {
 		case errors.Is(err, service.ErrConsoleObrigatorio):
 			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "jogos.console_required", "mensagem": i18n.T(lang, "jogos.console_required")}})
 		case errors.Is(err, service.ErrNomeMuitoLongo):
-			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "jogos.nome_too_long", "mensagem": i18n.T(lang, "jogos.nome_too_long")}})
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "jogos.nome_muito_longo", "mensagem": i18n.T(lang, "jogos.nome_muito_longo")}})
 		case errors.Is(err, service.ErrConsoleMuitoLongo):
-			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "jogos.console_too_long", "mensagem": i18n.T(lang, "jogos.console_too_long")}})
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "jogos.console_muito_longo", "mensagem": i18n.T(lang, "jogos.console_muito_longo")}})
 		case errors.Is(err, service.ErrGeneroMuitoLongo):
-			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "jogos.genero_too_long", "mensagem": i18n.T(lang, "jogos.genero_too_long")}})
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "jogos.genero_muito_longo", "mensagem": i18n.T(lang, "jogos.genero_muito_longo")}})
 		case errors.Is(err, service.ErrTipoMuitoLongo):
-			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "jogos.tipo_too_long", "mensagem": i18n.T(lang, "jogos.tipo_too_long")}})
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "jogos.tipo_muito_longo", "mensagem": i18n.T(lang, "jogos.tipo_muito_longo")}})
 		case errors.Is(err, service.ErrFinalizadoEmObrigatorio):
 			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "jogos.finalizado_em_required", "mensagem": i18n.T(lang, "jogos.finalizado_em_required")}})
 		case errors.Is(err, service.ErrTempoJogadoInvalido):
@@ -344,8 +344,8 @@ func (h *JogosHandler) AtualizarJogo(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "jogos.nota_invalid", "mensagem": i18n.T(lang, "jogos.nota_invalid")}})
 		case errors.Is(err, service.ErrDificuldadeInvalida):
 			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "jogos.dificuldade_invalid", "mensagem": i18n.T(lang, "jogos.dificuldade_invalid")}})
-		case errors.Is(err, service.ErrCondicaoZeramentoInvalida):
-			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "jogos.condicao_zeramento_too_long", "mensagem": i18n.T(lang, "jogos.condicao_zeramento_too_long")}})
+		case errors.Is(err, service.ErrReviewMuitoLongo):
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "jogos.review_muito_longo", "mensagem": i18n.T(lang, "jogos.review_muito_longo")}})
 		case errors.Is(err, service.ErrDestaqueAnoConflito):
 			c.JSON(http.StatusConflict, gin.H{"error": gin.H{"codigo": "jogos.destaque_ano_conflito", "mensagem": i18n.T(lang, "jogos.destaque_ano_conflito")}})
 		case errors.Is(err, service.ErrJogoNaoEncontrado):

@@ -13,61 +13,61 @@ import (
 )
 
 type JogoZerado struct {
-	ID                int32      `json:"id"`
-	UsuarioID         int32      `json:"usuario_id"`
-	IgdbID            *int32     `json:"igdb_id,omitempty"`
-	Nome              string     `json:"nome"`
-	Console           string     `json:"console"`
-	Genero            string     `json:"genero,omitempty"`
-	Tipo              string     `json:"tipo,omitempty"`
-	IniciadoEm        *time.Time `json:"iniciado_em,omitempty"`
-	FinalizadoEm      time.Time  `json:"finalizado_em"`
-	TempoJogado       int32      `json:"tempo_jogado"`
-	Nota              int32      `json:"nota"`
-	Dificuldade       string     `json:"dificuldade"`
-	CondicaoZeramento string     `json:"condicao_zeramento,omitempty"`
-	Destaque          bool       `json:"destaque"`
-	IgdbCapaURL       string     `json:"igdb_capa_url,omitempty"`
-	IgdbDescricao     string     `json:"igdb_descricao,omitempty"`
-	CreatedAt         time.Time  `json:"created_at"`
-	UpdatedAt         time.Time  `json:"updated_at"`
+	ID            int32      `json:"id"`
+	UsuarioID     int32      `json:"usuario_id"`
+	IgdbID        *int32     `json:"igdb_id,omitempty"`
+	Nome          string     `json:"nome"`
+	Console       string     `json:"console"`
+	Genero        string     `json:"genero,omitempty"`
+	Tipo          string     `json:"tipo,omitempty"`
+	IniciadoEm    *time.Time `json:"iniciado_em,omitempty"`
+	FinalizadoEm  time.Time  `json:"finalizado_em"`
+	TempoJogado   int32      `json:"tempo_jogado"`
+	Nota          int32      `json:"nota"`
+	Dificuldade   string     `json:"dificuldade"`
+	Review        string     `json:"review,omitempty"`
+	Destaque      bool       `json:"destaque"`
+	IgdbCapaURL   string     `json:"igdb_capa_url,omitempty"`
+	IgdbDescricao string     `json:"igdb_descricao,omitempty"`
+	CreatedAt     time.Time  `json:"created_at"`
+	UpdatedAt     time.Time  `json:"updated_at"`
 }
 
 type CriarJogoZeradoParams struct {
-	UsuarioID         int32
-	IgdbID            *int32
-	Nome              string
-	Console           string
-	Genero            string
-	Tipo              string
-	IniciadoEm        *time.Time
-	FinalizadoEm      time.Time
-	TempoJogado       int32
-	Nota              int32
-	Dificuldade       string
-	CondicaoZeramento string
-	Destaque          bool
-	IgdbCapaURL       string
-	IgdbDescricao     string
+	UsuarioID     int32
+	IgdbID        *int32
+	Nome          string
+	Console       string
+	Genero        string
+	Tipo          string
+	IniciadoEm    *time.Time
+	FinalizadoEm  time.Time
+	TempoJogado   int32
+	Nota          int32
+	Dificuldade   string
+	Review        string
+	Destaque      bool
+	IgdbCapaURL   string
+	IgdbDescricao string
 }
 
 type AtualizarJogoZeradoParams struct {
-	ID                int32
-	UsuarioID         int32
-	IgdbID            *int32
-	Nome              string
-	Console           string
-	Genero            string
-	Tipo              string
-	IniciadoEm        *time.Time
-	FinalizadoEm      time.Time
-	TempoJogado       int32
-	Nota              int32
-	Dificuldade       string
-	CondicaoZeramento string
-	Destaque          bool
-	IgdbCapaURL       string
-	IgdbDescricao     string
+	ID            int32
+	UsuarioID     int32
+	IgdbID        *int32
+	Nome          string
+	Console       string
+	Genero        string
+	Tipo          string
+	IniciadoEm    *time.Time
+	FinalizadoEm  time.Time
+	TempoJogado   int32
+	Nota          int32
+	Dificuldade   string
+	Review        string
+	Destaque      bool
+	IgdbCapaURL   string
+	IgdbDescricao string
 }
 
 type JogosRepository interface {
@@ -105,9 +105,9 @@ func (r *SQLJogosRepository) Criar(ctx context.Context, params CriarJogoZeradoPa
 		iniciadoEm = pgtype.Timestamp{Time: *params.IniciadoEm, Valid: true}
 	}
 
-	var condicao pgtype.Text
-	if params.CondicaoZeramento != "" {
-		condicao = pgtype.Text{String: params.CondicaoZeramento, Valid: true}
+	var review pgtype.Text
+	if params.Review != "" {
+		review = pgtype.Text{String: params.Review, Valid: true}
 	}
 
 	var capaURL pgtype.Text
@@ -121,21 +121,21 @@ func (r *SQLJogosRepository) Criar(ctx context.Context, params CriarJogoZeradoPa
 	}
 
 	row, err := r.queries.CriarJogoZerado(ctx, db.CriarJogoZeradoParams{
-		UsuarioID:         params.UsuarioID,
-		IgdbID:            igdbID,
-		Nome:              params.Nome,
-		Console:           params.Console,
-		Genero:            genero,
-		Tipo:              tipo,
-		IniciadoEm:        iniciadoEm,
-		FinalizadoEm:      pgtype.Timestamp{Time: params.FinalizadoEm, Valid: true},
-		TempoJogado:       params.TempoJogado,
-		Nota:              params.Nota,
-		Dificuldade:       db.Dificuldade(params.Dificuldade),
-		CondicaoZeramento: condicao,
-		Destaque:          pgtype.Bool{Bool: params.Destaque, Valid: true},
-		IgdbCapaUrl:       capaURL,
-		IgdbDescricao:     descricao,
+		UsuarioID:     params.UsuarioID,
+		IgdbID:        igdbID,
+		Nome:          params.Nome,
+		Console:       params.Console,
+		Genero:        genero,
+		Tipo:          tipo,
+		IniciadoEm:    iniciadoEm,
+		FinalizadoEm:  pgtype.Timestamp{Time: params.FinalizadoEm, Valid: true},
+		TempoJogado:   params.TempoJogado,
+		Nota:          params.Nota,
+		Dificuldade:   db.Dificuldade(params.Dificuldade),
+		Review:        review,
+		Destaque:      pgtype.Bool{Bool: params.Destaque, Valid: true},
+		IgdbCapaUrl:   capaURL,
+		IgdbDescricao: descricao,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("criar jogo zerado: %w", err)
@@ -165,9 +165,9 @@ func (r *SQLJogosRepository) Atualizar(ctx context.Context, params AtualizarJogo
 		iniciadoEm = pgtype.Timestamp{Time: *params.IniciadoEm, Valid: true}
 	}
 
-	var condicao pgtype.Text
-	if params.CondicaoZeramento != "" {
-		condicao = pgtype.Text{String: params.CondicaoZeramento, Valid: true}
+	var review pgtype.Text
+	if params.Review != "" {
+		review = pgtype.Text{String: params.Review, Valid: true}
 	}
 
 	var capaURL pgtype.Text
@@ -181,22 +181,22 @@ func (r *SQLJogosRepository) Atualizar(ctx context.Context, params AtualizarJogo
 	}
 
 	row, err := r.queries.AtualizarJogoZerado(ctx, db.AtualizarJogoZeradoParams{
-		ID:                params.ID,
-		UsuarioID:         params.UsuarioID,
-		IgdbID:            igdbID,
-		Nome:              params.Nome,
-		Console:           params.Console,
-		Genero:            genero,
-		Tipo:              tipo,
-		IniciadoEm:        iniciadoEm,
-		FinalizadoEm:      pgtype.Timestamp{Time: params.FinalizadoEm, Valid: true},
-		TempoJogado:       params.TempoJogado,
-		Nota:              params.Nota,
-		Dificuldade:       db.Dificuldade(params.Dificuldade),
-		CondicaoZeramento: condicao,
-		Destaque:          pgtype.Bool{Bool: params.Destaque, Valid: true},
-		IgdbCapaUrl:       capaURL,
-		IgdbDescricao:     descricao,
+		ID:            params.ID,
+		UsuarioID:     params.UsuarioID,
+		IgdbID:        igdbID,
+		Nome:          params.Nome,
+		Console:       params.Console,
+		Genero:        genero,
+		Tipo:          tipo,
+		IniciadoEm:    iniciadoEm,
+		FinalizadoEm:  pgtype.Timestamp{Time: params.FinalizadoEm, Valid: true},
+		TempoJogado:   params.TempoJogado,
+		Nota:          params.Nota,
+		Dificuldade:   db.Dificuldade(params.Dificuldade),
+		Review:        review,
+		Destaque:      pgtype.Bool{Bool: params.Destaque, Valid: true},
+		IgdbCapaUrl:   capaURL,
+		IgdbDescricao: descricao,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -221,7 +221,6 @@ func (r *SQLJogosRepository) Excluir(ctx context.Context, id int32, usuarioID in
 	}
 	return nil
 }
-
 
 func mapearJogoZerado(row db.JogosZerado) *JogoZerado {
 	jogo := &JogoZerado{
@@ -248,8 +247,8 @@ func mapearJogoZerado(row db.JogosZerado) *JogoZerado {
 	if row.FinalizadoEm.Valid {
 		jogo.FinalizadoEm = row.FinalizadoEm.Time
 	}
-	if row.CondicaoZeramento.Valid {
-		jogo.CondicaoZeramento = row.CondicaoZeramento.String
+	if row.Review.Valid {
+		jogo.Review = row.Review.String
 	}
 	if row.Destaque.Valid {
 		jogo.Destaque = row.Destaque.Bool
