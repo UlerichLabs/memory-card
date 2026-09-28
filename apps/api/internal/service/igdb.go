@@ -236,6 +236,12 @@ func ratingCount(game igdbclient.Game) int {
 }
 
 func traduzErroIGDB(err error) error {
+	if errors.Is(err, context.Canceled) {
+		return context.Canceled
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return fmt.Errorf("%w: %w", ErrIGDBIndisponivel, err)
+	}
 	if errors.Is(err, igdbclient.ErrQueryInvalid) {
 		return fmt.Errorf("%w: %w", ErrIGDBQueryInvalida, err)
 	}

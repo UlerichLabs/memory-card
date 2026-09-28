@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -23,6 +24,7 @@ type mockJogosService struct {
 	atualizarFn func(ctx context.Context, params repository.AtualizarJogoZeradoParams) (*repository.JogoZerado, error)
 	excluirFn   func(ctx context.Context, id int32, usuarioID int32) error
 }
+
 func (m *mockJogosService) CriarJogoZerado(ctx context.Context, params repository.CriarJogoZeradoParams) (*repository.JogoZerado, error) {
 	if m.criarFn != nil {
 		return m.criarFn(ctx, params)
@@ -91,6 +93,7 @@ func TestJogosHandler_CriarJogo_Sucesso(t *testing.T) {
 				TempoJogado: params.TempoJogado,
 				Nota:        params.Nota,
 				Dificuldade: params.Dificuldade,
+				Review:      params.Review,
 			}, nil
 		},
 	}
@@ -108,6 +111,7 @@ func TestJogosHandler_CriarJogo_Sucesso(t *testing.T) {
 		"tempo_jogado_segundos": 0,
 		"nota":                  10,
 		"dificuldade":           "A",
+		"review":                "Excelente campanha.",
 		"destaque":              true,
 	}
 	payload, _ := json.Marshal(body)
@@ -250,6 +254,7 @@ func TestJogosHandler_AtualizarJogo_Sucesso(t *testing.T) {
 				TempoJogado: params.TempoJogado,
 				Nota:        params.Nota,
 				Dificuldade: params.Dificuldade,
+				Review:      params.Review,
 			}, nil
 		},
 	}
@@ -267,6 +272,7 @@ func TestJogosHandler_AtualizarJogo_Sucesso(t *testing.T) {
 		"tempo_jogado_segundos": 0,
 		"nota":                  11,
 		"dificuldade":           "AAA",
+		"review":                "Review atualizada.",
 		"destaque":              false,
 	}
 	payload, _ := json.Marshal(body)
@@ -288,7 +294,7 @@ func TestJogosHandler_AtualizarJogo_Sucesso(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatal(err)
 	}
-	if resp.Data.Nome != "Super Mario World 2" || resp.Data.Nota != 11 {
+	if resp.Data.Nome != "Super Mario World 2" || resp.Data.Nota != 11 || resp.Data.Review != "Review atualizada." {
 		t.Fatalf("resposta inesperada: %+v", resp.Data)
 	}
 }
@@ -502,5 +508,67 @@ func TestJogosHandler_ExcluirJogo_IDInvalido(t *testing.T) {
 
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("esperava status 400, obteve %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestJogosHandler_CamposMuitoLongos(t *testing.T) {
+	tests := []struct {
+		name   string
+		err    error
+		codigo string
+	}{
+		{"nome", service.ErrNomeMuitoLongo, "jogos.nome_muito_longo"},
+		{"console", service.ErrConsoleMuitoLongo, "jogos.console_muito_longo"},
+		{"genero", service.ErrGeneroMuitoLongo, "jogos.genero_muito_longo"},
+		{"tipo", service.ErrTipoMuitoLongo, "jogos.tipo_muito_longo"},
+		{"review", service.ErrReviewMuitoLongo, "jogos.review_muito_longo"},
+	}
+	for _, tc := range tests {
+		t.Run("criar_"+tc.name, func(t *testing.T) {
+			secret := uuid.NewString()
+			tokens, err := service.NewAuthToken(secret, time.Hour, 24*time.Hour)
+			if err != nil {
+				t.Fatal(err)
+			}
+			router := gin.New()
+			privadas := middleware.GrupoPrivado(router, tokens)
+			svc := &mockJogosService{criarFn: func(context.Context, repository.CriarJogoZeradoParams) (*repository.JogoZerado, error) {
+				return nil, tc.err
+			}}
+			privadas.POST("/jogos", NewJogosHandler(svc).CriarJogo)
+			body := map[string]any{"nome": "Jogo", "console": "Console", "finalizado_em": "2026-05-10", "tempo_jogado": 1, "nota": 10, "dificuldade": "A"}
+			requestBody, _ := json.Marshal(body)
+			request := httptest.NewRequest(http.MethodPost, "/api/v1/jogos", bytes.NewReader(requestBody))
+			request.Header.Set("Authorization", "Bearer "+generateTestAccessToken(t, secret, "42"))
+			request.Header.Set("Content-Type", "application/json")
+			recorder := httptest.NewRecorder()
+			router.ServeHTTP(recorder, request)
+			if recorder.Code != http.StatusBadRequest || !strings.Contains(recorder.Body.String(), `"codigo":"`+tc.codigo+`"`) {
+				t.Fatalf("status=%d body=%s", recorder.Code, recorder.Body.String())
+			}
+		})
+		t.Run("atualizar_"+tc.name, func(t *testing.T) {
+			secret := uuid.NewString()
+			tokens, err := service.NewAuthToken(secret, time.Hour, 24*time.Hour)
+			if err != nil {
+				t.Fatal(err)
+			}
+			router := gin.New()
+			privadas := middleware.GrupoPrivado(router, tokens)
+			svc := &mockJogosService{atualizarFn: func(context.Context, repository.AtualizarJogoZeradoParams) (*repository.JogoZerado, error) {
+				return nil, tc.err
+			}}
+			privadas.PUT("/jogos/:id", NewJogosHandler(svc).AtualizarJogo)
+			body := map[string]any{"nome": "Jogo", "console": "Console", "finalizado_em": "2026-05-10", "tempo_jogado": 1, "nota": 10, "dificuldade": "A"}
+			requestBody, _ := json.Marshal(body)
+			request := httptest.NewRequest(http.MethodPut, "/api/v1/jogos/1", bytes.NewReader(requestBody))
+			request.Header.Set("Authorization", "Bearer "+generateTestAccessToken(t, secret, "42"))
+			request.Header.Set("Content-Type", "application/json")
+			recorder := httptest.NewRecorder()
+			router.ServeHTTP(recorder, request)
+			if recorder.Code != http.StatusBadRequest || !strings.Contains(recorder.Body.String(), `"codigo":"`+tc.codigo+`"`) {
+				t.Fatalf("status=%d body=%s", recorder.Code, recorder.Body.String())
+			}
+		})
 	}
 }

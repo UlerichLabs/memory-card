@@ -437,6 +437,8 @@ func TestBuscarJogos_ErrosTraduzidos(t *testing.T) {
 		{"unavailable", igdbclient.ErrUnavailable, ErrIGDBIndisponivel},
 		{"query invalid", igdbclient.ErrQueryInvalid, ErrIGDBQueryInvalida},
 		{"authentication", igdbclient.ErrAuthentication, ErrIGDBIndisponivel},
+		{"canceled", context.Canceled, context.Canceled},
+		{"deadline exceeded", context.DeadlineExceeded, ErrIGDBIndisponivel},
 	}
 
 	for _, tc := range tests {

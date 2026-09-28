@@ -206,25 +206,25 @@ type IgdbCache struct {
 }
 
 type JogosZerado struct {
-	ID                int32
-	UsuarioID         int32
-	IgdbID            pgtype.Int4
-	Nome              string
-	Console           string
-	Genero            pgtype.Text
-	Tipo              pgtype.Text
-	IniciadoEm        pgtype.Timestamp
-	FinalizadoEm      pgtype.Timestamp
-	TempoJogado       int32
-	Nota              int32
-	Dificuldade       Dificuldade
-	CondicaoZeramento pgtype.Text
-	Destaque          pgtype.Bool
-	IgdbCapaUrl       pgtype.Text
-	IgdbDescricao     pgtype.Text
-	DeletedAt         pgtype.Timestamp
-	CreatedAt         pgtype.Timestamp
-	UpdatedAt         pgtype.Timestamp
+	ID            int32
+	UsuarioID     int32
+	IgdbID        pgtype.Int4
+	Nome          string
+	Console       string
+	Genero        pgtype.Text
+	Tipo          pgtype.Text
+	IniciadoEm    pgtype.Timestamp
+	FinalizadoEm  pgtype.Timestamp
+	TempoJogado   int32
+	Nota          int32
+	Dificuldade   Dificuldade
+	Review        pgtype.Text
+	Destaque      pgtype.Bool
+	IgdbCapaUrl   pgtype.Text
+	IgdbDescricao pgtype.Text
+	DeletedAt     pgtype.Timestamp
+	CreatedAt     pgtype.Timestamp
+	UpdatedAt     pgtype.Timestamp
 }
 
 type LimitesSolicitacaoResetSenha struct {

@@ -129,11 +129,11 @@ func TestJogosService_CriarJogoZerado_Validacoes(t *testing.T) {
 			expectedErr: ErrDificuldadeInvalida,
 		},
 		{
-			name: "condicao zeramento maior que 500",
+			name: "review maior que 5000",
 			modify: func(p *repository.CriarJogoZeradoParams) {
-				p.CondicaoZeramento = strings.Repeat("a", 501)
+				p.Review = strings.Repeat("a", 5001)
 			},
-			expectedErr: ErrCondicaoZeramentoInvalida,
+			expectedErr: ErrReviewMuitoLongo,
 		},
 	}
 
@@ -320,11 +320,11 @@ func TestJogosService_AtualizarJogoZerado_Validacoes(t *testing.T) {
 			expectedErr: ErrDificuldadeInvalida,
 		},
 		{
-			name: "condicao zeramento maior que 500",
+			name: "review maior que 5000",
 			modify: func(p *repository.AtualizarJogoZeradoParams) {
-				p.CondicaoZeramento = strings.Repeat("a", 501)
+				p.Review = strings.Repeat("a", 5001)
 			},
-			expectedErr: ErrCondicaoZeramentoInvalida,
+			expectedErr: ErrReviewMuitoLongo,
 		},
 	}
 
@@ -361,7 +361,7 @@ func TestJogosService_CamposMuitoLongos_CriarEAtualizar(t *testing.T) {
 		{"console", func(p *repository.CriarJogoZeradoParams) { p.Console = strings.Repeat("a", 101) }, func(p *repository.AtualizarJogoZeradoParams) { p.Console = strings.Repeat("a", 101) }, ErrConsoleMuitoLongo},
 		{"genero", func(p *repository.CriarJogoZeradoParams) { p.Genero = strings.Repeat("a", 151) }, func(p *repository.AtualizarJogoZeradoParams) { p.Genero = strings.Repeat("a", 151) }, ErrGeneroMuitoLongo},
 		{"tipo", func(p *repository.CriarJogoZeradoParams) { p.Tipo = strings.Repeat("a", 51) }, func(p *repository.AtualizarJogoZeradoParams) { p.Tipo = strings.Repeat("a", 51) }, ErrTipoMuitoLongo},
-		{"condicao", func(p *repository.CriarJogoZeradoParams) { p.CondicaoZeramento = strings.Repeat("a", 501) }, func(p *repository.AtualizarJogoZeradoParams) { p.CondicaoZeramento = strings.Repeat("a", 501) }, ErrCondicaoZeramentoInvalida},
+		{"review", func(p *repository.CriarJogoZeradoParams) { p.Review = strings.Repeat("a", 5001) }, func(p *repository.AtualizarJogoZeradoParams) { p.Review = strings.Repeat("a", 5001) }, ErrReviewMuitoLongo},
 	}
 	for _, tc := range tests {
 		t.Run("criar_"+tc.name, func(t *testing.T) {
@@ -396,6 +396,38 @@ func TestJogosService_CamposAmpliados_Sucesso(t *testing.T) {
 	}
 }
 
+func TestJogosService_ReviewLimiteESemValor(t *testing.T) {
+	repo := &mockJogosRepo{
+		criarFn: func(ctx context.Context, params repository.CriarJogoZeradoParams) (*repository.JogoZerado, error) {
+			if len([]rune(params.Review)) > 5000 {
+				t.Fatal("review excedeu o limite")
+			}
+			return &repository.JogoZerado{Review: params.Review}, nil
+		},
+		atualizarFn: func(ctx context.Context, params repository.AtualizarJogoZeradoParams) (*repository.JogoZerado, error) {
+			return &repository.JogoZerado{Review: params.Review}, nil
+		},
+	}
+	base := repository.CriarJogoZeradoParams{
+		Nome: "Jogo", Console: "Console", FinalizadoEm: time.Now(), TempoJogado: 1, Nota: 10, Dificuldade: "A",
+	}
+	base.Review = strings.Repeat("r", 5000)
+	if _, err := NewJogosService(repo).CriarJogoZerado(context.Background(), base); err != nil {
+		t.Fatalf("review com 5000 caracteres falhou: %v", err)
+	}
+	base.Review = ""
+	if _, err := NewJogosService(repo).CriarJogoZerado(context.Background(), base); err != nil {
+		t.Fatalf("review vazia falhou: %v", err)
+	}
+	update := repository.AtualizarJogoZeradoParams{
+		ID: 1, UsuarioID: 42, Nome: base.Nome, Console: base.Console, FinalizadoEm: base.FinalizadoEm,
+		TempoJogado: 1, Nota: 10, Dificuldade: "A", Review: strings.Repeat("r", 5000),
+	}
+	if _, err := NewJogosService(repo).AtualizarJogoZerado(context.Background(), update); err != nil {
+		t.Fatalf("review de edição com 5000 caracteres falhou: %v", err)
+	}
+}
+
 func TestJogosService_SQLSTATE22001_ViraErroDeCampo(t *testing.T) {
 	for _, field := range []struct {
 		name     string
@@ -406,7 +438,7 @@ func TestJogosService_SQLSTATE22001_ViraErroDeCampo(t *testing.T) {
 		{"console", "console", ErrConsoleMuitoLongo},
 		{"genero", "genero", ErrGeneroMuitoLongo},
 		{"tipo", "tipo", ErrTipoMuitoLongo},
-		{"condicao", "condicao_zeramento", ErrCondicaoZeramentoInvalida},
+		{"review", "review", ErrReviewMuitoLongo},
 	} {
 		t.Run(field.name, func(t *testing.T) {
 			repo := &mockJogosRepo{criarFn: func(ctx context.Context, params repository.CriarJogoZeradoParams) (*repository.JogoZerado, error) {

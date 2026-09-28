@@ -23,32 +23,32 @@ UPDATE jogos_zerados SET
     tempo_jogado = $10,
     nota = $11,
     dificuldade = $12,
-    condicao_zeramento = $13,
+    review = $13,
     destaque = $14,
     igdb_capa_url = $15,
     igdb_descricao = $16,
     updated_at = now()
 WHERE id = $1 AND usuario_id = $2 AND deleted_at IS NULL
-RETURNING id, usuario_id, igdb_id, nome, console, genero, tipo, iniciado_em, finalizado_em, tempo_jogado, nota, dificuldade, condicao_zeramento, destaque, igdb_capa_url, igdb_descricao, deleted_at, created_at, updated_at
+RETURNING id, usuario_id, igdb_id, nome, console, genero, tipo, iniciado_em, finalizado_em, tempo_jogado, nota, dificuldade, review, destaque, igdb_capa_url, igdb_descricao, deleted_at, created_at, updated_at
 `
 
 type AtualizarJogoZeradoParams struct {
-	ID                int32
-	UsuarioID         int32
-	IgdbID            pgtype.Int4
-	Nome              string
-	Console           string
-	Genero            pgtype.Text
-	Tipo              pgtype.Text
-	IniciadoEm        pgtype.Timestamp
-	FinalizadoEm      pgtype.Timestamp
-	TempoJogado       int32
-	Nota              int32
-	Dificuldade       Dificuldade
-	CondicaoZeramento pgtype.Text
-	Destaque          pgtype.Bool
-	IgdbCapaUrl       pgtype.Text
-	IgdbDescricao     pgtype.Text
+	ID            int32
+	UsuarioID     int32
+	IgdbID        pgtype.Int4
+	Nome          string
+	Console       string
+	Genero        pgtype.Text
+	Tipo          pgtype.Text
+	IniciadoEm    pgtype.Timestamp
+	FinalizadoEm  pgtype.Timestamp
+	TempoJogado   int32
+	Nota          int32
+	Dificuldade   Dificuldade
+	Review        pgtype.Text
+	Destaque      pgtype.Bool
+	IgdbCapaUrl   pgtype.Text
+	IgdbDescricao pgtype.Text
 }
 
 func (q *Queries) AtualizarJogoZerado(ctx context.Context, arg AtualizarJogoZeradoParams) (JogosZerado, error) {
@@ -65,7 +65,7 @@ func (q *Queries) AtualizarJogoZerado(ctx context.Context, arg AtualizarJogoZera
 		arg.TempoJogado,
 		arg.Nota,
 		arg.Dificuldade,
-		arg.CondicaoZeramento,
+		arg.Review,
 		arg.Destaque,
 		arg.IgdbCapaUrl,
 		arg.IgdbDescricao,
@@ -84,7 +84,7 @@ func (q *Queries) AtualizarJogoZerado(ctx context.Context, arg AtualizarJogoZera
 		&i.TempoJogado,
 		&i.Nota,
 		&i.Dificuldade,
-		&i.CondicaoZeramento,
+		&i.Review,
 		&i.Destaque,
 		&i.IgdbCapaUrl,
 		&i.IgdbDescricao,
@@ -96,7 +96,7 @@ func (q *Queries) AtualizarJogoZerado(ctx context.Context, arg AtualizarJogoZera
 }
 
 const buscarJogoPorID = `-- name: BuscarJogoPorID :one
-SELECT id, usuario_id, igdb_id, nome, console, genero, tipo, iniciado_em, finalizado_em, tempo_jogado, nota, dificuldade, condicao_zeramento, destaque, igdb_capa_url, igdb_descricao, deleted_at, created_at, updated_at FROM jogos_zerados WHERE id = $1 AND usuario_id = $2 AND deleted_at IS NULL
+SELECT id, usuario_id, igdb_id, nome, console, genero, tipo, iniciado_em, finalizado_em, tempo_jogado, nota, dificuldade, review, destaque, igdb_capa_url, igdb_descricao, deleted_at, created_at, updated_at FROM jogos_zerados WHERE id = $1 AND usuario_id = $2 AND deleted_at IS NULL
 `
 
 type BuscarJogoPorIDParams struct {
@@ -120,7 +120,7 @@ func (q *Queries) BuscarJogoPorID(ctx context.Context, arg BuscarJogoPorIDParams
 		&i.TempoJogado,
 		&i.Nota,
 		&i.Dificuldade,
-		&i.CondicaoZeramento,
+		&i.Review,
 		&i.Destaque,
 		&i.IgdbCapaUrl,
 		&i.IgdbDescricao,
@@ -135,28 +135,28 @@ const criarJogoZerado = `-- name: CriarJogoZerado :one
 INSERT INTO jogos_zerados (
     usuario_id, igdb_id, nome, console, genero, tipo,
     iniciado_em, finalizado_em, tempo_jogado, nota,
-    dificuldade, condicao_zeramento, destaque, igdb_capa_url, igdb_descricao
+    dificuldade, review, destaque, igdb_capa_url, igdb_descricao
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
-) RETURNING id, usuario_id, igdb_id, nome, console, genero, tipo, iniciado_em, finalizado_em, tempo_jogado, nota, dificuldade, condicao_zeramento, destaque, igdb_capa_url, igdb_descricao, deleted_at, created_at, updated_at
+) RETURNING id, usuario_id, igdb_id, nome, console, genero, tipo, iniciado_em, finalizado_em, tempo_jogado, nota, dificuldade, review, destaque, igdb_capa_url, igdb_descricao, deleted_at, created_at, updated_at
 `
 
 type CriarJogoZeradoParams struct {
-	UsuarioID         int32
-	IgdbID            pgtype.Int4
-	Nome              string
-	Console           string
-	Genero            pgtype.Text
-	Tipo              pgtype.Text
-	IniciadoEm        pgtype.Timestamp
-	FinalizadoEm      pgtype.Timestamp
-	TempoJogado       int32
-	Nota              int32
-	Dificuldade       Dificuldade
-	CondicaoZeramento pgtype.Text
-	Destaque          pgtype.Bool
-	IgdbCapaUrl       pgtype.Text
-	IgdbDescricao     pgtype.Text
+	UsuarioID     int32
+	IgdbID        pgtype.Int4
+	Nome          string
+	Console       string
+	Genero        pgtype.Text
+	Tipo          pgtype.Text
+	IniciadoEm    pgtype.Timestamp
+	FinalizadoEm  pgtype.Timestamp
+	TempoJogado   int32
+	Nota          int32
+	Dificuldade   Dificuldade
+	Review        pgtype.Text
+	Destaque      pgtype.Bool
+	IgdbCapaUrl   pgtype.Text
+	IgdbDescricao pgtype.Text
 }
 
 func (q *Queries) CriarJogoZerado(ctx context.Context, arg CriarJogoZeradoParams) (JogosZerado, error) {
@@ -172,7 +172,7 @@ func (q *Queries) CriarJogoZerado(ctx context.Context, arg CriarJogoZeradoParams
 		arg.TempoJogado,
 		arg.Nota,
 		arg.Dificuldade,
-		arg.CondicaoZeramento,
+		arg.Review,
 		arg.Destaque,
 		arg.IgdbCapaUrl,
 		arg.IgdbDescricao,
@@ -191,7 +191,7 @@ func (q *Queries) CriarJogoZerado(ctx context.Context, arg CriarJogoZeradoParams
 		&i.TempoJogado,
 		&i.Nota,
 		&i.Dificuldade,
-		&i.CondicaoZeramento,
+		&i.Review,
 		&i.Destaque,
 		&i.IgdbCapaUrl,
 		&i.IgdbDescricao,
@@ -222,7 +222,7 @@ func (q *Queries) ExcluirJogoZerado(ctx context.Context, arg ExcluirJogoZeradoPa
 }
 
 const listarJogosZerados = `-- name: ListarJogosZerados :many
-SELECT id, usuario_id, igdb_id, nome, console, genero, tipo, iniciado_em, finalizado_em, tempo_jogado, nota, dificuldade, condicao_zeramento, destaque, igdb_capa_url, igdb_descricao, deleted_at, created_at, updated_at FROM jogos_zerados
+SELECT id, usuario_id, igdb_id, nome, console, genero, tipo, iniciado_em, finalizado_em, tempo_jogado, nota, dificuldade, review, destaque, igdb_capa_url, igdb_descricao, deleted_at, created_at, updated_at FROM jogos_zerados
 WHERE usuario_id = $1
   AND deleted_at IS NULL
   AND ($2::varchar IS NULL OR console = $2)
@@ -273,7 +273,7 @@ func (q *Queries) ListarJogosZerados(ctx context.Context, arg ListarJogosZerados
 			&i.TempoJogado,
 			&i.Nota,
 			&i.Dificuldade,
-			&i.CondicaoZeramento,
+			&i.Review,
 			&i.Destaque,
 			&i.IgdbCapaUrl,
 			&i.IgdbDescricao,

@@ -112,6 +112,14 @@ func (h *IGDBHandler) respond(c *gin.Context, data any, err error) {
 		c.JSON(http.StatusOK, gin.H{"data": publicIGDBData(data)})
 		return
 	}
+	if errors.Is(err, context.Canceled) {
+		c.Status(499)
+		return
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": gin.H{"codigo": "igdb.unavailable", "mensagem": i18n.T(c.GetHeader("Accept-Language"), "igdb.unavailable")}})
+		return
+	}
 	status, code := http.StatusBadGateway, "igdb.unavailable"
 	switch {
 	case errors.Is(err, service.ErrTermoIGDBVazio):

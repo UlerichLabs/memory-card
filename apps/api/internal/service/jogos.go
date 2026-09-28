@@ -15,20 +15,19 @@ import (
 )
 
 var (
-	ErrNotaInvalida                = errors.New("jogos.nota_invalida")
-	ErrDificuldadeInvalida         = errors.New("jogos.dificuldade_invalida")
-	ErrCondicaoZeramentoInvalida   = errors.New("jogos.condicao_zeramento_invalida")
-	ErrNomeObrigatorio             = errors.New("jogos.nome_obrigatorio")
-	ErrConsoleObrigatorio          = errors.New("jogos.console_obrigatorio")
-	ErrFinalizadoEmObrigatorio     = errors.New("jogos.finalizado_em_obrigatorio")
-	ErrTempoJogadoInvalido         = errors.New("jogos.tempo_jogado_invalido")
-	ErrDestaqueAnoConflito         = errors.New("jogos.destaque_ano_conflito")
-	ErrJogoNaoEncontrado           = errors.New("jogos.nao_encontrado")
-	ErrNomeMuitoLongo              = errors.New("jogos.nome_muito_longo")
-	ErrConsoleMuitoLongo           = errors.New("jogos.console_muito_longo")
-	ErrGeneroMuitoLongo            = errors.New("jogos.genero_muito_longo")
-	ErrTipoMuitoLongo              = errors.New("jogos.tipo_muito_longo")
-	ErrCondicaoZeramentoMuitoLonga = ErrCondicaoZeramentoInvalida
+	ErrNotaInvalida            = errors.New("jogos.nota_invalida")
+	ErrDificuldadeInvalida     = errors.New("jogos.dificuldade_invalida")
+	ErrReviewMuitoLongo        = errors.New("jogos.review_muito_longo")
+	ErrNomeObrigatorio         = errors.New("jogos.nome_obrigatorio")
+	ErrConsoleObrigatorio      = errors.New("jogos.console_obrigatorio")
+	ErrFinalizadoEmObrigatorio = errors.New("jogos.finalizado_em_obrigatorio")
+	ErrTempoJogadoInvalido     = errors.New("jogos.tempo_jogado_invalido")
+	ErrDestaqueAnoConflito     = errors.New("jogos.destaque_ano_conflito")
+	ErrJogoNaoEncontrado       = errors.New("jogos.nao_encontrado")
+	ErrNomeMuitoLongo          = errors.New("jogos.nome_muito_longo")
+	ErrConsoleMuitoLongo       = errors.New("jogos.console_muito_longo")
+	ErrGeneroMuitoLongo        = errors.New("jogos.genero_muito_longo")
+	ErrTipoMuitoLongo          = errors.New("jogos.tipo_muito_longo")
 )
 
 type JogosRepository interface {
@@ -45,7 +44,7 @@ func NewJogosService(repo JogosRepository) *JogosService {
 	return &JogosService{repo: repo}
 }
 
-func validarJogoZerado(nome, console, genero, tipo string, finalizadoEm time.Time, tempoJogado, nota int32, dificuldade, condicaoZeramento string) error {
+func validarJogoZerado(nome, console, genero, tipo, review string, finalizadoEm time.Time, tempoJogado, nota int32, dificuldade string) error {
 	if strings.TrimSpace(nome) == "" {
 		return ErrNomeObrigatorio
 	}
@@ -80,15 +79,15 @@ func validarJogoZerado(nome, console, genero, tipo string, finalizadoEm time.Tim
 		return ErrDificuldadeInvalida
 	}
 
-	if len([]rune(condicaoZeramento)) > 500 {
-		return ErrCondicaoZeramentoMuitoLonga
+	if len([]rune(review)) > 5000 {
+		return ErrReviewMuitoLongo
 	}
 
 	return nil
 }
 
 func (s *JogosService) CriarJogoZerado(ctx context.Context, params repository.CriarJogoZeradoParams) (*repository.JogoZerado, error) {
-	if err := validarJogoZerado(params.Nome, params.Console, params.Genero, params.Tipo, params.FinalizadoEm, params.TempoJogado, params.Nota, params.Dificuldade, params.CondicaoZeramento); err != nil {
+	if err := validarJogoZerado(params.Nome, params.Console, params.Genero, params.Tipo, params.Review, params.FinalizadoEm, params.TempoJogado, params.Nota, params.Dificuldade); err != nil {
 		return nil, err
 	}
 
@@ -110,7 +109,7 @@ func (s *JogosService) CriarJogoZerado(ctx context.Context, params repository.Cr
 }
 
 func (s *JogosService) AtualizarJogoZerado(ctx context.Context, params repository.AtualizarJogoZeradoParams) (*repository.JogoZerado, error) {
-	if err := validarJogoZerado(params.Nome, params.Console, params.Genero, params.Tipo, params.FinalizadoEm, params.TempoJogado, params.Nota, params.Dificuldade, params.CondicaoZeramento); err != nil {
+	if err := validarJogoZerado(params.Nome, params.Console, params.Genero, params.Tipo, params.Review, params.FinalizadoEm, params.TempoJogado, params.Nota, params.Dificuldade); err != nil {
 		return nil, err
 	}
 
@@ -144,10 +143,10 @@ func erroCampoMuitoLongo(campo string) error {
 		return ErrGeneroMuitoLongo
 	case "tipo":
 		return ErrTipoMuitoLongo
-	case "condicao_zeramento":
-		return ErrCondicaoZeramentoMuitoLonga
+	case "review":
+		return ErrReviewMuitoLongo
 	default:
-		return ErrCondicaoZeramentoMuitoLonga
+		return ErrReviewMuitoLongo
 	}
 }
 
