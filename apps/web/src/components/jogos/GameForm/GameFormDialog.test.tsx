@@ -21,6 +21,8 @@ const mockJogo: JogoZeradoDTO = {
 function renderDialog(storeOverrides: Partial<JogosStore> = {}) {
   const store: JogosStore = {
     jogos: [],
+    meta: { pagina: 1, por_pagina: 24, total: 0, total_paginas: 0 },
+    filtros: { consoles: [], generos: [], tipos: [], anos: [] },
     isLoading: false,
     error: null,
     isModalOpen: true,
@@ -28,6 +30,9 @@ function renderDialog(storeOverrides: Partial<JogosStore> = {}) {
     abrirModalRegistro: vi.fn(),
     abrirModalEdicao: vi.fn(),
     fecharModal: vi.fn(),
+    carregarJogos: vi.fn(),
+    carregarFiltros: vi.fn(),
+    limparBiblioteca: vi.fn(),
     criarJogo: vi.fn(),
     atualizarJogo: vi.fn(),
     excluirJogo: vi.fn(),

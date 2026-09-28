@@ -1,128 +1,122 @@
-import { Star, Clock, Calendar, Pencil, Trash2, Gamepad2, Award } from 'lucide-react'
-import type { JogoZeradoDTO, Dificuldade } from '@/lib/services/jogosService'
+import { useState, useRef, useEffect } from 'react'
+import { Star, Award, MoreVertical, Pencil, Trash2, Gamepad2 } from 'lucide-react'
+import type { JogoZeradoDTO, Dificuldade } from '@/types/jogos'
 import { formatarCapaIGDB } from '@/lib/utils'
 
 export interface BibliotecaCardProps {
   jogo: JogoZeradoDTO
   onEditar: (jogo: JogoZeradoDTO) => void
   onExcluir: (jogo: JogoZeradoDTO) => void
+  onDetalhes?: (jogo: JogoZeradoDTO) => void
 }
 
-const dificuldadeCores: Record<Dificuldade, string> = {
-  C: 'text-[#52545C] border-[#52545C]/40',
-  B: 'text-[#6B7280] border-[#6B7280]/40',
-  A: 'text-[#4F7CFF] border-[#4F7CFF]/40',
-  AA: 'text-[#E8C15C] border-[#E8C15C]/40',
-  AAA: 'text-[#E05A4E] border-[#E05A4E]/40',
+const DIFICULDADE_VAR: Record<Dificuldade, string> = {
+  C: 'var(--difficulty-c)', B: 'var(--difficulty-b)', A: 'var(--difficulty-a)',
+  AA: 'var(--difficulty-aa)', AAA: 'var(--difficulty-aaa)',
 }
 
-function formatarTempo(segundos: number): string {
-  const h = Math.floor(segundos / 3600)
-  const m = Math.floor((segundos % 3600) / 60)
+function formatarTempo(s: number): string {
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60)
   if (h > 0 && m > 0) return `${h}h ${m}m`
   if (h > 0) return `${h}h`
-  if (m > 0) return `${m}m`
-  return `${segundos}s`
+  return m > 0 ? `${m}m` : `${s}s`
 }
 
-function formatarData(dataStr: string): string {
-  const partes = dataStr.slice(0, 10).split('-')
-  if (partes.length === 3) {
-    return `${partes[2]}/${partes[1]}/${partes[0]}`
-  }
-  return dataStr
-}
+export function BibliotecaCard({ jogo, onEditar, onExcluir, onDetalhes }: BibliotecaCardProps) {
+  const [menuAberto, setMenuAberto] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
 
-export function BibliotecaCard({ jogo, onEditar, onExcluir }: BibliotecaCardProps) {
-  const corDificuldade = dificuldadeCores[jogo.dificuldade] || 'text-[var(--text-secondary)] border-[var(--border-subtle)]'
+  useEffect(() => {
+    function handleClickFora(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuAberto(false)
+    }
+    if (menuAberto) {
+      document.addEventListener('mousedown', handleClickFora)
+      return () => document.removeEventListener('mousedown', handleClickFora)
+    }
+  }, [menuAberto])
+
   const capaUrl = formatarCapaIGDB(jogo.igdb_capa_url)
+  const ano = jogo.finalizado_em ? jogo.finalizado_em.slice(0, 4) : ''
+  const tempoStr = jogo.tempo_jogado > 0 ? formatarTempo(jogo.tempo_jogado) : ''
+  const metaTexto = ano && tempoStr ? `${ano} · ${tempoStr}` : ano || tempoStr
+  const difCor = DIFICULDADE_VAR[jogo.dificuldade] || 'var(--biblioteca-text-muted)'
 
   return (
-    <article className="group flex flex-col rounded-[12px] border border-[var(--border)] bg-[var(--bg-surface)] p-3.5 transition-transform duration-200 hover:-translate-y-1">
-      <div className="relative aspect-[3/4] w-full overflow-hidden rounded-[6px] border border-[var(--border)] bg-[var(--bg-surface-alt)]">
+    <article
+      onClick={() => onDetalhes?.(jogo)}
+      className="group flex cursor-pointer flex-col overflow-hidden rounded-[10px] border border-[var(--biblioteca-card-border)] bg-[var(--biblioteca-card-bg)] transition duration-150 hover:-translate-y-0.5 hover:border-[var(--biblioteca-card-border-hover)]"
+    >
+      <div className="relative aspect-[3/4] w-full overflow-hidden bg-[var(--biblioteca-card-cover-bg)]">
         {capaUrl ? (
-          <img
-            src={capaUrl}
-            alt={jogo.nome}
-            className="h-full w-full object-cover transition-opacity duration-200 group-hover:opacity-90"
-            loading="lazy"
-          />
+          <img src={capaUrl} alt={jogo.nome} className="h-full w-full object-cover transition duration-150 group-hover:opacity-90" loading="lazy" />
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#1D1F25] to-[#2A2C33] text-[var(--text-muted)]">
-            <Gamepad2 className="h-10 w-10 opacity-40" aria-hidden="true" />
+          <div className="flex h-full w-full flex-col items-center justify-center p-3 text-center text-[var(--biblioteca-control-placeholder)]">
+            <Gamepad2 className="h-8 w-8 opacity-40" aria-hidden="true" />
+            <span className="mt-2 line-clamp-2 text-xs font-semibold text-[var(--biblioteca-text-secondary)]">{jogo.nome}</span>
           </div>
         )}
 
-        <div className={`absolute left-1.5 top-1.5 rounded-full border bg-[var(--bg-surface-alt)]/90 px-2 py-0.5 text-[10px] font-bold ${corDificuldade}`}>
-          Dif. {jogo.dificuldade}
+        <div className="absolute left-1.5 top-1.5 max-w-[65%] truncate rounded-[4px] bg-[var(--biblioteca-pill-bg)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--biblioteca-control-text)] backdrop-blur-xs">
+          {jogo.console}
         </div>
 
-        <div className="absolute right-1.5 top-1.5 flex items-center gap-1 rounded bg-black/80 px-1.5 py-0.5 text-[11px] font-bold text-[var(--highlight-gold)]">
-          <Star className="h-3 w-3 fill-[var(--highlight-gold)]" aria-hidden="true" />
+        <div className="absolute right-1.5 top-1.5 flex items-center gap-1 rounded-[4px] bg-black/80 px-1.5 py-0.5 text-xs font-bold text-[var(--biblioteca-gold)]">
+          <Star className="h-3 w-3 fill-[var(--biblioteca-gold)]" aria-hidden="true" />
           <span>{jogo.nota}</span>
         </div>
 
         {jogo.destaque && (
-          <div className="absolute bottom-1.5 left-1.5 flex items-center gap-1 rounded bg-[var(--highlight-gold)]/20 border border-[var(--highlight-gold)]/40 px-1.5 py-0.5 text-[10px] font-bold text-[var(--highlight-gold)]">
+          <div className="absolute bottom-1.5 left-1.5 flex items-center gap-0.5 rounded-[4px] bg-[var(--biblioteca-gold)]/20 border border-[var(--biblioteca-gold)]/40 px-1.5 py-0.5 text-[10px] font-bold text-[var(--biblioteca-gold)]">
             <Award className="h-3 w-3" aria-hidden="true" />
             <span>Destaque</span>
           </div>
         )}
-      </div>
 
-      <div className="mt-3 flex flex-1 flex-col justify-between space-y-2">
-        <div>
-          <h3 className="truncate text-[14px] font-bold text-[var(--text-primary)]" title={jogo.nome}>
-            {jogo.nome}
-          </h3>
-          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-[var(--text-secondary)]">
-            <span className="rounded-[20px] border border-[var(--border-subtle)] bg-[var(--bg-surface-alt)] px-2 py-0.5 font-medium">
-              {jogo.console}
-            </span>
-            {jogo.genero && (
-              <span className="rounded-[20px] border border-[var(--border-subtle)] bg-[var(--bg-surface-alt)] px-2 py-0.5 text-[var(--text-muted)]">
-                {jogo.genero}
-              </span>
-            )}
-          </div>
-        </div>
+        <div ref={menuRef} onClick={(e) => e.stopPropagation()} className="absolute bottom-1.5 right-1.5 z-10">
+          <button
+            type="button"
+            onClick={() => setMenuAberto((prev) => !prev)}
+            aria-label={`Opções de ${jogo.nome}`}
+            className="flex h-7 w-7 items-center justify-center rounded-[4px] bg-black/60 text-[var(--biblioteca-control-text)] backdrop-blur-xs transition hover:bg-black/80"
+          >
+            <MoreVertical className="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
 
-        <div className="space-y-1 border-t border-[var(--border)] pt-2 text-[11px] text-[var(--text-muted)]">
-          {jogo.tempo_jogado > 0 && (
-            <div className="flex items-center gap-1">
-              <Clock className="h-3 w-3" aria-hidden="true" />
-              <span>{formatarTempo(jogo.tempo_jogado)} jogados</span>
+          {menuAberto && (
+            <div className="absolute bottom-full right-0 mb-1 min-w-[120px] rounded-[6px] border border-[var(--biblioteca-card-border)] bg-[var(--biblioteca-control-bg)] p-1 shadow-lg">
+              <button
+                type="button"
+                onClick={() => { setMenuAberto(false); onEditar(jogo) }}
+                aria-label={`Editar ${jogo.nome}`}
+                className="flex w-full items-center gap-2 rounded-[4px] px-2 py-1.5 text-xs font-medium text-[var(--biblioteca-text-primary)] hover:bg-[var(--biblioteca-card-bg)]"
+              >
+                <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+                <span>Editar</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => { setMenuAberto(false); onExcluir(jogo) }}
+                aria-label={`Excluir ${jogo.nome}`}
+                className="flex w-full items-center gap-2 rounded-[4px] px-2 py-1.5 text-xs font-medium text-[var(--danger)] hover:bg-[var(--biblioteca-card-bg)]"
+              >
+                <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                <span>Excluir</span>
+              </button>
             </div>
           )}
-          <div className="flex items-center gap-1">
-            <Calendar className="h-3 w-3" aria-hidden="true" />
-            <span>Finalizado em {formatarData(jogo.finalizado_em)}</span>
-          </div>
-          {jogo.review && (
-            <p className="line-clamp-2 text-[10.5px] italic text-[var(--text-secondary)]" title={jogo.review}>
-              "{jogo.review}"
-            </p>
-          )}
         </div>
+      </div>
 
-        <div className="flex items-center gap-2 pt-1">
-          <button
-            type="button"
-            aria-label={`Editar ${jogo.nome}`}
-            onClick={() => onEditar(jogo)}
-            className="flex flex-1 items-center justify-center gap-1 rounded-[7px] border border-[var(--border-subtle)] bg-[var(--bg-surface-alt)] px-2.5 py-1.5 text-[12px] font-medium text-[var(--text-primary)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
-          >
-            <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
-            <span>Editar</span>
-          </button>
-          <button
-            type="button"
-            aria-label={`Excluir ${jogo.nome}`}
-            onClick={() => onExcluir(jogo)}
-            className="flex items-center justify-center rounded-[7px] border border-[var(--border-subtle)] bg-[var(--bg-surface-alt)] p-1.5 text-[var(--text-muted)] transition-colors hover:border-[var(--danger)] hover:bg-[var(--danger)]/10 hover:text-[var(--danger)]"
-          >
-            <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-          </button>
+      <div className="flex flex-1 flex-col justify-between p-3">
+        <div>
+          <h3 className="truncate text-sm font-bold text-[var(--biblioteca-text-primary)]" title={jogo.nome}>{jogo.nome}</h3>
+          {metaTexto && <p className="mt-0.5 text-[11px] text-[var(--biblioteca-text-muted)]">{metaTexto}</p>}
+        </div>
+        <div className="mt-2.5 flex items-center justify-between">
+          <span style={{ borderColor: difCor, color: difCor }} className="rounded-[4px] border px-1.5 py-0.5 text-[10px] font-bold">
+            Dif. {jogo.dificuldade}
+          </span>
         </div>
       </div>
     </article>
