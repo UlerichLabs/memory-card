@@ -16,7 +16,7 @@ const mockJogo: JogoZeradoDTO = {
   tempo_jogado: 7200,
   nota: 10,
   dificuldade: 'A',
-  condicao_zeramento: '100%',
+  review: '100%',
   destaque: true,
   igdb_capa_url: 'https://images.igdb.com/cover.jpg',
 }

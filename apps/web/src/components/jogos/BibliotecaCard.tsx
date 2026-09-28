@@ -98,9 +98,9 @@ export function BibliotecaCard({ jogo, onEditar, onExcluir }: BibliotecaCardProp
             <Calendar className="h-3 w-3" aria-hidden="true" />
             <span>Finalizado em {formatarData(jogo.finalizado_em)}</span>
           </div>
-          {jogo.condicao_zeramento && (
-            <p className="line-clamp-2 text-[10.5px] italic text-[var(--text-secondary)]" title={jogo.condicao_zeramento}>
-              "{jogo.condicao_zeramento}"
+          {jogo.review && (
+            <p className="line-clamp-2 text-[10.5px] italic text-[var(--text-secondary)]" title={jogo.review}>
+              "{jogo.review}"
             </p>
           )}
         </div>

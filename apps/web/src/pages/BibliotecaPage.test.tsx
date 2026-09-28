@@ -20,7 +20,7 @@ const jogoMock: JogoZeradoDTO = {
   tempo_jogado: 72000,
   nota: 10,
   dificuldade: 'A',
-  condicao_zeramento: '100% dos finais',
+  review: '100% dos finais',
   destaque: true,
   igdb_capa_url: 'https://images.igdb.com/cover.jpg',
 }

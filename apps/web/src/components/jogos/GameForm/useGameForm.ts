@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { gameFormSchema } from './GameForm.schema'
-import { JogosApiError, type Dificuldade, type JogoZeradoDTO, type SalvarJogoPayload } from '@/lib/services/jogosService'
+import { JOGOS_CAMPO_ERRO_MENSAGENS, JOGOS_ERRO_GENERICO, JogosApiError, type Dificuldade, type JogoZeradoDTO, type SalvarJogoPayload } from '@/lib/services/jogosService'
 
 export interface UseGameFormProps {
   initialData?: Partial<JogoZeradoDTO>
@@ -20,7 +20,7 @@ export function useGameForm({ initialData, onSubmit }: UseGameFormProps) {
   const [segundos, setSegundos] = useState((s % 60) > 0 ? String(s % 60) : '')
   const [nota, setNota] = useState<number | undefined>(initialData?.nota)
   const [dificuldade, setDificuldade] = useState<Dificuldade | undefined>(initialData?.dificuldade)
-  const [condicao, setCondicao] = useState(initialData?.condicao_zeramento ?? '')
+  const [review, setReview] = useState(initialData?.review ?? '')
   const [destaque, setDestaque] = useState(initialData?.destaque ?? false)
   const [igdbId, setIgdbId] = useState<number | null>(initialData?.igdb_id ?? null)
   const [igdbCapaUrl, setIgdbCapaUrl] = useState(initialData?.igdb_capa_url ?? '')
@@ -39,7 +39,7 @@ export function useGameForm({ initialData, onSubmit }: UseGameFormProps) {
       tempo_jogado_horas: horas === '' ? 0 : parseInt(horas, 10),
       tempo_jogado_minutos: minutos === '' ? 0 : parseInt(minutos, 10),
       tempo_jogado_segundos: segundos === '' ? 0 : parseInt(segundos, 10),
-      nota, dificuldade, condicao_zeramento: condicao, destaque,
+      nota, dificuldade, review: review || null, destaque,
       igdb_capa_url: igdbCapaUrl, igdb_descricao: igdbDescricao,
     })
     if (!res.success) {
@@ -60,7 +60,9 @@ export function useGameForm({ initialData, onSubmit }: UseGameFormProps) {
         setDestaque(false)
         setDestaqueError(err.message || 'já existe um destaque para este ano')
       } else {
-        setErrors({ form: err instanceof Error ? err.message : 'Erro ao salvar jogo' })
+        const campo = err instanceof JogosApiError ? JOGOS_CAMPO_ERRO_MENSAGENS[err.codigo] : undefined
+        if (campo) setErrors({ [campo.campo]: campo.mensagem })
+        else setErrors({ form: JOGOS_ERRO_GENERICO })
       }
     } finally {
       setIsSubmitting(false)
@@ -71,7 +73,7 @@ export function useGameForm({ initialData, onSubmit }: UseGameFormProps) {
     nome, setNome, consoleName, setConsoleName, genero, setGenero, tipo, setTipo,
     iniciadoEm, setIniciadoEm, finalizadoEm, setFinalizadoEm, horas, setHoras,
     minutos, setMinutos, segundos, setSegundos, nota, setNota, dificuldade,
-    setDificuldade, condicao, setCondicao, destaque, setDestaque, igdbId, setIgdbId,
+    setDificuldade, review, setReview, destaque, setDestaque, igdbId, setIgdbId,
     igdbCapaUrl, setIgdbCapaUrl, igdbDescricao, setIgdbDescricao, plataformas, setPlataformas,
     errors, destaqueError, isSubmitting, handleSubmit,
   }
