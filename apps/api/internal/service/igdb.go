@@ -199,6 +199,10 @@ func normalizeString(s string) string {
 }
 
 func normalizar(s string) string {
+	return strings.Join(normalizarPalavras(s), "")
+}
+
+func normalizarPalavras(s string) []string {
 	lower := strings.ToLower(s)
 	clean, _, err := transform.String(normTransformer, lower)
 	if err != nil {
@@ -206,27 +210,58 @@ func normalizar(s string) string {
 	}
 	clean = strings.TrimPrefix(strings.TrimSpace(clean), "the ")
 
-	var normalized strings.Builder
+	var words strings.Builder
 	for _, r := range clean {
 		if unicode.IsLetter(r) || unicode.IsDigit(r) {
-			normalized.WriteRune(r)
+			words.WriteRune(r)
+		} else {
+			words.WriteRune(' ')
 		}
 	}
-	return normalized.String()
+	return strings.Fields(words.String())
+}
+
+func palavraPrincipal(nomeFranquia string) string {
+	stopwords := map[string]struct{}{
+		"the": {}, "of": {}, "a": {}, "an": {}, "and": {},
+		"de": {}, "da": {}, "do": {}, "dos": {}, "das": {}, "e": {},
+	}
+	principal := ""
+	for _, token := range normalizarPalavras(nomeFranquia) {
+		if len([]rune(token)) < 3 {
+			continue
+		}
+		if _, isStopword := stopwords[token]; isStopword {
+			continue
+		}
+		principal = token
+	}
+	return principal
 }
 
 func jogoSugerido(game igdbclient.Game, franquiaID int64, nomeFranquia string) bool {
+	if game.GameType == igdbclient.GameTypeExpandedGame {
+		return false
+	}
 	if game.Franchise != nil && *game.Franchise == franquiaID {
 		return true
 	}
 
 	nomeNormalizado := normalizar(nomeFranquia)
-	if nomeNormalizado != "" && strings.Contains(normalizar(game.Name), nomeNormalizado) {
-		return true
+	if nomeNormalizado != "" {
+		if strings.Contains(normalizar(game.Name), nomeNormalizado) {
+			return true
+		}
+		principal := palavraPrincipal(nomeFranquia)
+		for _, token := range normalizarPalavras(game.Name) {
+			if token == principal {
+				return true
+			}
+		}
 	}
 
 	for _, collection := range game.Collections {
-		if normalizar(collection.Name) == nomeNormalizado {
+		if nomeNormalizado != "" && normalizar(collection.Name) == nomeNormalizado {
 			return true
 		}
 	}

@@ -772,8 +772,12 @@ func TestJogoSugerido(t *testing.T) {
 		want      bool
 	}{
 		{name: "franchise igual", game: igdbclient.Game{Franchise: &franquiaID}, franchise: "The Legend of Zelda", want: true},
-		{name: "nome contem franquia normalizada", game: igdbclient.Game{Name: "The Legend of Zelda: Ocarina of Time"}, franchise: "Zélda", want: true},
-		{name: "collection igual", game: igdbclient.Game{Collections: []igdbclient.Collection{{Name: "Zélda"}}}, franchise: "Zélda", want: true},
+		{name: "palavra principal", game: igdbclient.Game{Name: "Zelda II: The Adventure of Link"}, franchise: "The Legend of Zelda", want: true},
+		{name: "sem palavra principal", game: igdbclient.Game{Name: "Link: The Faces of Evil"}, franchise: "The Legend of Zelda", want: false},
+		{name: "palavra principal inteira", game: igdbclient.Game{Name: "Zeldaverse"}, franchise: "The Legend of Zelda", want: false},
+		{name: "expanded game nunca sugerido", game: igdbclient.Game{Name: "The Legend of Zelda: Breath of the Wild - Nintendo Switch 2 Edition", GameType: igdbclient.GameTypeExpandedGame}, franchise: "The Legend of Zelda", want: false},
+		{name: "franquia diferente", game: igdbclient.Game{Name: "Super Smash Bros. Ultimate"}, franchise: "Super Mario", want: false},
+		{name: "collection igual", game: igdbclient.Game{Collections: []igdbclient.Collection{{Name: "The Legend of Zelda"}}}, franchise: "The Legend of Zelda", want: true},
 		{name: "convidado nao sugerido", game: igdbclient.Game{Name: "SoulCalibur II"}, franchise: "Zelda", want: false},
 	}
 	for _, tc := range tests {
