@@ -146,17 +146,27 @@ describe('EscolherGameDoAnoDialog', () => {
     })
   })
 
-  it('exibe mensagem amigável quando ocorre erro 409', async () => {
+  it.each([
+    {
+      tipoErro: '409 conflito',
+      erro: new JogosApiError('jogos.destaque_ano_conflito', 'conflito', 409),
+      mensagemEsperada: 'Este ano já possui outro Game do Ano definido.',
+    },
+    {
+      tipoErro: 'erro genérico',
+      erro: new Error('Erro inesperado de rede'),
+      mensagemEsperada: 'Não foi possível definir o Game do Ano. Tente novamente.',
+    },
+  ])('exibe mensagem amigável e mantém modal aberto em $tipoErro', async ({ erro, mensagemEsperada }) => {
     vi.spyOn(jogosService, 'listar').mockResolvedValue({
       data: jogosAnoMock,
       meta: { pagina: 1, por_pagina: 100, total: 2, total_paginas: 1 },
     })
-    vi.spyOn(jogosService, 'definirGameDoAno').mockRejectedValue(
-      new JogosApiError('jogos.destaque_ano_conflito', 'conflito', 409)
-    )
+    vi.spyOn(jogosService, 'definirGameDoAno').mockRejectedValue(erro)
 
+    const onOpenChange = vi.fn()
     const user = userEvent.setup()
-    renderDialog({ open: true, ano: 2024, jogoAtual: null })
+    renderDialog({ open: true, ano: 2024, jogoAtual: null, onOpenChange })
 
     const radioMario = await screen.findByText('Super Mario 64')
     await user.click(radioMario)
@@ -164,19 +174,27 @@ describe('EscolherGameDoAnoDialog', () => {
     const btnConfirmar = screen.getByRole('button', { name: /definir como game do ano/i })
     await user.click(btnConfirmar)
 
-    expect(
-      await screen.findByText('Este ano já possui outro Game do Ano definido.')
-    ).toBeInTheDocument()
+    expect(await screen.findByText(mensagemEsperada)).toBeInTheDocument()
+    expect(screen.getByText('Game do Ano de 2024')).toBeInTheDocument()
+    expect(onOpenChange).not.toHaveBeenCalled()
   })
 
-  it('permite navegação por teclado com setas no radiogroup', async () => {
+  it('permite navegação por teclado com setas no radiogroup e seleção por Espaço e confirmação por Enter', async () => {
     vi.spyOn(jogosService, 'listar').mockResolvedValue({
       data: jogosAnoMock,
       meta: { pagina: 1, por_pagina: 100, total: 2, total_paginas: 1 },
     })
+    const spyDefinir = vi.spyOn(jogosService, 'definirGameDoAno').mockResolvedValue({
+      ano: 2024,
+      anterior_id: null,
+      game_do_ano: jogosAnoMock[1],
+    })
+    vi.spyOn(jogosService, 'obterResumoGameDoAno').mockResolvedValue([])
 
+    const onOpenChange = vi.fn()
+    const onSuccess = vi.fn()
     const user = userEvent.setup()
-    renderDialog({ open: true, ano: 2024, jogoAtual: null })
+    renderDialog({ open: true, ano: 2024, jogoAtual: null, onOpenChange, onSuccess })
 
     const radioZelda = await screen.findByRole('radio', { name: /zelda ocarina of time/i })
     radioZelda.focus()
@@ -185,5 +203,22 @@ describe('EscolherGameDoAnoDialog', () => {
 
     const radioMario = screen.getByRole('radio', { name: /super mario 64/i })
     expect(radioMario).toHaveAttribute('aria-checked', 'true')
+
+    await user.keyboard('{ArrowUp}')
+    expect(radioZelda).toHaveAttribute('aria-checked', 'true')
+
+    radioMario.focus()
+    await user.keyboard(' ')
+    expect(radioMario).toHaveAttribute('aria-checked', 'true')
+
+    const btnConfirmar = screen.getByRole('button', { name: /definir como game do ano/i })
+    btnConfirmar.focus()
+    await user.keyboard('{Enter}')
+
+    await waitFor(() => {
+      expect(spyDefinir).toHaveBeenCalledWith(20, undefined)
+      expect(onSuccess).toHaveBeenCalled()
+      expect(onOpenChange).toHaveBeenCalledWith(false)
+    })
   })
 })

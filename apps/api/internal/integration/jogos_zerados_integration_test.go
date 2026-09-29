@@ -13,6 +13,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -2307,6 +2308,335 @@ func TestIntegration_JogosZerados(t *testing.T) {
 		}
 		if !j2026BDestaque {
 			t.Fatal("j2026B de outro usuario deveria permanecer como destaque")
+		}
+	})
+
+	t.Run("34_GameDoAno_11_ConcorrenciaMesmoAno", func(t *testing.T) {
+		user := criarUsuarioTeste(t, env.pool)
+		token := gerarAccessTokenTeste(t, env.secret, user)
+
+		j1 := criarJogoViaAPI(t, env, token, criarJogoInput{
+			Nome: "Concorrente 1", Console: "PC", FinalizadoEm: "2025-04-10T00:00:00Z",
+			Nota: 10, Dificuldade: "A", Destaque: false,
+		})
+		j2 := criarJogoViaAPI(t, env, token, criarJogoInput{
+			Nome: "Concorrente 2", Console: "PC", FinalizadoEm: "2025-08-20T00:00:00Z",
+			Nota: 9, Dificuldade: "B", Destaque: false,
+		})
+
+		var wg sync.WaitGroup
+		wg.Add(2)
+		start := make(chan struct{})
+		codigos := make([]int, 2)
+
+		executar := func(idx int, jogoID int32) {
+			defer wg.Done()
+			<-start
+			req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/api/v1/jogos/%d/game-do-ano", jogoID), nil)
+			req.Header.Set("Authorization", "Bearer "+token)
+			w := httptest.NewRecorder()
+			env.router.ServeHTTP(w, req)
+			codigos[idx] = w.Code
+		}
+
+		go executar(0, j1)
+		go executar(1, j2)
+
+		close(start)
+		wg.Wait()
+
+		for i, code := range codigos {
+			if code != http.StatusOK && code != http.StatusConflict {
+				t.Fatalf("goroutine %d retornou status inesperado %d", i, code)
+			}
+		}
+
+		var countDestaques int
+		err := env.pool.QueryRow(context.Background(),
+			"SELECT COUNT(*) FROM jogos_zerados WHERE usuario_id = $1 AND EXTRACT(YEAR FROM finalizado_em) = 2025 AND destaque = true AND deleted_at IS NULL",
+			user,
+		).Scan(&countDestaques)
+		if err != nil {
+			t.Fatalf("falha ao consultar destaques: %v", err)
+		}
+		if countDestaques != 1 {
+			t.Fatalf("esperava exatamente 1 destaque para 2025, obteve %d", countDestaques)
+		}
+	})
+
+	t.Run("35_GameDoAno_12_MudancaDeAnoEdicaoConflito409", func(t *testing.T) {
+		user := criarUsuarioTeste(t, env.pool)
+		token := gerarAccessTokenTeste(t, env.secret, user)
+
+		j2024 := criarJogoViaAPI(t, env, token, criarJogoInput{
+			Nome: "Destaque 2024", Console: "SNES", FinalizadoEm: "2024-05-10T00:00:00Z",
+			Nota: 10, Dificuldade: "A", Destaque: true,
+		})
+		j2025 := criarJogoViaAPI(t, env, token, criarJogoInput{
+			Nome: "Destaque 2025", Console: "SNES", FinalizadoEm: "2025-07-20T00:00:00Z",
+			Nota: 9, Dificuldade: "B", Destaque: true,
+		})
+
+		inputEdicao := criarJogoInput{
+			Nome:         "Destaque 2025 Tentando Mover Para 2024",
+			Console:      "SNES",
+			FinalizadoEm: "2024-08-15T00:00:00Z",
+			Nota:         9,
+			Dificuldade:  "B",
+			Destaque:     true,
+		}
+		body, _ := json.Marshal(inputEdicao)
+
+		req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/api/v1/jogos/%d", j2025), bytes.NewReader(body))
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		env.router.ServeHTTP(w, req)
+
+		if w.Code != http.StatusConflict {
+			t.Fatalf("esperava 409, obteve %d: %s", w.Code, w.Body.String())
+		}
+
+		var errResp erroEnvelope
+		if err := json.Unmarshal(w.Body.Bytes(), &errResp); err != nil {
+			t.Fatalf("falha ao decodificar erro: %v", err)
+		}
+		if errResp.Error.Codigo != "jogos.destaque_ano_conflito" {
+			t.Fatalf("esperava jogos.destaque_ano_conflito, obteve %s", errResp.Error.Codigo)
+		}
+
+		var j2025Ano int
+		var j2025Nome string
+		var j2025Destaque bool
+		err := env.pool.QueryRow(context.Background(),
+			"SELECT EXTRACT(YEAR FROM finalizado_em)::int, nome, destaque FROM jogos_zerados WHERE id = $1",
+			j2025,
+		).Scan(&j2025Ano, &j2025Nome, &j2025Destaque)
+		if err != nil {
+			t.Fatalf("falha ao consultar j2025: %v", err)
+		}
+		if j2025Ano != 2025 || j2025Nome != "Destaque 2025" || !j2025Destaque {
+			t.Fatalf("j2025 foi modificado indevidamente: ano=%d, nome=%s, destaque=%v", j2025Ano, j2025Nome, j2025Destaque)
+		}
+
+		var j2024Destaque bool
+		_ = env.pool.QueryRow(context.Background(), "SELECT destaque FROM jogos_zerados WHERE id = $1", j2024).Scan(&j2024Destaque)
+		if !j2024Destaque {
+			t.Fatal("j2024 deveria continuar como destaque")
+		}
+	})
+
+	t.Run("36_GameDoAno_13_MudancaDeAnoEdicaoSucessoSemConflito", func(t *testing.T) {
+		user := criarUsuarioTeste(t, env.pool)
+		token := gerarAccessTokenTeste(t, env.secret, user)
+
+		jDestaque := criarJogoViaAPI(t, env, token, criarJogoInput{
+			Nome: "Destaque Original 2025", Console: "GBA", FinalizadoEm: "2025-06-01T00:00:00Z",
+			Nota: 10, Dificuldade: "A", Destaque: true,
+		})
+		criarJogoViaAPI(t, env, token, criarJogoInput{
+			Nome: "Outro Jogo 2025", Console: "GBA", FinalizadoEm: "2025-08-01T00:00:00Z",
+			Nota: 8, Dificuldade: "B", Destaque: false,
+		})
+
+		inputEdicao := criarJogoInput{
+			Nome:         "Destaque Original 2025 Movido Para 2024",
+			Console:      "GBA",
+			FinalizadoEm: "2024-05-10T00:00:00Z",
+			Nota:         10,
+			Dificuldade:  "A",
+			Destaque:     true,
+		}
+		body, _ := json.Marshal(inputEdicao)
+
+		req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/api/v1/jogos/%d", jDestaque), bytes.NewReader(body))
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		env.router.ServeHTTP(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("esperava 200 na edicao, obteve %d: %s", w.Code, w.Body.String())
+		}
+
+		reqResumo := httptest.NewRequest(http.MethodGet, "/api/v1/jogos/game-do-ano", nil)
+		reqResumo.Header.Set("Authorization", "Bearer "+token)
+		wResumo := httptest.NewRecorder()
+		env.router.ServeHTTP(wResumo, reqResumo)
+
+		if wResumo.Code != http.StatusOK {
+			t.Fatalf("esperava 200 no resumo, obteve %d", wResumo.Code)
+		}
+		var respResumo resumoEnvelope
+		if err := json.Unmarshal(wResumo.Body.Bytes(), &respResumo); err != nil {
+			t.Fatalf("falha ao decodificar resumo: %v", err)
+		}
+
+		if len(respResumo.Data) != 2 {
+			t.Fatalf("esperava 2 anos no resumo, obteve %d", len(respResumo.Data))
+		}
+
+		if respResumo.Data[0].Ano != 2025 || respResumo.Data[0].TotalJogos != 1 || respResumo.Data[0].GameDoAno != nil {
+			t.Fatalf("ano 2025 deveria ter total 1 e game_do_ano null, obteve: %+v", respResumo.Data[0])
+		}
+		if respResumo.Data[1].Ano != 2024 || respResumo.Data[1].TotalJogos != 1 || respResumo.Data[1].GameDoAno == nil || respResumo.Data[1].GameDoAno.ID != jDestaque {
+			t.Fatalf("ano 2024 deveria ter total 1 e game_do_ano id %d, obteve: %+v", jDestaque, respResumo.Data[1])
+		}
+	})
+
+	t.Run("37_GameDoAno_14_BordasDeAnoVirada", func(t *testing.T) {
+		user := criarUsuarioTeste(t, env.pool)
+		token := gerarAccessTokenTeste(t, env.secret, user)
+
+		j2024 := criarJogoViaAPI(t, env, token, criarJogoInput{
+			Nome: "Fim de 2024", Console: "PS5", FinalizadoEm: "2024-12-31T23:59:59Z",
+			Nota: 10, Dificuldade: "A", Destaque: true,
+		})
+		j2025 := criarJogoViaAPI(t, env, token, criarJogoInput{
+			Nome: "Inicio de 2025", Console: "PS5", FinalizadoEm: "2025-01-01T00:00:00Z",
+			Nota: 11, Dificuldade: "AAA", Destaque: true,
+		})
+
+		reqResumo := httptest.NewRequest(http.MethodGet, "/api/v1/jogos/game-do-ano", nil)
+		reqResumo.Header.Set("Authorization", "Bearer "+token)
+		wResumo := httptest.NewRecorder()
+		env.router.ServeHTTP(wResumo, reqResumo)
+
+		if wResumo.Code != http.StatusOK {
+			t.Fatalf("esperava 200, obteve %d", wResumo.Code)
+		}
+		var resp resumoEnvelope
+		if err := json.Unmarshal(wResumo.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("falha ao decodificar resumo: %v", err)
+		}
+
+		if len(resp.Data) != 2 {
+			t.Fatalf("esperava 2 anos no resumo, obteve %d", len(resp.Data))
+		}
+		if resp.Data[0].Ano != 2025 || resp.Data[0].GameDoAno == nil || resp.Data[0].GameDoAno.ID != j2025 {
+			t.Fatalf("ano 2025 incorreto: %+v", resp.Data[0])
+		}
+		if resp.Data[1].Ano != 2024 || resp.Data[1].GameDoAno == nil || resp.Data[1].GameDoAno.ID != j2024 {
+			t.Fatalf("ano 2024 incorreto: %+v", resp.Data[1])
+		}
+	})
+
+	t.Run("38_GamesDaVida_1_ListagemNota11Edicao", func(t *testing.T) {
+		user := criarUsuarioTeste(t, env.pool)
+		token := gerarAccessTokenTeste(t, env.secret, user)
+
+		jA := criarJogoViaAPI(t, env, token, criarJogoInput{
+			Nome: "Jogo Nota 11 Original", Console: "PS4", FinalizadoEm: "2025-02-10T00:00:00Z",
+			Nota: 11, Dificuldade: "AAA",
+		})
+		jB := criarJogoViaAPI(t, env, token, criarJogoInput{
+			Nome: "Jogo Nota 10 Original", Console: "PS4", FinalizadoEm: "2025-03-10T00:00:00Z",
+			Nota: 10, Dificuldade: "A",
+		})
+
+		consultarNota11 := func() []repository.JogoZerado {
+			req := httptest.NewRequest(http.MethodGet, "/api/v1/jogos?nota_min=11&por_pagina=100", nil)
+			req.Header.Set("Authorization", "Bearer "+token)
+			w := httptest.NewRecorder()
+			env.router.ServeHTTP(w, req)
+			if w.Code != http.StatusOK {
+				t.Fatalf("esperava 200, obteve %d", w.Code)
+			}
+			var resp listagemEnvelope
+			if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+				t.Fatalf("falha ao decodificar: %v", err)
+			}
+			return resp.Data
+		}
+
+		res1 := consultarNota11()
+		if len(res1) != 1 || res1[0].ID != jA {
+			t.Fatalf("inicialmente esperava apenas jA na lista de nota 11, obteve: %+v", res1)
+		}
+
+		inputEditA := criarJogoInput{
+			Nome:         "Jogo Nota 11 Original",
+			Console:      "PS4",
+			FinalizadoEm: "2025-02-10T00:00:00Z",
+			Nota:         10,
+			Dificuldade:  "AAA",
+		}
+		bodyA, _ := json.Marshal(inputEditA)
+		reqEditA := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/api/v1/jogos/%d", jA), bytes.NewReader(bodyA))
+		reqEditA.Header.Set("Authorization", "Bearer "+token)
+		reqEditA.Header.Set("Content-Type", "application/json")
+		wEditA := httptest.NewRecorder()
+		env.router.ServeHTTP(wEditA, reqEditA)
+		if wEditA.Code != http.StatusOK {
+			t.Fatalf("falha ao editar jA: %d", wEditA.Code)
+		}
+
+		res2 := consultarNota11()
+		if len(res2) != 0 {
+			t.Fatalf("esperava lista vazia apos jA passar para nota 10, obteve: %+v", res2)
+		}
+
+		inputEditB := criarJogoInput{
+			Nome:         "Jogo Nota 10 Original",
+			Console:      "PS4",
+			FinalizadoEm: "2025-03-10T00:00:00Z",
+			Nota:         11,
+			Dificuldade:  "A",
+		}
+		bodyB, _ := json.Marshal(inputEditB)
+		reqEditB := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/api/v1/jogos/%d", jB), bytes.NewReader(bodyB))
+		reqEditB.Header.Set("Authorization", "Bearer "+token)
+		reqEditB.Header.Set("Content-Type", "application/json")
+		wEditB := httptest.NewRecorder()
+		env.router.ServeHTTP(wEditB, reqEditB)
+		if wEditB.Code != http.StatusOK {
+			t.Fatalf("falha ao editar jB: %d", wEditB.Code)
+		}
+
+		res3 := consultarNota11()
+		if len(res3) != 1 || res3[0].ID != jB {
+			t.Fatalf("esperava jB na lista apos passar para nota 11, obteve: %+v", res3)
+		}
+	})
+
+	t.Run("39_GamesDaVida_2_ExcluidoNota11NaoAparece", func(t *testing.T) {
+		user := criarUsuarioTeste(t, env.pool)
+		token := gerarAccessTokenTeste(t, env.secret, user)
+
+		j11 := criarJogoViaAPI(t, env, token, criarJogoInput{
+			Nome: "Obra Prima a Excluir", Console: "Switch", FinalizadoEm: "2025-04-01T00:00:00Z",
+			Nota: 11, Dificuldade: "A",
+		})
+
+		reqAntes := httptest.NewRequest(http.MethodGet, "/api/v1/jogos?nota_min=11", nil)
+		reqAntes.Header.Set("Authorization", "Bearer "+token)
+		wAntes := httptest.NewRecorder()
+		env.router.ServeHTTP(wAntes, reqAntes)
+		var respAntes listagemEnvelope
+		_ = json.Unmarshal(wAntes.Body.Bytes(), &respAntes)
+		if len(respAntes.Data) != 1 || respAntes.Data[0].ID != j11 {
+			t.Fatalf("esperava j11 presente antes da exclusao, obteve: %+v", respAntes.Data)
+		}
+
+		reqDel := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/api/v1/jogos/%d", j11), nil)
+		reqDel.Header.Set("Authorization", "Bearer "+token)
+		wDel := httptest.NewRecorder()
+		env.router.ServeHTTP(wDel, reqDel)
+		if wDel.Code != http.StatusNoContent {
+			t.Fatalf("esperava 204 no delete, obteve %d", wDel.Code)
+		}
+
+		reqDepois := httptest.NewRequest(http.MethodGet, "/api/v1/jogos?nota_min=11", nil)
+		reqDepois.Header.Set("Authorization", "Bearer "+token)
+		wDepois := httptest.NewRecorder()
+		env.router.ServeHTTP(wDepois, reqDepois)
+		if wDepois.Code != http.StatusOK {
+			t.Fatalf("esperava 200, obteve %d", wDepois.Code)
+		}
+		var respDepois listagemEnvelope
+		_ = json.Unmarshal(wDepois.Body.Bytes(), &respDepois)
+		if len(respDepois.Data) != 0 || respDepois.Meta.Total != 0 {
+			t.Fatalf("jogo excluido com nota 11 nao deveria aparecer na listagem nota_min=11: %+v", respDepois)
 		}
 	})
 }

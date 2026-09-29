@@ -44,9 +44,9 @@ function renderTopbar(initialPath = '/') {
         <JogosProvider>
           <GameFormDialog />
           <Routes>
-            <Route path="/" element={<TopbarWrapper />} />
             <Route path="/login" element={<h1>Tela de Login</h1>} />
             <Route path="/conta" element={<h1>Tela de Conta</h1>} />
+            <Route path="*" element={<TopbarWrapper />} />
           </Routes>
         </JogosProvider>
       </AuthProvider>
@@ -109,5 +109,15 @@ describe('Topbar - Menu de usuário', () => {
     const link = screen.getByRole('link', { name: 'Hall da Fama' })
     expect(link).toBeInTheDocument()
     expect(link).toHaveAttribute('href', '/hall-da-fama')
+  })
+
+  it('exibe o item Hall da Fama com estado ativo quando na rota /hall-da-fama', () => {
+    renderTopbar('/hall-da-fama')
+    const link = screen.getByRole('link', { name: 'Hall da Fama' })
+    expect(link).toHaveClass('border-[var(--nav-link-active-border)]')
+    expect(link).toHaveClass('text-[var(--nav-link-active-text)]')
+
+    const linkBiblioteca = screen.getByRole('link', { name: 'Biblioteca' })
+    expect(linkBiblioteca).toHaveClass('border-transparent')
   })
 })
