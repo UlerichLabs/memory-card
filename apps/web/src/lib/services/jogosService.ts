@@ -1,8 +1,9 @@
 import type {
   JogoZeradoDTO, IGDBJogoSugestao, SalvarJogoPayload, ListarJogosParams,
   ListarJogosResposta, ListagemMeta, OpcoesFiltrosDTO, Dificuldade,
+  ResumoGameDoAnoItem, DefinirGameDoAnoResposta, OrdenacaoJogos,
 } from '@/types/jogos'
-export type { Dificuldade, JogoZeradoDTO, IGDBJogoSugestao, SalvarJogoPayload, ListarJogosParams, ListarJogosResposta, ListagemMeta, OpcoesFiltrosDTO }
+export type { Dificuldade, JogoZeradoDTO, IGDBJogoSugestao, SalvarJogoPayload, ListarJogosParams, ListarJogosResposta, ListagemMeta, OpcoesFiltrosDTO, ResumoGameDoAnoItem, DefinirGameDoAnoResposta, OrdenacaoJogos }
 
 export class JogosApiError extends Error {
   readonly codigo: string; readonly status?: number
@@ -18,7 +19,6 @@ export const JOGOS_CAMPO_ERRO_MENSAGENS: Record<string, { campo: string; mensage
   'jogos.tipo_muito_longo': { campo: 'tipo', mensagem: 'O tipo deve ter no máximo 50 caracteres.' },
   'jogos.review_muito_longo': { campo: 'review', mensagem: 'A review deve ter no máximo 5.000 caracteres.' },
 }
-
 export const JOGOS_ERRO_GENERICO = 'Não foi possível salvar o registro. Tente novamente.'
 const baseUrl = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '')
 
@@ -59,6 +59,7 @@ export function montarQueryString(params?: ListarJogosParams): string {
   if (params.nota_max !== undefined && params.nota_max !== null) sp.set('nota_max', String(params.nota_max))
   if (params.ano !== undefined && params.ano !== null) sp.set('ano', String(params.ano))
   if (params.dificuldade) sp.set('dificuldade', params.dificuldade)
+  if (params.ordenar) sp.set('ordenar', params.ordenar)
   return sp.toString()
 }
 
@@ -72,29 +73,23 @@ export const jogosService = {
   excluir: (id: number, token?: string) => request<void>(`/jogos/${id}`, { method: 'DELETE' }, token),
   obterPorId: (id: number, token?: string, signal?: AbortSignal) => request<JogoZeradoDTO>(`/jogos/${id}`, { method: 'GET', signal }, token),
   buscarIGDB: async (termo: string, token?: string, signal?: AbortSignal) => {
-    try {
-      return await request<IGDBJogoSugestao[]>(`/igdb/jogos/busca?q=${encodeURIComponent(termo)}`, { method: 'GET', signal }, token)
-    } catch (err) {
-      if (ehCancelado(err, signal)) return []
-      throw err
-    }
+    try { return await request<IGDBJogoSugestao[]>(`/igdb/jogos/busca?q=${encodeURIComponent(termo)}`, { method: 'GET', signal }, token) }
+    catch (err) { if (ehCancelado(err, signal)) return []; throw err }
   },
   obterDetalhesIGDB: (id: number, token?: string) => request<IGDBJogoSugestao>(`/jogos/igdb/${id}`, { method: 'GET' }, token),
   listar: async (params?: ListarJogosParams, token?: string, signal?: AbortSignal): Promise<ListarJogosResposta> => {
     const qs = montarQueryString(params)
-    try {
-      return await requestRaw<ListarJogosResposta>(`/jogos${qs ? `?${qs}` : ''}`, { method: 'GET', signal }, token)
-    } catch (err) {
+    try { return await requestRaw<ListarJogosResposta>(`/jogos${qs ? `?${qs}` : ''}`, { method: 'GET', signal }, token) }
+    catch (err) {
       if (ehCancelado(err, signal)) return { data: [], meta: { pagina: params?.pagina ?? 1, por_pagina: params?.por_pagina ?? 24, total: 0, total_paginas: 0 } }
       throw err
     }
   },
   obterFiltros: async (token?: string, signal?: AbortSignal): Promise<OpcoesFiltrosDTO> => {
-    try {
-      return await request<OpcoesFiltrosDTO>('/jogos/filtros', { method: 'GET', signal }, token)
-    } catch (err) {
-      if (ehCancelado(err, signal)) return { consoles: [], generos: [], tipos: [], anos: [] }
-      throw err
-    }
+    try { return await request<OpcoesFiltrosDTO>('/jogos/filtros', { method: 'GET', signal }, token) }
+    catch (err) { if (ehCancelado(err, signal)) return { consoles: [], generos: [], tipos: [], anos: [] }; throw err }
   },
+  obterResumoGameDoAno: (token?: string, signal?: AbortSignal) => request<ResumoGameDoAnoItem[]>('/jogos/game-do-ano', { method: 'GET', signal }, token),
+  definirGameDoAno: (id: number, token?: string) => request<DefinirGameDoAnoResposta>(`/jogos/${id}/game-do-ano`, { method: 'PUT' }, token),
+  removerGameDoAno: (id: number, token?: string) => requestRaw<void>(`/jogos/${id}/game-do-ano`, { method: 'DELETE' }, token),
 }

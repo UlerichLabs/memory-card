@@ -103,4 +103,11 @@ describe('Topbar - Menu de usuário', () => {
 
     expect(await screen.findByRole('heading', { name: 'Registrar jogo' })).toBeVisible()
   })
+
+  it('exibe o item Hall da Fama no menu de navegação apontando para /hall-da-fama', () => {
+    renderTopbar()
+    const link = screen.getByRole('link', { name: 'Hall da Fama' })
+    expect(link).toBeInTheDocument()
+    expect(link).toHaveAttribute('href', '/hall-da-fama')
+  })
 })

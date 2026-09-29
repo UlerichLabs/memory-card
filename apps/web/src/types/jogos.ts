@@ -34,6 +34,8 @@ export interface ListarJogosResposta {
   meta: ListagemMeta
 }
 
+export type OrdenacaoJogos = 'recentes' | 'nota'
+
 export interface ListarJogosParams {
   pagina?: number
   por_pagina?: number
@@ -45,6 +47,19 @@ export interface ListarJogosParams {
   nota_max?: number
   ano?: number
   dificuldade?: Dificuldade
+  ordenar?: OrdenacaoJogos
+}
+
+export interface ResumoGameDoAnoItem {
+  ano: number
+  total_jogos: number
+  game_do_ano: JogoZeradoDTO | null
+}
+
+export interface DefinirGameDoAnoResposta {
+  ano: number
+  anterior_id: number | null
+  game_do_ano: JogoZeradoDTO
 }
 
 export interface OpcoesFiltrosDTO {
