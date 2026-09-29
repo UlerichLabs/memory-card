@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { AuthProvider } from '@/store/authStore'
 import { JogosProvider } from '@/stores/jogosStore'
 import { GameFormDialog } from '@/components/jogos/GameForm/GameFormDialog'
@@ -30,6 +30,11 @@ const jogoCompletoMock: JogoZeradoDTO = {
   updated_at: '2026-01-12T15:00:00Z',
 }
 
+function BibliotecaMock() {
+  const loc = useLocation()
+  return <div data-testid="pagina-biblioteca">{loc.pathname}{loc.search}</div>
+}
+
 function renderDetalhe(initialRoute = '/biblioteca/42', state?: { from?: string }) {
   return render(
     <MemoryRouter initialEntries={[{ pathname: initialRoute, state }]}>
@@ -37,7 +42,7 @@ function renderDetalhe(initialRoute = '/biblioteca/42', state?: { from?: string 
         <JogosProvider>
           <GameFormDialog />
           <Routes>
-            <Route path="/biblioteca" element={<div data-testid="pagina-biblioteca">Biblioteca</div>} />
+            <Route path="/biblioteca" element={<BibliotecaMock />} />
             <Route path="/biblioteca/:id" element={<JogoDetalhePage />} />
           </Routes>
         </JogosProvider>
@@ -133,7 +138,7 @@ describe('JogoDetalhePage', () => {
     const btnVoltar = screen.getAllByRole('button', { name: 'Voltar para a Biblioteca' })[0]
     await user.click(btnVoltar)
 
-    expect(await screen.findByTestId('pagina-biblioteca')).toBeInTheDocument()
+    expect(await screen.findByTestId('pagina-biblioteca')).toHaveTextContent('/biblioteca?busca=Zelda&modo=list')
   })
 
   it('abre o modal de edição ao clicar em Editar e modal de exclusão ao clicar em Excluir', async () => {
