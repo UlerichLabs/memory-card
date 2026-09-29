@@ -1,9 +1,11 @@
 export { cn } from 'cn'
 
-export function formatarCapaIGDB(url?: string): string {
+export type TamanhoCapaIGDB = 't_cover_big' | 't_cover_big_2x'
+
+export function formatarCapaIGDB(url?: string, tamanho: TamanhoCapaIGDB = 't_cover_big'): string {
   if (!url) return ''
   const comHttps = url.startsWith('//') ? `https:${url}` : url
-  return comHttps.replace('/t_thumb/', '/t_cover_big/')
+  return comHttps.replace('/t_thumb/', `/${tamanho}/`)
 }
 
 export function isoParaDataPt(iso?: string | null): string {

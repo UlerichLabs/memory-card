@@ -1,18 +1,15 @@
 import { useState, useRef, useEffect } from 'react'
-import { Star, Award, MoreVertical, Pencil, Trash2, Gamepad2 } from 'lucide-react'
-import type { JogoZeradoDTO, Dificuldade } from '@/types/jogos'
-import { formatarCapaIGDB } from '@/lib/utils'
+import { Crown, MoreVertical, Pencil, Trash2, Gamepad2 } from 'lucide-react'
+import type { JogoZeradoDTO } from '@/types/jogos'
+import { formatarCapaIGDB, isoParaDataPt } from '@/lib/utils'
+import { NotaBadge } from './NotaBadge'
+import { DificuldadePill } from './DificuldadePill'
 
 export interface BibliotecaCardProps {
   jogo: JogoZeradoDTO
   onEditar: (jogo: JogoZeradoDTO) => void
   onExcluir: (jogo: JogoZeradoDTO) => void
   onDetalhes?: (jogo: JogoZeradoDTO) => void
-}
-
-const DIFICULDADE_VAR: Record<Dificuldade, string> = {
-  C: 'var(--difficulty-c)', B: 'var(--difficulty-b)', A: 'var(--difficulty-a)',
-  AA: 'var(--difficulty-aa)', AAA: 'var(--difficulty-aaa)',
 }
 
 function formatarTempo(s: number): string {
@@ -36,18 +33,17 @@ export function BibliotecaCard({ jogo, onEditar, onExcluir, onDetalhes }: Biblio
     }
   }, [menuAberto])
 
-  const capaUrl = formatarCapaIGDB(jogo.igdb_capa_url)
-  const ano = jogo.finalizado_em ? jogo.finalizado_em.slice(0, 4) : ''
+  const capaUrl = formatarCapaIGDB(jogo.igdb_capa_url, 't_cover_big')
+  const dataPt = isoParaDataPt(jogo.finalizado_em)
   const tempoStr = jogo.tempo_jogado > 0 ? formatarTempo(jogo.tempo_jogado) : ''
-  const metaTexto = ano && tempoStr ? `${ano} · ${tempoStr}` : ano || tempoStr
-  const difCor = DIFICULDADE_VAR[jogo.dificuldade] || 'var(--biblioteca-text-muted)'
+  const metaTexto = dataPt && tempoStr ? `${dataPt} · ${tempoStr}` : dataPt || tempoStr
 
   return (
     <article
       onClick={() => onDetalhes?.(jogo)}
-      className="group flex cursor-pointer flex-col overflow-hidden rounded-[10px] border border-[var(--biblioteca-card-border)] bg-[var(--biblioteca-card-bg)] transition duration-150 hover:-translate-y-0.5 hover:border-[var(--biblioteca-card-border-hover)]"
+      className="group flex cursor-pointer flex-col overflow-hidden transition duration-150 hover:-translate-y-0.5"
     >
-      <div className="relative aspect-[3/4] w-full overflow-hidden bg-[var(--biblioteca-card-cover-bg)]">
+      <div className="relative aspect-[3/4] w-full overflow-hidden rounded-[12px] border border-[var(--biblioteca-card-cover-border)] bg-[var(--biblioteca-card-cover-bg)]">
         {capaUrl ? (
           <img src={capaUrl} alt={jogo.nome} className="h-full w-full object-cover transition duration-150 group-hover:opacity-90" loading="lazy" />
         ) : (
@@ -57,19 +53,18 @@ export function BibliotecaCard({ jogo, onEditar, onExcluir, onDetalhes }: Biblio
           </div>
         )}
 
-        <div className="absolute left-1.5 top-1.5 max-w-[65%] truncate rounded-[4px] bg-[var(--biblioteca-pill-bg)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--biblioteca-control-text)] backdrop-blur-xs">
-          {jogo.console}
+        <div className="absolute left-1.5 top-1.5 z-10">
+          <DificuldadePill nivel={jogo.dificuldade} variante="sobreCapa" className="text-[10px] py-0.5 px-1.5 sm:text-[11px] sm:px-2 sm:py-1" />
         </div>
 
-        <div className="absolute right-1.5 top-1.5 flex items-center gap-1 rounded-[4px] bg-black/80 px-1.5 py-0.5 text-xs font-bold text-[var(--biblioteca-gold)]">
-          <Star className="h-3 w-3 fill-[var(--biblioteca-gold)]" aria-hidden="true" />
-          <span>{jogo.nota}</span>
+        <div className="absolute right-1.5 top-1.5 z-10">
+          <NotaBadge nota={jogo.nota} tamanho="sm" className="min-w-[28px] min-h-[28px] h-7 text-[13px] sm:min-w-[32px] sm:min-h-[32px] sm:h-8 sm:text-[14px]" />
         </div>
 
         {jogo.destaque && (
-          <div className="absolute bottom-1.5 left-1.5 flex items-center gap-0.5 rounded-[4px] bg-[var(--biblioteca-gold)]/20 border border-[var(--biblioteca-gold)]/40 px-1.5 py-0.5 text-[10px] font-bold text-[var(--biblioteca-gold)]">
-            <Award className="h-3 w-3" aria-hidden="true" />
-            <span>Destaque</span>
+          <div className="absolute bottom-1.5 left-1.5 flex items-center gap-1 rounded-[4px] bg-[var(--ouro-jogo-ano)] px-2 py-1 text-[11px] font-bold text-[var(--ouro-jogo-ano-text)]">
+            <Crown className="h-3 w-3" aria-hidden="true" />
+            <span>Jogo do ano</span>
           </div>
         )}
 
@@ -108,16 +103,18 @@ export function BibliotecaCard({ jogo, onEditar, onExcluir, onDetalhes }: Biblio
         </div>
       </div>
 
-      <div className="flex flex-1 flex-col justify-between p-3">
-        <div>
-          <h3 className="truncate text-sm font-bold text-[var(--biblioteca-text-primary)]" title={jogo.nome}>{jogo.nome}</h3>
-          {metaTexto && <p className="mt-0.5 text-[11px] text-[var(--biblioteca-text-muted)]">{metaTexto}</p>}
-        </div>
-        <div className="mt-2.5 flex items-center justify-between">
-          <span style={{ borderColor: difCor, color: difCor }} className="rounded-[4px] border px-1.5 py-0.5 text-[10px] font-bold">
-            Dif. {jogo.dificuldade}
-          </span>
-        </div>
+      <div className="flex flex-col gap-0.5 pt-2.5">
+        <h3 className="line-clamp-2 min-h-[38px] text-[14px] font-semibold leading-[1.35] text-[var(--biblioteca-text-primary)]" title={jogo.nome}>
+          {jogo.nome}
+        </h3>
+        <p className="truncate text-[12px] text-[var(--biblioteca-card-plataforma)]">
+          {jogo.console}
+        </p>
+        {metaTexto && (
+          <p className="truncate text-[12px] tabular-nums text-[var(--biblioteca-card-meta)]">
+            {metaTexto}
+          </p>
+        )}
       </div>
     </article>
   )

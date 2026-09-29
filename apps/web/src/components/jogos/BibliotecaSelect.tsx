@@ -13,6 +13,8 @@ export interface BibliotecaSelectProps {
   placeholder?: string
   ariaLabel?: string
   compact?: boolean
+  ativo?: boolean
+  className?: string
 }
 
 export function BibliotecaSelect({
@@ -22,12 +24,14 @@ export function BibliotecaSelect({
   placeholder = 'Selecione',
   ariaLabel,
   compact = false,
+  ativo,
+  className = '',
 }: BibliotecaSelectProps) {
   const [isOpen, setIsOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
   const selectedOption = options.find((opt) => opt.value === value)
-  const isAtivo = Boolean(value && value !== '')
+  const isAtivo = ativo !== undefined ? ativo : Boolean(value && value !== '')
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -40,24 +44,24 @@ export function BibliotecaSelect({
   }, [])
 
   return (
-    <div ref={containerRef} className="relative w-full">
+    <div ref={containerRef} className={`relative ${compact ? 'w-[64px]' : 'w-full'} ${className}`.trim()}>
       <button
         type="button"
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         aria-label={ariaLabel}
         onClick={() => setIsOpen((prev) => !prev)}
-        className={`flex w-full items-center justify-between rounded-[6px] border px-2.5 transition-colors ${
-          compact ? 'h-7 text-xs' : 'h-9 text-[13px]'
+        className={`flex w-full items-center justify-between px-[10px] transition-colors ${
+          compact ? 'h-[36px] rounded-[8px] text-[13px]' : 'h-[44px] rounded-[10px] text-[13px]'
         } ${
           isAtivo
-            ? 'border-[var(--biblioteca-control-active-border)] bg-[var(--biblioteca-control-active-bg)] text-[var(--biblioteca-control-active-text)]'
-            : 'border-[var(--biblioteca-control-border)] bg-[var(--biblioteca-control-bg)] text-[var(--biblioteca-control-text)] hover:border-[var(--biblioteca-control-border-hover)]'
+            ? 'border border-[var(--biblioteca-input-active-border)] bg-[var(--biblioteca-input-active-bg)] text-[var(--biblioteca-input-active-text)]'
+            : 'border border-[var(--biblioteca-input-border)] bg-[var(--biblioteca-input-bg)] text-[var(--biblioteca-input-text)] hover:border-[var(--biblioteca-control-border-hover)]'
         }`}
       >
         <span className="truncate">{selectedOption ? selectedOption.label : placeholder}</span>
         <ChevronDown
-          className={`ml-1.5 h-3.5 w-3.5 shrink-0 text-[var(--biblioteca-control-placeholder)] transition-transform duration-150 ${
+          className={`ml-1 h-3.5 w-3.5 shrink-0 text-[var(--biblioteca-control-placeholder)] transition-transform duration-150 ${
             isOpen ? 'rotate-180' : ''
           }`}
           aria-hidden="true"
@@ -68,7 +72,7 @@ export function BibliotecaSelect({
         <ul
           role="listbox"
           aria-label={ariaLabel || placeholder}
-          className="absolute left-0 right-0 top-full z-50 mt-1 max-h-56 overflow-y-auto rounded-[8px] border border-[var(--biblioteca-panel-border)] bg-[var(--biblioteca-panel-bg)] p-1 shadow-xl"
+          className="absolute left-0 right-0 top-full z-50 mt-1 max-h-56 min-w-[120px] overflow-y-auto rounded-[8px] border border-[var(--biblioteca-panel-border)] bg-[var(--biblioteca-panel-bg)] p-1 shadow-xl"
         >
           {options.map((opt) => {
             const isSelected = opt.value === value
@@ -83,8 +87,8 @@ export function BibliotecaSelect({
                 }}
                 className={`flex w-full cursor-pointer items-center justify-between rounded-[4px] px-2.5 py-1.5 text-xs transition-colors ${
                   isSelected
-                    ? 'bg-[var(--biblioteca-control-active-bg)] font-bold text-[var(--accent)]'
-                    : 'text-[var(--biblioteca-control-text)] hover:bg-[var(--biblioteca-control-bg)]'
+                    ? 'bg-[var(--biblioteca-input-active-bg)] font-bold text-[var(--accent)]'
+                    : 'text-[var(--biblioteca-input-text)] hover:bg-[var(--biblioteca-control-bg)]'
                 }`}
               >
                 <span className="truncate">{opt.label}</span>

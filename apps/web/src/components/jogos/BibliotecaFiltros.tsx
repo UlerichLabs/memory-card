@@ -4,11 +4,14 @@ import type { Dificuldade } from '@/types/jogos'
 import { BibliotecaSelect, type BibliotecaSelectOption } from './BibliotecaSelect'
 import { BibliotecaFiltrosMobile } from './BibliotecaFiltrosMobile'
 
-const DIFICULDADES: Dificuldade[] = ['C', 'B', 'A', 'AA', 'AAA']
-const DIFICULDADE_VAR: Record<Dificuldade, string> = {
-  C: 'var(--difficulty-c)', B: 'var(--difficulty-b)', A: 'var(--difficulty-a)', AA: 'var(--difficulty-aa)', AAA: 'var(--difficulty-aaa)',
-}
-const NOTAS_OPCOES: BibliotecaSelectOption[] = Array.from({ length: 11 }, (_, i) => ({ value: String(i + 1), label: String(i + 1) }))
+const DIFICULDADES: Array<{ nivel: Dificuldade; label: string }> = [
+  { nivel: 'C', label: 'Muito fácil' }, { nivel: 'B', label: 'Fácil' }, { nivel: 'A', label: 'Normal' },
+  { nivel: 'AA', label: 'Difícil' }, { nivel: 'AAA', label: 'Muito difícil' },
+]
+
+const NOTAS_OPCOES: BibliotecaSelectOption[] = Array.from({ length: 11 }, (_, i) => ({
+  value: String(i + 1), label: String(i + 1),
+}))
 
 export interface BibliotecaFiltrosProps {
   busca: string; consoleVal: string; generoVal: string; tipoVal: string; anoVal: string
@@ -33,90 +36,81 @@ export function BibliotecaFiltros(props: BibliotecaFiltrosProps) {
     return () => clearTimeout(timer)
   }, [buscaLocal, props.busca])
 
-  const filtrosAtivos = (props.consoleVal ? 1 : 0) + (props.generoVal ? 1 : 0) + (props.tipoVal ? 1 : 0) +
-    (props.anoVal ? 1 : 0) + (props.notaMinVal > 1 || props.notaMaxVal < 11 ? 1 : 0) + (props.dificuldadeVal ? 1 : 0)
+  const filtrosAtivos = (props.busca.trim() ? 1 : 0) + (props.consoleVal ? 1 : 0) + (props.generoVal ? 1 : 0) +
+    (props.tipoVal ? 1 : 0) + (props.anoVal ? 1 : 0) + (props.notaMinVal > 1 || props.notaMaxVal < 11 ? 1 : 0) + (props.dificuldadeVal ? 1 : 0)
 
   return (
-    <div className="rounded-[10px] border border-[var(--biblioteca-panel-border)] bg-[var(--biblioteca-panel-bg)] p-[14px_16px]">
-      <div className="grid grid-cols-1 gap-[10px] md:grid-cols-[1fr_auto_auto_auto_auto]">
+    <div className="rounded-[12px] border border-[var(--biblioteca-panel-border)] bg-[var(--biblioteca-panel-bg)] p-4 space-y-3">
+      <div className="grid grid-cols-1 gap-2.5 md:grid-cols-[1fr_210px_180px_150px_140px]">
         <div className="relative flex items-center">
-          <Search className="absolute left-3 h-3.5 w-3.5 text-[var(--biblioteca-control-placeholder)]" aria-hidden="true" />
+          <Search className="absolute left-3.5 h-4 w-4 text-[var(--biblioteca-control-placeholder)]" aria-hidden="true" />
           <input
             type="search"
             value={buscaLocal}
             onChange={(e) => setBuscaLocal(e.target.value)}
-            placeholder="Buscar por nome…"
+            placeholder="Buscar pelo nome do jogo…"
             aria-label="Filtrar jogos na biblioteca"
-            className="h-9 w-full rounded-[6px] border border-[var(--biblioteca-control-border)] bg-[var(--biblioteca-control-bg)] pl-8 pr-8 text-[13px] text-[var(--biblioteca-text-primary)] placeholder:text-[var(--biblioteca-control-placeholder)] transition-colors hover:border-[var(--biblioteca-control-border-hover)] focus:border-[var(--biblioteca-control-border-focus)] focus:outline-none"
+            className="h-[44px] w-full rounded-[10px] border border-[var(--biblioteca-input-border)] bg-[var(--biblioteca-input-bg)] pl-10 pr-9 text-[13px] text-[var(--biblioteca-input-text)] placeholder:text-[var(--biblioteca-control-placeholder)] transition-colors hover:border-[var(--biblioteca-control-border-hover)] focus:border-[var(--biblioteca-input-active-border)] focus:outline-none"
           />
           {buscaLocal && (
             <button
               type="button"
               onClick={() => { setBuscaLocal(''); props.onBuscaChange('') }}
               aria-label="Limpar busca"
-              className="absolute right-2.5 text-[var(--biblioteca-control-placeholder)] hover:text-[var(--biblioteca-text-primary)]"
+              className="absolute right-3 text-[var(--biblioteca-control-placeholder)] hover:text-[var(--biblioteca-text-primary)]"
             >
-              <X className="h-3.5 w-3.5" aria-hidden="true" />
+              <X className="h-4 w-4" aria-hidden="true" />
             </button>
           )}
         </div>
 
         <BibliotecaFiltrosMobile
           filtrosAtivosCount={filtrosAtivos}
-          consoleVal={props.consoleVal}
-          generoVal={props.generoVal}
-          tipoVal={props.tipoVal}
-          anoVal={props.anoVal}
-          notaMinVal={props.notaMinVal}
-          notaMaxVal={props.notaMaxVal}
-          dificuldadeVal={props.dificuldadeVal}
-          opcoesConsole={props.opcoesConsole}
-          opcoesGenero={props.opcoesGenero}
-          opcoesTipo={props.opcoesTipo}
-          opcoesAno={props.opcoesAno}
-          onConsoleChange={props.onConsoleChange}
-          onGeneroChange={props.onGeneroChange}
-          onTipoChange={props.onTipoChange}
-          onAnoChange={props.onAnoChange}
+          consoleVal={props.consoleVal} generoVal={props.generoVal} tipoVal={props.tipoVal} anoVal={props.anoVal}
+          notaMinVal={props.notaMinVal} notaMaxVal={props.notaMaxVal} dificuldadeVal={props.dificuldadeVal}
+          opcoesConsole={props.opcoesConsole} opcoesGenero={props.opcoesGenero}
+          opcoesTipo={props.opcoesTipo} opcoesAno={props.opcoesAno}
+          onConsoleChange={props.onConsoleChange} onGeneroChange={props.onGeneroChange}
+          onTipoChange={props.onTipoChange} onAnoChange={props.onAnoChange}
           onNotaMinChange={(min) => props.onNotaChange(min, Math.max(min, props.notaMaxVal))}
           onNotaMaxChange={(max) => props.onNotaChange(Math.min(max, props.notaMinVal), max)}
-          onDificuldadeToggle={props.onDificuldadeToggle}
-          onLimparFiltros={props.onLimparFiltros}
+          onDificuldadeToggle={props.onDificuldadeToggle} onLimparFiltros={props.onLimparFiltros}
         />
 
-        <div className="hidden w-44 md:block"><BibliotecaSelect value={props.consoleVal} onChange={props.onConsoleChange} options={props.opcoesConsole} ariaLabel="Filtrar por console" /></div>
-        <div className="hidden w-44 md:block"><BibliotecaSelect value={props.generoVal} onChange={props.onGeneroChange} options={props.opcoesGenero} ariaLabel="Filtrar por gênero" /></div>
-        <div className="hidden w-36 md:block"><BibliotecaSelect value={props.tipoVal} onChange={props.onTipoChange} options={props.opcoesTipo} ariaLabel="Filtrar por tipo" /></div>
-        <div className="hidden w-28 md:block"><BibliotecaSelect value={props.anoVal} onChange={props.onAnoChange} options={props.opcoesAno} ariaLabel="Filtrar por ano" /></div>
+        <div className="hidden md:block"><BibliotecaSelect value={props.consoleVal} onChange={props.onConsoleChange} options={props.opcoesConsole} ariaLabel="Filtrar por console" /></div>
+        <div className="hidden md:block"><BibliotecaSelect value={props.generoVal} onChange={props.onGeneroChange} options={props.opcoesGenero} ariaLabel="Filtrar por gênero" /></div>
+        <div className="hidden md:block"><BibliotecaSelect value={props.tipoVal} onChange={props.onTipoChange} options={props.opcoesTipo} ariaLabel="Filtrar por tipo" /></div>
+        <div className="hidden md:block"><BibliotecaSelect value={props.anoVal} onChange={props.onAnoChange} options={props.opcoesAno} ariaLabel="Filtrar por ano" /></div>
       </div>
 
-      <div className="hidden items-center justify-between border-t border-[var(--biblioteca-divider)] pt-[10px] mt-[10px] md:flex">
+      <div className="hidden items-center justify-between border-t border-[var(--biblioteca-divider)] pt-3 md:flex">
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-2">
-            <span className="text-xs text-[var(--biblioteca-text-muted)]">Nota:</span>
-            <div className="w-[60px]"><BibliotecaSelect compact value={String(props.notaMinVal)} onChange={(v) => { const n = Number(v); props.onNotaChange(n, Math.max(n, props.notaMaxVal)) }} options={NOTAS_OPCOES} ariaLabel="Nota mínima" /></div>
-            <span className="text-xs text-[var(--biblioteca-text-muted)]">a</span>
-            <div className="w-[60px]"><BibliotecaSelect compact value={String(props.notaMaxVal)} onChange={(v) => { const n = Number(v); props.onNotaChange(Math.min(n, props.notaMinVal), n) }} options={NOTAS_OPCOES} ariaLabel="Nota máxima" /></div>
+            <span className="text-[13px] text-[var(--biblioteca-text-muted)]">Nota:</span>
+            <BibliotecaSelect compact ativo={props.notaMinVal > 1} value={String(props.notaMinVal)} onChange={(v) => { const n = Number(v); props.onNotaChange(n, Math.max(n, props.notaMaxVal)) }} options={NOTAS_OPCOES} ariaLabel="Nota mínima" />
+            <span className="text-[13px] text-[var(--biblioteca-text-muted)]">a</span>
+            <BibliotecaSelect compact ativo={props.notaMaxVal < 11} value={String(props.notaMaxVal)} onChange={(v) => { const n = Number(v); props.onNotaChange(Math.min(n, props.notaMinVal), n) }} options={NOTAS_OPCOES} ariaLabel="Nota máxima" />
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-xs text-[var(--biblioteca-text-muted)]">Dificuldade:</span>
-            <div className="flex gap-1">
-              {DIFICULDADES.map((dif) => {
-                const ativo = props.dificuldadeVal === dif
-                const cor = DIFICULDADE_VAR[dif]
+            <span className="text-[13px] text-[var(--biblioteca-text-muted)]">Dificuldade:</span>
+            <div className="flex gap-1.5">
+              {DIFICULDADES.map(({ nivel, label }) => {
+                const ativo = props.dificuldadeVal === nivel
+                const code = nivel.toLowerCase()
+                const style = ativo
+                  ? { backgroundColor: `var(--dif-${code}-fill)`, color: 'var(--nota-badge-text)', borderColor: `var(--dif-${code}-fill)` }
+                  : { backgroundColor: 'var(--dif-btn-bg)', color: `var(--dif-${code}-text)`, borderColor: `var(--dif-${code}-border)` }
                 return (
                   <button
-                    key={dif}
+                    key={nivel}
                     type="button"
-                    onClick={() => props.onDificuldadeToggle(dif)}
+                    onClick={() => props.onDificuldadeToggle(nivel)}
                     aria-pressed={ativo}
-                    style={ativo ? { borderColor: cor, color: cor, backgroundColor: 'var(--biblioteca-control-active-bg)' } : undefined}
-                    className={`h-6 min-w-[28px] rounded-[4px] border px-1.5 text-[11px] font-bold transition-colors ${
-                      ativo ? '' : 'border-[var(--biblioteca-control-border)] bg-[var(--biblioteca-control-bg)] text-[var(--biblioteca-text-muted)] hover:border-[var(--biblioteca-control-border-hover)]'
-                    }`}
+                    style={style}
+                    className="h-[36px] rounded-[8px] border px-3 text-[13px] font-semibold transition-colors"
                   >
-                    {dif}
+                    {label}
                   </button>
                 )
               })}
@@ -126,13 +120,16 @@ export function BibliotecaFiltros(props: BibliotecaFiltrosProps) {
 
         {filtrosAtivos > 0 && (
           <div className="flex items-center gap-2.5">
-            <span className="text-[11px] text-[var(--biblioteca-text-muted)]">
-              {filtrosAtivos} {filtrosAtivos === 1 ? 'filtro ativo' : 'filtros ativos'}
+            <span className="flex h-[22px] w-[22px] items-center justify-center rounded-full bg-[var(--biblioteca-badge-filtro)] text-[12px] font-bold text-white">
+              {filtrosAtivos}
+            </span>
+            <span className="text-[13px] text-[var(--biblioteca-text-filtros-ativos)]">
+              {filtrosAtivos === 1 ? 'filtro ativo' : 'filtros ativos'}
             </span>
             <button
               type="button"
               onClick={props.onLimparFiltros}
-              className="text-xs text-[var(--biblioteca-text-muted)] underline decoration-dotted transition-colors hover:text-[var(--biblioteca-text-primary)]"
+              className="h-[36px] rounded-[8px] border border-[var(--biblioteca-btn-limpar-border)] px-3 text-[13px] font-medium text-[var(--biblioteca-btn-limpar-text)] transition-colors hover:text-[var(--biblioteca-text-primary)]"
             >
               Limpar filtros
             </button>

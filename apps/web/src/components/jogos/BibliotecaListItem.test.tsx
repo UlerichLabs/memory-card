@@ -26,11 +26,11 @@ describe('BibliotecaListItem', () => {
     render(<BibliotecaListItem jogo={mockJogo} onEditar={vi.fn()} onExcluir={vi.fn()} />)
 
     expect(screen.getByText('Chrono Trigger')).toBeInTheDocument()
-    expect(screen.getByText('Destaque')).toBeInTheDocument()
+    expect(screen.getByText('Jogo do ano')).toBeInTheDocument()
     expect(screen.getByText('JRPG')).toBeInTheDocument()
     expect(screen.getByText('SNES')).toBeInTheDocument()
-    expect(screen.getByText('Nota 10')).toBeInTheDocument()
-    expect(screen.getByText('2h 0m')).toBeInTheDocument()
+    expect(screen.getByText('Normal')).toBeInTheDocument()
+    expect(screen.getByText('10')).toBeInTheDocument()
     expect(screen.getByText('15/01/2026')).toBeInTheDocument()
   })
 

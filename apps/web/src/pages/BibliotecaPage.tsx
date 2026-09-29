@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { Topbar } from '@/components/layout/Topbar'
 import { useJogosStore } from '@/stores/jogosStore'
 import { BibliotecaFiltros } from '@/components/jogos/BibliotecaFiltros'
@@ -14,18 +14,12 @@ import type { Dificuldade, JogoZeradoDTO, ListarJogosParams } from '@/types/jogo
 
 export function BibliotecaPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
   const {
-    jogos,
-    meta,
-    filtros,
-    isLoading,
-    carregarJogos,
-    carregarFiltros,
-    limparBiblioteca,
-    abrirModalRegistro,
-    abrirModalEdicao,
-    excluirJogo,
+    jogos, meta, filtros, isLoading,
+    carregarJogos, carregarFiltros, limparBiblioteca,
+    abrirModalRegistro, abrirModalEdicao, excluirJogo,
   } = useJogosStore()
 
   const [jogoParaExcluir, setJogoParaExcluir] = useState<JogoZeradoDTO | null>(null)
@@ -82,7 +76,7 @@ export function BibliotecaPage() {
     setSearchParams(novos)
   }
 
-  const opcoesConsole = useMemo(() => [{ value: '', label: 'Todos os consoles' }, ...filtros.consoles.map((c) => ({ value: c, label: c }))], [filtros.consoles])
+  const opcoesConsole = useMemo(() => [{ value: '', label: 'Todas as plataformas' }, ...filtros.consoles.map((c) => ({ value: c, label: c }))], [filtros.consoles])
   const opcoesGenero = useMemo(() => [{ value: '', label: 'Todos os gêneros' }, ...filtros.generos.map((g) => ({ value: g, label: g }))], [filtros.generos])
   const opcoesTipo = useMemo(() => [{ value: '', label: 'Todos os tipos' }, ...filtros.tipos.map((t) => ({ value: t, label: t }))], [filtros.tipos])
   const opcoesAno = useMemo(() => [{ value: '', label: 'Todos os anos' }, ...filtros.anos.map((a) => ({ value: String(a), label: String(a) }))], [filtros.anos])
@@ -104,14 +98,22 @@ export function BibliotecaPage() {
     <div className="min-h-svh bg-[var(--bg-primary)]">
       <Topbar />
       <main className="mx-auto max-w-7xl space-y-5 px-4 py-8 sm:px-6 lg:px-8">
-        <header className="flex flex-col gap-1">
-          <div className="flex items-center gap-3">
-            <h1 className="text-[22px] font-bold text-[var(--biblioteca-text-primary)]">Biblioteca</h1>
-            <span className="rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2.5 py-0.5 text-xs font-semibold text-[var(--text-secondary)]">
-              {meta.total} {meta.total === 1 ? 'jogo' : 'jogos'}
-            </span>
+        <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-3">
+              <h1 className="text-[22px] font-bold text-[var(--biblioteca-text-primary)]">Biblioteca</h1>
+              <span className="rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2.5 py-0.5 text-xs font-semibold text-[var(--text-secondary)]">
+                {meta.total} {meta.total === 1 ? 'jogo' : 'jogos'}
+              </span>
+            </div>
+            <p className="text-[14px] text-[var(--biblioteca-subtitulo)]">
+              Seus zeramentos, do mais recente ao mais antigo.
+            </p>
           </div>
-          <p className="text-[13px] text-[var(--biblioteca-text-muted)]">Seus registros de zeramentos concluídos.</p>
+          <BibliotecaControles
+            modo={modo}
+            onAlternarModo={(m) => atualizarFiltros({ modo: m === 'grid' ? undefined : m }, false)}
+          />
         </header>
 
         <BibliotecaFiltros
@@ -155,24 +157,19 @@ export function BibliotecaPage() {
           />
         ) : (
           <div className="space-y-4">
-            <BibliotecaControles
-              totalJogos={meta.total}
-              modo={modo}
-              onAlternarModo={(m) => atualizarFiltros({ modo: m === 'grid' ? undefined : m }, false)}
-            />
             {modo === 'grid' ? (
               <BibliotecaGrade
                 jogos={jogos}
                 onEditar={abrirModalEdicao}
                 onExcluir={setJogoParaExcluir}
-                onDetalhes={(j) => navigate(`/biblioteca/${j.id}`)}
+                onDetalhes={(j) => navigate(`/biblioteca/${j.id}`, { state: { from: location.search } })}
               />
             ) : (
               <BibliotecaLista
                 jogos={jogos}
                 onEditar={abrirModalEdicao}
                 onExcluir={setJogoParaExcluir}
-                onDetalhes={(j) => navigate(`/biblioteca/${j.id}`)}
+                onDetalhes={(j) => navigate(`/biblioteca/${j.id}`, { state: { from: location.search } })}
               />
             )}
             <BibliotecaPaginacao

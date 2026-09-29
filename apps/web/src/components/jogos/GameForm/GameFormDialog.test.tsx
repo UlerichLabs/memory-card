@@ -38,6 +38,7 @@ function renderDialog(storeOverrides: Partial<JogosStore> = {}) {
     excluirJogo: vi.fn(),
     buscarIGDB: vi.fn().mockResolvedValue([]),
     obterDetalhesIGDB: vi.fn(),
+    obterJogoPorId: vi.fn(),
     setJogos: vi.fn(),
     limparErro: vi.fn(),
     ...storeOverrides,
