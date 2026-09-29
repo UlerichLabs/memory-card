@@ -83,6 +83,7 @@ type ListarJogosZeradosParams struct {
 	NotaMax     *int32
 	Ano         *int32
 	Dificuldade string
+	Ordenar     string
 	Pagina      int
 	PorPagina   int
 }
@@ -94,6 +95,18 @@ type OpcoesFiltros struct {
 	Anos     []int    `json:"anos"`
 }
 
+type ItemResumoGameDoAno struct {
+	Ano        int         `json:"ano"`
+	TotalJogos int64       `json:"total_jogos"`
+	GameDoAno  *JogoZerado `json:"game_do_ano"`
+}
+
+type DefinirGameDoAnoResultado struct {
+	Ano        int         `json:"ano"`
+	GameDoAno  *JogoZerado `json:"game_do_ano"`
+	AnteriorID *int32      `json:"anterior_id"`
+}
+
 type JogosRepository interface {
 	Criar(ctx context.Context, params CriarJogoZeradoParams) (*JogoZerado, error)
 	Atualizar(ctx context.Context, params AtualizarJogoZeradoParams) (*JogoZerado, error)
@@ -101,14 +114,23 @@ type JogosRepository interface {
 	Listar(ctx context.Context, params ListarJogosZeradosParams) ([]*JogoZerado, int64, error)
 	ObterFiltros(ctx context.Context, usuarioID int32) (*OpcoesFiltros, error)
 	ObterPorID(ctx context.Context, id int32, usuarioID int32) (*JogoZerado, error)
+	ObterResumoGameDoAno(ctx context.Context, usuarioID int32) ([]*ItemResumoGameDoAno, error)
+	DefinirGameDoAno(ctx context.Context, id int32, usuarioID int32) (*DefinirGameDoAnoResultado, error)
+	RemoverGameDoAno(ctx context.Context, id int32, usuarioID int32) error
+}
+
+type DBTXPool interface {
+	db.DBTX
+	Begin(ctx context.Context) (pgx.Tx, error)
 }
 
 type SQLJogosRepository struct {
+	pool    DBTXPool
 	queries *db.Queries
 }
 
-func NewJogosRepository(queries *db.Queries) *SQLJogosRepository {
-	return &SQLJogosRepository{queries: queries}
+func NewJogosRepository(pool DBTXPool, queries *db.Queries) *SQLJogosRepository {
+	return &SQLJogosRepository{pool: pool, queries: queries}
 }
 
 func (r *SQLJogosRepository) Criar(ctx context.Context, params CriarJogoZeradoParams) (*JogoZerado, error) {
@@ -312,19 +334,36 @@ func (r *SQLJogosRepository) Listar(ctx context.Context, params ListarJogosZerad
 	offset := int32((params.Pagina - 1) * params.PorPagina)
 	limite := int32(params.PorPagina)
 
-	rows, err := r.queries.ListarJogosZerados(ctx, db.ListarJogosZeradosParams{
-		UsuarioID:   params.UsuarioID,
-		Busca:       busca,
-		Console:     console,
-		Genero:      genero,
-		Tipo:        tipo,
-		NotaMin:     notaMin,
-		NotaMax:     notaMax,
-		Ano:         ano,
-		Dificuldade: dificuldade,
-		OffsetVal:   offset,
-		Limite:      limite,
-	})
+	var rows []db.JogosZerado
+	if params.Ordenar == "nota" {
+		rows, err = r.queries.ListarJogosZeradosPorNota(ctx, db.ListarJogosZeradosPorNotaParams{
+			UsuarioID:   params.UsuarioID,
+			Busca:       busca,
+			Console:     console,
+			Genero:      genero,
+			Tipo:        tipo,
+			NotaMin:     notaMin,
+			NotaMax:     notaMax,
+			Ano:         ano,
+			Dificuldade: dificuldade,
+			OffsetVal:   offset,
+			Limite:      limite,
+		})
+	} else {
+		rows, err = r.queries.ListarJogosZerados(ctx, db.ListarJogosZeradosParams{
+			UsuarioID:   params.UsuarioID,
+			Busca:       busca,
+			Console:     console,
+			Genero:      genero,
+			Tipo:        tipo,
+			NotaMin:     notaMin,
+			NotaMax:     notaMax,
+			Ano:         ano,
+			Dificuldade: dificuldade,
+			OffsetVal:   offset,
+			Limite:      limite,
+		})
+	}
 	if err != nil {
 		return nil, 0, fmt.Errorf("listar jogos zerados: %w", err)
 	}
@@ -508,3 +547,160 @@ func mapearJogoZerado(row db.JogosZerado) *JogoZerado {
 	}
 	return jogo
 }
+
+func (r *SQLJogosRepository) ObterResumoGameDoAno(ctx context.Context, usuarioID int32) ([]*ItemResumoGameDoAno, error) {
+	rows, err := r.queries.ObterResumoGameDoAno(ctx, usuarioID)
+	if err != nil {
+		return nil, fmt.Errorf("obter resumo game do ano: %w", err)
+	}
+
+	resumo := make([]*ItemResumoGameDoAno, 0, len(rows))
+	for _, row := range rows {
+		item := &ItemResumoGameDoAno{
+			Ano:        int(row.Ano),
+			TotalJogos: row.TotalJogos,
+		}
+		if row.DestaqueID.Valid {
+			jogo := &JogoZerado{
+				ID:          row.DestaqueID.Int32,
+				UsuarioID:   row.DestaqueUsuarioID.Int32,
+				Nome:        row.DestaqueNome.String,
+				Console:     row.DestaqueConsole.String,
+				TempoJogado: row.DestaqueTempoJogado.Int32,
+				Nota:        row.DestaqueNota.Int32,
+				Dificuldade: string(row.DestaqueDificuldade.Dificuldade),
+				Destaque:    row.DestaqueDestaque.Bool,
+			}
+			if row.DestaqueIgdbID.Valid {
+				jogo.IgdbID = &row.DestaqueIgdbID.Int32
+			}
+			if row.DestaqueGenero.Valid {
+				jogo.Genero = row.DestaqueGenero.String
+			}
+			if row.DestaqueTipo.Valid {
+				jogo.Tipo = row.DestaqueTipo.String
+			}
+			if row.DestaqueIniciadoEm.Valid {
+				jogo.IniciadoEm = &row.DestaqueIniciadoEm.Time
+			}
+			if row.DestaqueFinalizadoEm.Valid {
+				jogo.FinalizadoEm = row.DestaqueFinalizadoEm.Time
+			}
+			if row.DestaqueReview.Valid {
+				jogo.Review = row.DestaqueReview.String
+			}
+			if row.DestaqueIgdbCapaUrl.Valid {
+				jogo.IgdbCapaURL = row.DestaqueIgdbCapaUrl.String
+			}
+			if row.DestaqueCreatedAt.Valid {
+				jogo.CreatedAt = row.DestaqueCreatedAt.Time
+			}
+			if row.DestaqueUpdatedAt.Valid {
+				jogo.UpdatedAt = row.DestaqueUpdatedAt.Time
+			}
+			item.GameDoAno = jogo
+		}
+		resumo = append(resumo, item)
+	}
+
+	return resumo, nil
+}
+
+func (r *SQLJogosRepository) DefinirGameDoAno(ctx context.Context, id int32, usuarioID int32) (*DefinirGameDoAnoResultado, error) {
+	if r.pool == nil {
+		return nil, errors.New("pool nao configurado")
+	}
+
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("iniciar transacao: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	qtx := r.queries.WithTx(tx)
+
+	alvo, err := qtx.BuscarJogoPorIDParaUpdate(ctx, db.BuscarJogoPorIDParaUpdateParams{
+		ID:        id,
+		UsuarioID: usuarioID,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, pgx.ErrNoRows
+		}
+		return nil, fmt.Errorf("buscar jogo alvo: %w", err)
+	}
+
+	ano := alvo.FinalizadoEm.Time.Year()
+
+	if alvo.Destaque.Valid && alvo.Destaque.Bool {
+		jogo := mapearJogoZerado(alvo)
+		jogo.IgdbDescricao = ""
+		return &DefinirGameDoAnoResultado{
+			Ano:        ano,
+			GameDoAno:  jogo,
+			AnteriorID: nil,
+		}, nil
+	}
+
+	var anteriorID *int32
+	antID, err := qtx.DesmarcarGameDoAnoAtual(ctx, db.DesmarcarGameDoAnoAtualParams{
+		UsuarioID: usuarioID,
+		Ano:       int32(ano),
+	})
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return nil, fmt.Errorf("desmarcar game do ano anterior: %w", err)
+	}
+	if err == nil {
+		anteriorID = &antID
+	}
+
+	marcado, err := qtx.MarcarGameDoAno(ctx, db.MarcarGameDoAnoParams{
+		ID:        id,
+		UsuarioID: usuarioID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("marcar game do ano: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("commit transacao: %w", err)
+	}
+
+	jogoMarcado := mapearJogoZerado(marcado)
+	jogoMarcado.IgdbDescricao = ""
+
+	return &DefinirGameDoAnoResultado{
+		Ano:        ano,
+		GameDoAno:  jogoMarcado,
+		AnteriorID: anteriorID,
+	}, nil
+}
+
+func (r *SQLJogosRepository) RemoverGameDoAno(ctx context.Context, id int32, usuarioID int32) error {
+	jogo, err := r.queries.BuscarJogoPorID(ctx, db.BuscarJogoPorIDParams{
+		ID:        id,
+		UsuarioID: usuarioID,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return pgx.ErrNoRows
+		}
+		return fmt.Errorf("buscar jogo para remover destaque: %w", err)
+	}
+
+	if !jogo.Destaque.Valid || !jogo.Destaque.Bool {
+		return nil
+	}
+
+	_, err = r.queries.DesmarcarGameDoAnoPorID(ctx, db.DesmarcarGameDoAnoPorIDParams{
+		ID:        id,
+		UsuarioID: usuarioID,
+	})
+	if err != nil {
+		return fmt.Errorf("remover destaque do jogo: %w", err)
+	}
+	return nil
+}
+

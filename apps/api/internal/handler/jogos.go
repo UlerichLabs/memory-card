@@ -25,6 +25,9 @@ type JogosServicer interface {
 	ListarJogosZerados(ctx context.Context, params service.ListarJogosParams) (*service.ResultadoListagem, error)
 	ObterOpcoesFiltros(ctx context.Context, usuarioID int32) (*repository.OpcoesFiltros, error)
 	ObterDetalhesJogoZerado(ctx context.Context, id int32, usuarioID int32) (*repository.JogoZerado, error)
+	ObterResumoGameDoAno(ctx context.Context, usuarioID int32) ([]*repository.ItemResumoGameDoAno, error)
+	DefinirGameDoAno(ctx context.Context, id int32, usuarioID int32) (*repository.DefinirGameDoAnoResultado, error)
+	RemoverGameDoAno(ctx context.Context, id int32, usuarioID int32) error
 }
 
 type JogosHandler struct {
@@ -501,6 +504,7 @@ func (h *JogosHandler) ListarJogos(c *gin.Context) {
 		NotaMax:     notaMax,
 		Ano:         ano,
 		Dificuldade: c.Query("dificuldade"),
+		Ordenar:     c.Query("ordenar"),
 		Pagina:      pagina,
 		PorPagina:   porPagina,
 	}
@@ -520,6 +524,8 @@ func (h *JogosHandler) ListarJogos(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "jogos.ano_invalido", "mensagem": i18n.T(lang, "jogos.ano_invalido")}})
 		case errors.Is(err, service.ErrDificuldadeInvalida):
 			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "jogos.dificuldade_invalida", "mensagem": i18n.T(lang, "jogos.dificuldade_invalida")}})
+		case errors.Is(err, service.ErrOrdenacaoInvalida):
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "jogos.ordenacao_invalida", "mensagem": i18n.T(lang, "jogos.ordenacao_invalida")}})
 		default:
 			slog.ErrorContext(c.Request.Context(), "falha ao listar jogos zerados", "error", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"codigo": "server.internal_error", "mensagem": i18n.T(lang, "server.internal_error")}})
@@ -634,6 +640,149 @@ func (h *JogosHandler) ObterDetalhesJogo(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"data": jogo})
+}
+
+func (h *JogosHandler) ObterGameDoAnoResumo(c *gin.Context) {
+	usuario, ok := middleware.UsuarioDoContexto(c.Request.Context())
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": gin.H{
+				"codigo":   "auth.session.unauthorized",
+				"mensagem": i18n.T(c.GetHeader("Accept-Language"), "auth.session.unauthorized"),
+			},
+		})
+		return
+	}
+
+	usuarioID, err := strconv.Atoi(usuario.ID)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": gin.H{
+				"codigo":   "auth.session.unauthorized",
+				"mensagem": i18n.T(c.GetHeader("Accept-Language"), "auth.session.unauthorized"),
+			},
+		})
+		return
+	}
+
+	resumo, err := h.service.ObterResumoGameDoAno(c.Request.Context(), int32(usuarioID))
+	if err != nil {
+		slog.ErrorContext(c.Request.Context(), "falha ao obter resumo de game do ano", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": gin.H{
+				"codigo":   "server.internal_error",
+				"mensagem": i18n.T(c.GetHeader("Accept-Language"), "server.internal_error"),
+			},
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": resumo})
+}
+
+func (h *JogosHandler) DefinirGameDoAno(c *gin.Context) {
+	usuario, ok := middleware.UsuarioDoContexto(c.Request.Context())
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": gin.H{
+				"codigo":   "auth.session.unauthorized",
+				"mensagem": i18n.T(c.GetHeader("Accept-Language"), "auth.session.unauthorized"),
+			},
+		})
+		return
+	}
+
+	usuarioID, err := strconv.Atoi(usuario.ID)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": gin.H{
+				"codigo":   "auth.session.unauthorized",
+				"mensagem": i18n.T(c.GetHeader("Accept-Language"), "auth.session.unauthorized"),
+			},
+		})
+		return
+	}
+
+	jogoID, ok := parseJogoID(c)
+	if !ok {
+		return
+	}
+
+	res, err := h.service.DefinirGameDoAno(c.Request.Context(), jogoID, int32(usuarioID))
+	if err != nil {
+		lang := c.GetHeader("Accept-Language")
+		switch {
+		case errors.Is(err, service.ErrJogoNaoEncontrado):
+			c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"codigo": "jogos.not_found", "mensagem": i18n.T(lang, "jogos.not_found")}})
+		case errors.Is(err, service.ErrDestaqueAnoConflito):
+			c.JSON(http.StatusConflict, gin.H{"error": gin.H{"codigo": "jogos.destaque_ano_conflito", "mensagem": i18n.T(lang, "jogos.destaque_ano_conflito")}})
+		default:
+			slog.ErrorContext(c.Request.Context(), "falha ao definir game do ano", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"codigo": "server.internal_error", "mensagem": i18n.T(lang, "server.internal_error")}})
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"data": gin.H{
+			"ano":         res.Ano,
+			"game_do_ano": res.GameDoAno,
+			"anterior_id": res.AnteriorID,
+		},
+	})
+}
+
+func (h *JogosHandler) RemoverGameDoAno(c *gin.Context) {
+	usuario, ok := middleware.UsuarioDoContexto(c.Request.Context())
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": gin.H{
+				"codigo":   "auth.session.unauthorized",
+				"mensagem": i18n.T(c.GetHeader("Accept-Language"), "auth.session.unauthorized"),
+			},
+		})
+		return
+	}
+
+	usuarioID, err := strconv.Atoi(usuario.ID)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": gin.H{
+				"codigo":   "auth.session.unauthorized",
+				"mensagem": i18n.T(c.GetHeader("Accept-Language"), "auth.session.unauthorized"),
+			},
+		})
+		return
+	}
+
+	jogoID, ok := parseJogoID(c)
+	if !ok {
+		return
+	}
+
+	err = h.service.RemoverGameDoAno(c.Request.Context(), jogoID, int32(usuarioID))
+	if err != nil {
+		lang := c.GetHeader("Accept-Language")
+		if errors.Is(err, service.ErrJogoNaoEncontrado) {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": gin.H{
+					"codigo":   "jogos.not_found",
+					"mensagem": i18n.T(lang, "jogos.not_found"),
+				},
+			})
+			return
+		}
+		slog.ErrorContext(c.Request.Context(), "falha ao remover game do ano", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": gin.H{
+				"codigo":   "server.internal_error",
+				"mensagem": i18n.T(lang, "server.internal_error"),
+			},
+		})
+		return
+	}
+
+	c.Status(http.StatusNoContent)
 }
 
 func parseJogoID(c *gin.Context) (int32, bool) {

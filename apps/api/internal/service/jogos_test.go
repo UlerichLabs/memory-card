@@ -15,12 +15,15 @@ import (
 )
 
 type mockJogosRepo struct {
-	criarFn        func(ctx context.Context, params repository.CriarJogoZeradoParams) (*repository.JogoZerado, error)
-	atualizarFn    func(ctx context.Context, params repository.AtualizarJogoZeradoParams) (*repository.JogoZerado, error)
-	excluirFn      func(ctx context.Context, id int32, usuarioID int32) error
-	listarFn       func(ctx context.Context, params repository.ListarJogosZeradosParams) ([]*repository.JogoZerado, int64, error)
-	obterFiltrosFn func(ctx context.Context, usuarioID int32) (*repository.OpcoesFiltros, error)
-	obterPorIDFn   func(ctx context.Context, id int32, usuarioID int32) (*repository.JogoZerado, error)
+	criarFn            func(ctx context.Context, params repository.CriarJogoZeradoParams) (*repository.JogoZerado, error)
+	atualizarFn        func(ctx context.Context, params repository.AtualizarJogoZeradoParams) (*repository.JogoZerado, error)
+	excluirFn          func(ctx context.Context, id int32, usuarioID int32) error
+	listarFn           func(ctx context.Context, params repository.ListarJogosZeradosParams) ([]*repository.JogoZerado, int64, error)
+	obterFiltrosFn     func(ctx context.Context, usuarioID int32) (*repository.OpcoesFiltros, error)
+	obterPorIDFn       func(ctx context.Context, id int32, usuarioID int32) (*repository.JogoZerado, error)
+	obterResumoFn      func(ctx context.Context, usuarioID int32) ([]*repository.ItemResumoGameDoAno, error)
+	definirGameDoAnoFn func(ctx context.Context, id int32, usuarioID int32) (*repository.DefinirGameDoAnoResultado, error)
+	removerGameDoAnoFn func(ctx context.Context, id int32, usuarioID int32) error
 }
 
 func (m *mockJogosRepo) ObterPorID(ctx context.Context, id int32, usuarioID int32) (*repository.JogoZerado, error) {
@@ -63,6 +66,27 @@ func (m *mockJogosRepo) ObterFiltros(ctx context.Context, usuarioID int32) (*rep
 		return m.obterFiltrosFn(ctx, usuarioID)
 	}
 	return nil, errors.New("nao implementado")
+}
+
+func (m *mockJogosRepo) ObterResumoGameDoAno(ctx context.Context, usuarioID int32) ([]*repository.ItemResumoGameDoAno, error) {
+	if m.obterResumoFn != nil {
+		return m.obterResumoFn(ctx, usuarioID)
+	}
+	return nil, errors.New("nao implementado")
+}
+
+func (m *mockJogosRepo) DefinirGameDoAno(ctx context.Context, id int32, usuarioID int32) (*repository.DefinirGameDoAnoResultado, error) {
+	if m.definirGameDoAnoFn != nil {
+		return m.definirGameDoAnoFn(ctx, id, usuarioID)
+	}
+	return nil, errors.New("nao implementado")
+}
+
+func (m *mockJogosRepo) RemoverGameDoAno(ctx context.Context, id int32, usuarioID int32) error {
+	if m.removerGameDoAnoFn != nil {
+		return m.removerGameDoAnoFn(ctx, id, usuarioID)
+	}
+	return errors.New("nao implementado")
 }
 
 func TestJogosService_CriarJogoZerado_Sucesso(t *testing.T) {
@@ -920,3 +944,208 @@ func TestJogosService_ObterDetalhesJogoZerado_ErroRepositorio(t *testing.T) {
 		t.Fatalf("esperava erro %v, obteve %v", dbErr, err)
 	}
 }
+
+func TestJogosService_ObterResumoGameDoAno_SucessoEErro(t *testing.T) {
+	chamouRepo := false
+	esperado := []*repository.ItemResumoGameDoAno{
+		{
+			Ano:        2026,
+			TotalJogos: 9,
+			GameDoAno:  &repository.JogoZerado{ID: 20, Nome: "Elden Ring", Destaque: true},
+		},
+		{
+			Ano:        2025,
+			TotalJogos: 7,
+			GameDoAno:  nil,
+		},
+	}
+
+	repo := &mockJogosRepo{
+		obterResumoFn: func(ctx context.Context, usuarioID int32) ([]*repository.ItemResumoGameDoAno, error) {
+			chamouRepo = true
+			if usuarioID != 42 {
+				t.Fatalf("esperava usuarioID 42, obteve %d", usuarioID)
+			}
+			return esperado, nil
+		},
+	}
+
+	svc := NewJogosService(repo)
+	res, err := svc.ObterResumoGameDoAno(context.Background(), 42)
+	if err != nil {
+		t.Fatalf("erro inesperado: %v", err)
+	}
+	if !chamouRepo || len(res) != 2 {
+		t.Fatalf("resultado inesperado: %+v", res)
+	}
+	if res[0].Ano != 2026 || res[0].GameDoAno.ID != 20 || res[1].GameDoAno != nil {
+		t.Fatalf("campos incorretos: %+v", res)
+	}
+
+	dbErr := errors.New("db error")
+	repoErro := &mockJogosRepo{
+		obterResumoFn: func(ctx context.Context, usuarioID int32) ([]*repository.ItemResumoGameDoAno, error) {
+			return nil, dbErr
+		},
+	}
+	_, err = NewJogosService(repoErro).ObterResumoGameDoAno(context.Background(), 42)
+	if !errors.Is(err, dbErr) {
+		t.Fatalf("esperava dbErr, obteve %v", err)
+	}
+}
+
+func TestJogosService_ListarJogosZerados_Ordenacao(t *testing.T) {
+	testes := []struct {
+		nome           string
+		ordenarEntrada string
+		esperadoParam  string
+		esperaErro     error
+	}{
+		{"padrao vazio", "", "recentes", nil},
+		{"recentes explicito", "recentes", "recentes", nil},
+		{"nota explicito", "nota", "nota", nil},
+		{"com espacos", "  nota  ", "nota", nil},
+		{"invalido", "invalido", "", ErrOrdenacaoInvalida},
+		{"invalido numero", "123", "", ErrOrdenacaoInvalida},
+	}
+
+	for _, tt := range testes {
+		t.Run(tt.nome, func(t *testing.T) {
+			var capturado repository.ListarJogosZeradosParams
+			repo := &mockJogosRepo{
+				listarFn: func(ctx context.Context, params repository.ListarJogosZeradosParams) ([]*repository.JogoZerado, int64, error) {
+					capturado = params
+					return []*repository.JogoZerado{}, 0, nil
+				},
+			}
+			svc := NewJogosService(repo)
+			_, err := svc.ListarJogosZerados(context.Background(), ListarJogosParams{
+				UsuarioID: 42,
+				Ordenar:   tt.ordenarEntrada,
+			})
+			if tt.esperaErro != nil {
+				if !errors.Is(err, tt.esperaErro) {
+					t.Fatalf("esperava erro %v, obteve %v", tt.esperaErro, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("erro inesperado: %v", err)
+			}
+			if capturado.Ordenar != tt.esperadoParam {
+				t.Fatalf("esperava ordenar=%q, obteve %q", tt.esperadoParam, capturado.Ordenar)
+			}
+		})
+	}
+}
+
+func TestJogosService_DefinirGameDoAno_SucessoETroca(t *testing.T) {
+	antID := int32(14)
+	esperado := &repository.DefinirGameDoAnoResultado{
+		Ano:        2025,
+		GameDoAno:  &repository.JogoZerado{ID: 20, Nome: "Novo Destaque", Destaque: true},
+		AnteriorID: &antID,
+	}
+
+	repo := &mockJogosRepo{
+		definirGameDoAnoFn: func(ctx context.Context, id int32, usuarioID int32) (*repository.DefinirGameDoAnoResultado, error) {
+			if id != 20 || usuarioID != 42 {
+				t.Fatalf("parametros incorretos: id=%d, usuarioID=%d", id, usuarioID)
+			}
+			return esperado, nil
+		},
+	}
+
+	svc := NewJogosService(repo)
+	res, err := svc.DefinirGameDoAno(context.Background(), 20, 42)
+	if err != nil {
+		t.Fatalf("erro inesperado: %v", err)
+	}
+	if res.Ano != 2025 || res.GameDoAno.ID != 20 || res.AnteriorID == nil || *res.AnteriorID != 14 {
+		t.Fatalf("resultado inesperado: %+v", res)
+	}
+}
+
+func TestJogosService_DefinirGameDoAno_Idempotente(t *testing.T) {
+	esperado := &repository.DefinirGameDoAnoResultado{
+		Ano:        2025,
+		GameDoAno:  &repository.JogoZerado{ID: 20, Nome: "Ja Destaque", Destaque: true},
+		AnteriorID: nil,
+	}
+
+	repo := &mockJogosRepo{
+		definirGameDoAnoFn: func(ctx context.Context, id int32, usuarioID int32) (*repository.DefinirGameDoAnoResultado, error) {
+			return esperado, nil
+		},
+	}
+
+	svc := NewJogosService(repo)
+	res, err := svc.DefinirGameDoAno(context.Background(), 20, 42)
+	if err != nil {
+		t.Fatalf("erro inesperado: %v", err)
+	}
+	if res.AnteriorID != nil {
+		t.Fatalf("esperava anterior_id nil em chamada idempotente, obteve %v", res.AnteriorID)
+	}
+}
+
+func TestJogosService_DefinirGameDoAno_NaoEncontrado(t *testing.T) {
+	repo := &mockJogosRepo{
+		definirGameDoAnoFn: func(ctx context.Context, id int32, usuarioID int32) (*repository.DefinirGameDoAnoResultado, error) {
+			return nil, pgx.ErrNoRows
+		},
+	}
+
+	svc := NewJogosService(repo)
+	_, err := svc.DefinirGameDoAno(context.Background(), 999, 42)
+	if !errors.Is(err, ErrJogoNaoEncontrado) {
+		t.Fatalf("esperava ErrJogoNaoEncontrado, obteve %v", err)
+	}
+}
+
+func TestJogosService_DefinirGameDoAno_ConflitoUnicidade(t *testing.T) {
+	repo := &mockJogosRepo{
+		definirGameDoAnoFn: func(ctx context.Context, id int32, usuarioID int32) (*repository.DefinirGameDoAnoResultado, error) {
+			return nil, &pgconn.PgError{Code: pgerrcode.UniqueViolation, ConstraintName: "idx_destaque_por_ano"}
+		},
+	}
+
+	svc := NewJogosService(repo)
+	_, err := svc.DefinirGameDoAno(context.Background(), 20, 42)
+	if !errors.Is(err, ErrDestaqueAnoConflito) {
+		t.Fatalf("esperava ErrDestaqueAnoConflito, obteve %v", err)
+	}
+}
+
+func TestJogosService_RemoverGameDoAno_SucessoENaoEncontrado(t *testing.T) {
+	chamouRepo := false
+	repo := &mockJogosRepo{
+		removerGameDoAnoFn: func(ctx context.Context, id int32, usuarioID int32) error {
+			chamouRepo = true
+			if id != 20 || usuarioID != 42 {
+				t.Fatalf("parametros incorretos: id=%d, usuarioID=%d", id, usuarioID)
+			}
+			return nil
+		},
+	}
+
+	svc := NewJogosService(repo)
+	err := svc.RemoverGameDoAno(context.Background(), 20, 42)
+	if err != nil {
+		t.Fatalf("erro inesperado: %v", err)
+	}
+	if !chamouRepo {
+		t.Fatal("esperava chamada ao repo.RemoverGameDoAno")
+	}
+
+	repo404 := &mockJogosRepo{
+		removerGameDoAnoFn: func(ctx context.Context, id int32, usuarioID int32) error {
+			return pgx.ErrNoRows
+		},
+	}
+	err = NewJogosService(repo404).RemoverGameDoAno(context.Background(), 999, 42)
+	if !errors.Is(err, ErrJogoNaoEncontrado) {
+		t.Fatalf("esperava ErrJogoNaoEncontrado, obteve %v", err)
+	}
+}
+

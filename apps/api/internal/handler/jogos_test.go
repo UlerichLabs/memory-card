@@ -21,12 +21,15 @@ import (
 )
 
 type mockJogosService struct {
-	criarFn         func(ctx context.Context, params repository.CriarJogoZeradoParams) (*repository.JogoZerado, error)
-	atualizarFn     func(ctx context.Context, params repository.AtualizarJogoZeradoParams) (*repository.JogoZerado, error)
-	excluirFn       func(ctx context.Context, id int32, usuarioID int32) error
-	listarFn        func(ctx context.Context, params service.ListarJogosParams) (*service.ResultadoListagem, error)
-	obterFiltrosFn  func(ctx context.Context, usuarioID int32) (*repository.OpcoesFiltros, error)
-	obterDetalhesFn func(ctx context.Context, id int32, usuarioID int32) (*repository.JogoZerado, error)
+	criarFn            func(ctx context.Context, params repository.CriarJogoZeradoParams) (*repository.JogoZerado, error)
+	atualizarFn        func(ctx context.Context, params repository.AtualizarJogoZeradoParams) (*repository.JogoZerado, error)
+	excluirFn          func(ctx context.Context, id int32, usuarioID int32) error
+	listarFn           func(ctx context.Context, params service.ListarJogosParams) (*service.ResultadoListagem, error)
+	obterFiltrosFn     func(ctx context.Context, usuarioID int32) (*repository.OpcoesFiltros, error)
+	obterDetalhesFn    func(ctx context.Context, id int32, usuarioID int32) (*repository.JogoZerado, error)
+	obterResumoFn      func(ctx context.Context, usuarioID int32) ([]*repository.ItemResumoGameDoAno, error)
+	definirGameDoAnoFn func(ctx context.Context, id int32, usuarioID int32) (*repository.DefinirGameDoAnoResultado, error)
+	removerGameDoAnoFn func(ctx context.Context, id int32, usuarioID int32) error
 }
 
 func (m *mockJogosService) CriarJogoZerado(ctx context.Context, params repository.CriarJogoZeradoParams) (*repository.JogoZerado, error) {
@@ -69,6 +72,27 @@ func (m *mockJogosService) ObterDetalhesJogoZerado(ctx context.Context, id int32
 		return m.obterDetalhesFn(ctx, id, usuarioID)
 	}
 	return nil, nil
+}
+
+func (m *mockJogosService) ObterResumoGameDoAno(ctx context.Context, usuarioID int32) ([]*repository.ItemResumoGameDoAno, error) {
+	if m.obterResumoFn != nil {
+		return m.obterResumoFn(ctx, usuarioID)
+	}
+	return nil, nil
+}
+
+func (m *mockJogosService) DefinirGameDoAno(ctx context.Context, id int32, usuarioID int32) (*repository.DefinirGameDoAnoResultado, error) {
+	if m.definirGameDoAnoFn != nil {
+		return m.definirGameDoAnoFn(ctx, id, usuarioID)
+	}
+	return nil, nil
+}
+
+func (m *mockJogosService) RemoverGameDoAno(ctx context.Context, id int32, usuarioID int32) error {
+	if m.removerGameDoAnoFn != nil {
+		return m.removerGameDoAnoFn(ctx, id, usuarioID)
+	}
+	return nil
 }
 
 func generateTestAccessToken(t *testing.T, secret, subject string) string {
@@ -1577,3 +1601,251 @@ func TestJogosHandler_RotasSemConflito(t *testing.T) {
 		t.Fatalf("jogo esperava status 200, obteve %d", wJogo.Code)
 	}
 }
+
+func TestJogosHandler_GameDoAno_Cenarios(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	secret := uuid.NewString()
+	tokens, err := service.NewAuthToken(secret, time.Hour, 24*time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	antID := int32(14)
+	svc := &mockJogosService{
+		obterResumoFn: func(ctx context.Context, usuarioID int32) ([]*repository.ItemResumoGameDoAno, error) {
+			if usuarioID == 999 {
+				return nil, errors.New("erro interno")
+			}
+			return []*repository.ItemResumoGameDoAno{
+				{Ano: 2026, TotalJogos: 9, GameDoAno: &repository.JogoZerado{ID: 20, Nome: "Zelda", Destaque: true}},
+				{Ano: 2025, TotalJogos: 7, GameDoAno: nil},
+			}, nil
+		},
+		definirGameDoAnoFn: func(ctx context.Context, id int32, usuarioID int32) (*repository.DefinirGameDoAnoResultado, error) {
+			switch id {
+			case 20:
+				return &repository.DefinirGameDoAnoResultado{
+					Ano:        2025,
+					GameDoAno:  &repository.JogoZerado{ID: 20, Nome: "Zelda", Destaque: true},
+					AnteriorID: &antID,
+				}, nil
+			case 404:
+				return nil, service.ErrJogoNaoEncontrado
+			case 409:
+				return nil, service.ErrDestaqueAnoConflito
+			default:
+				return nil, errors.New("erro inesperado")
+			}
+		},
+		removerGameDoAnoFn: func(ctx context.Context, id int32, usuarioID int32) error {
+			switch id {
+			case 20:
+				return nil
+			case 404:
+				return service.ErrJogoNaoEncontrado
+			default:
+				return errors.New("erro inesperado")
+			}
+		},
+		listarFn: func(ctx context.Context, params service.ListarJogosParams) (*service.ResultadoListagem, error) {
+			if params.Ordenar == "xyz" {
+				return nil, service.ErrOrdenacaoInvalida
+			}
+			return &service.ResultadoListagem{
+				Jogos:     []*repository.JogoZerado{{ID: 1, Nome: "Zelda"}},
+				Total:     1,
+				Pagina:    1,
+				PorPagina: 24,
+			}, nil
+		},
+	}
+
+	router := gin.New()
+	privadas := middleware.GrupoPrivado(router, tokens)
+	h := NewJogosHandler(svc)
+
+	privadas.GET("/jogos", h.ListarJogos)
+	privadas.GET("/jogos/game-do-ano", h.ObterGameDoAnoResumo)
+	privadas.PUT("/jogos/:id/game-do-ano", h.DefinirGameDoAno)
+	privadas.DELETE("/jogos/:id/game-do-ano", h.RemoverGameDoAno)
+
+	tokenValido := generateTestAccessToken(t, secret, "42")
+	tokenErro := generateTestAccessToken(t, secret, "999")
+
+	t.Run("GET_resumo_200", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/jogos/game-do-ano", nil)
+		req.Header.Set("Authorization", "Bearer "+tokenValido)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("esperava 200, obteve %d: %s", w.Code, w.Body.String())
+		}
+	})
+
+	t.Run("GET_resumo_401", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/jogos/game-do-ano", nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		if w.Code != http.StatusUnauthorized {
+			t.Fatalf("esperava 401, obteve %d", w.Code)
+		}
+	})
+
+	t.Run("GET_resumo_500", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/jogos/game-do-ano", nil)
+		req.Header.Set("Authorization", "Bearer "+tokenErro)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		if w.Code != http.StatusInternalServerError {
+			t.Fatalf("esperava 500, obteve %d", w.Code)
+		}
+	})
+
+	t.Run("GET_listar_ordenar_nota_200", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/jogos?ordenar=nota", nil)
+		req.Header.Set("Authorization", "Bearer "+tokenValido)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("esperava 200, obteve %d", w.Code)
+		}
+	})
+
+	t.Run("GET_listar_ordenar_invalido_400", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/jogos?ordenar=xyz", nil)
+		req.Header.Set("Authorization", "Bearer "+tokenValido)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("esperava 400, obteve %d: %s", w.Code, w.Body.String())
+		}
+		if !strings.Contains(w.Body.String(), "jogos.ordenacao_invalida") {
+			t.Fatalf("esperava erro jogos.ordenacao_invalida, obteve: %s", w.Body.String())
+		}
+	})
+
+	t.Run("PUT_game_do_ano_200", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPut, "/api/v1/jogos/20/game-do-ano", nil)
+		req.Header.Set("Authorization", "Bearer "+tokenValido)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("esperava 200, obteve %d: %s", w.Code, w.Body.String())
+		}
+		var resp struct {
+			Data struct {
+				Ano        int                    `json:"ano"`
+				AnteriorID *int32                 `json:"anterior_id"`
+				GameDoAno  repository.JogoZerado `json:"game_do_ano"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+			t.Fatal(err)
+		}
+		if resp.Data.Ano != 2025 || resp.Data.AnteriorID == nil || *resp.Data.AnteriorID != 14 || resp.Data.GameDoAno.ID != 20 {
+			t.Fatalf("resposta inesperada: %+v", resp.Data)
+		}
+	})
+
+	t.Run("PUT_game_do_ano_400_id_invalido", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPut, "/api/v1/jogos/0/game-do-ano", nil)
+		req.Header.Set("Authorization", "Bearer "+tokenValido)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("esperava 400, obteve %d", w.Code)
+		}
+	})
+
+	t.Run("PUT_game_do_ano_401_sem_token", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPut, "/api/v1/jogos/20/game-do-ano", nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		if w.Code != http.StatusUnauthorized {
+			t.Fatalf("esperava 401, obteve %d", w.Code)
+		}
+	})
+
+	t.Run("PUT_game_do_ano_404_not_found", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPut, "/api/v1/jogos/404/game-do-ano", nil)
+		req.Header.Set("Authorization", "Bearer "+tokenValido)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		if w.Code != http.StatusNotFound {
+			t.Fatalf("esperava 404, obteve %d", w.Code)
+		}
+	})
+
+	t.Run("PUT_game_do_ano_409_conflito", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPut, "/api/v1/jogos/409/game-do-ano", nil)
+		req.Header.Set("Authorization", "Bearer "+tokenValido)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		if w.Code != http.StatusConflict {
+			t.Fatalf("esperava 409, obteve %d", w.Code)
+		}
+		if !strings.Contains(w.Body.String(), "jogos.destaque_ano_conflito") {
+			t.Fatalf("esperava codigo jogos.destaque_ano_conflito, obteve: %s", w.Body.String())
+		}
+	})
+
+	t.Run("PUT_game_do_ano_500_erro", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPut, "/api/v1/jogos/500/game-do-ano", nil)
+		req.Header.Set("Authorization", "Bearer "+tokenValido)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		if w.Code != http.StatusInternalServerError {
+			t.Fatalf("esperava 500, obteve %d", w.Code)
+		}
+	})
+
+	t.Run("DELETE_game_do_ano_204", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodDelete, "/api/v1/jogos/20/game-do-ano", nil)
+		req.Header.Set("Authorization", "Bearer "+tokenValido)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		if w.Code != http.StatusNoContent {
+			t.Fatalf("esperava 204, obteve %d", w.Code)
+		}
+	})
+
+	t.Run("DELETE_game_do_ano_400_id_invalido", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodDelete, "/api/v1/jogos/abc/game-do-ano", nil)
+		req.Header.Set("Authorization", "Bearer "+tokenValido)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("esperava 400, obteve %d", w.Code)
+		}
+	})
+
+	t.Run("DELETE_game_do_ano_401_sem_token", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodDelete, "/api/v1/jogos/20/game-do-ano", nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		if w.Code != http.StatusUnauthorized {
+			t.Fatalf("esperava 401, obteve %d", w.Code)
+		}
+	})
+
+	t.Run("DELETE_game_do_ano_404_not_found", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodDelete, "/api/v1/jogos/404/game-do-ano", nil)
+		req.Header.Set("Authorization", "Bearer "+tokenValido)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		if w.Code != http.StatusNotFound {
+			t.Fatalf("esperava 404, obteve %d", w.Code)
+		}
+	})
+
+	t.Run("DELETE_game_do_ano_500_erro", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodDelete, "/api/v1/jogos/500/game-do-ano", nil)
+		req.Header.Set("Authorization", "Bearer "+tokenValido)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		if w.Code != http.StatusInternalServerError {
+			t.Fatalf("esperava 500, obteve %d", w.Code)
+		}
+	})
+}
+

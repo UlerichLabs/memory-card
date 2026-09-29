@@ -47,5 +47,6 @@
   "jogos.nota_filtro_invalida": "A nota deve estar entre 1 e 11.",
   "jogos.nota_faixa_invalida": "A nota mínima não pode ser maior que a nota máxima.",
   "jogos.ano_invalido": "Ano inválido.",
-  "jogos.dificuldade_invalida": "A dificuldade deve ser C, B, A, AA ou AAA."
+  "jogos.dificuldade_invalida": "A dificuldade deve ser C, B, A, AA ou AAA.",
+  "jogos.ordenacao_invalida": "Ordenação inválida."
 }
