@@ -29,6 +29,7 @@ export interface JogosStore {
   excluirJogo: (id: number) => Promise<void>
   buscarIGDB: (termo: string, signal?: AbortSignal) => Promise<IGDBJogoSugestao[]>
   obterDetalhesIGDB: (id: number) => Promise<IGDBJogoSugestao>
+  obterJogoPorId: (id: number, signal?: AbortSignal) => Promise<JogoZeradoDTO>
   setJogos: (jogos: JogoZeradoDTO[]) => void
   limparErro: () => void
 }
@@ -149,6 +150,7 @@ export function JogosProvider({
     },
     buscarIGDB: (termo, signal) => jogosService.buscarIGDB(termo, effectiveToken, signal),
     obterDetalhesIGDB: (id) => jogosService.obterDetalhesIGDB(id, effectiveToken),
+    obterJogoPorId: (id, signal) => jogosService.obterPorId(id, effectiveToken, signal),
   }
 
   return createElement(JogosContext.Provider, { value: store }, children)

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from '@/store/authStore'
@@ -85,11 +85,12 @@ describe('BibliotecaPage', () => {
     renderBiblioteca()
 
     expect(await screen.findByRole('heading', { name: 'Chrono Trigger' })).toBeInTheDocument()
-    expect(screen.getByText('SNES')).toBeInTheDocument()
-    expect(screen.getByText('2026 · 20h')).toBeInTheDocument()
-    expect(screen.getByText('Dif. A')).toBeInTheDocument()
-    expect(screen.getByText('10')).toBeInTheDocument()
-    expect(screen.getByText('Destaque')).toBeInTheDocument()
+    const card = screen.getByRole('article')
+    expect(within(card).getByText('SNES')).toBeInTheDocument()
+    expect(within(card).getByText('15/01/2026 · 20h')).toBeInTheDocument()
+    expect(within(card).getByText('Normal')).toBeInTheDocument()
+    expect(within(card).getByText('10')).toBeInTheDocument()
+    expect(within(card).getByText('Jogo do ano')).toBeInTheDocument()
     const capa = screen.getByAltText('Chrono Trigger')
     expect(capa).toHaveAttribute('src', 'https://images.igdb.com/cover.jpg')
   })
@@ -196,7 +197,7 @@ describe('BibliotecaPage', () => {
     await screen.findByRole('heading', { name: 'Chrono Trigger' })
     spyListar.mockClear()
 
-    const btnDifA = screen.getByRole('button', { name: 'A' })
+    const btnDifA = screen.getByRole('button', { name: 'Normal' })
     await user.click(btnDifA)
 
     await waitFor(() => {
@@ -227,14 +228,14 @@ describe('BibliotecaPage', () => {
     renderBiblioteca()
     await screen.findByRole('heading', { name: 'Chrono Trigger' })
 
-    const btnDifAA = screen.getByRole('button', { name: 'AA' })
+    const btnDifAA = screen.getByRole('button', { name: 'Difícil' })
     await user.click(btnDifAA)
 
-    expect(await screen.findByText('1 filtro ativo')).toBeInTheDocument()
+    expect(await screen.findByText('filtro ativo')).toBeInTheDocument()
     const btnLimpar = screen.getByRole('button', { name: 'Limpar filtros' })
     await user.click(btnLimpar)
 
-    expect(screen.queryByText('1 filtro ativo')).not.toBeInTheDocument()
+    expect(screen.queryByText('filtro ativo')).not.toBeInTheDocument()
   })
 
   it('navega pelas páginas na paginação', async () => {
@@ -280,7 +281,7 @@ describe('BibliotecaPage', () => {
     renderBiblioteca('/biblioteca?busca=Inexistente')
 
     expect(await screen.findByText('Nenhum jogo encontrado com os filtros aplicados')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Limpar filtros' })).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: 'Limpar filtros' }).length).toBeGreaterThanOrEqual(1)
   })
 
   it('abre modal de edição a partir do menu do card', async () => {

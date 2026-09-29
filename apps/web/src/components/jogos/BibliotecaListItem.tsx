@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect } from 'react'
-import { MoreVertical, Pencil, Trash2, Gamepad2, Star, Award } from 'lucide-react'
-import type { JogoZeradoDTO, Dificuldade } from '@/types/jogos'
+import { MoreVertical, Pencil, Trash2, Gamepad2, Crown } from 'lucide-react'
+import type { JogoZeradoDTO } from '@/types/jogos'
 import { formatarCapaIGDB, isoParaDataPt } from '@/lib/utils'
+import { NotaBadge } from './NotaBadge'
+import { DificuldadePill } from './DificuldadePill'
 
 export interface BibliotecaListItemProps {
   jogo: JogoZeradoDTO
@@ -10,12 +12,11 @@ export interface BibliotecaListItemProps {
   onDetalhes?: (jogo: JogoZeradoDTO) => void
 }
 
-const DIFICULDADE_VAR: Record<Dificuldade, string> = {
-  C: 'var(--difficulty-c)',
-  B: 'var(--difficulty-b)',
-  A: 'var(--difficulty-a)',
-  AA: 'var(--difficulty-aa)',
-  AAA: 'var(--difficulty-aaa)',
+function formatarTempo(s: number): string {
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60)
+  if (h > 0 && m > 0) return `${h}h ${m}m`
+  if (h > 0) return `${h}h`
+  return m > 0 ? `${m}m` : `${s}s`
 }
 
 export function BibliotecaListItem({ jogo, onEditar, onExcluir, onDetalhes }: BibliotecaListItemProps) {
@@ -34,27 +35,24 @@ export function BibliotecaListItem({ jogo, onEditar, onExcluir, onDetalhes }: Bi
     }
   }, [menuAberto])
 
-  const horas = Math.floor(jogo.tempo_jogado / 3600)
-  const minutos = Math.floor((jogo.tempo_jogado % 3600) / 60)
-  const tempoFormatado = `${horas}h ${minutos}m`
-  const capaUrl = formatarCapaIGDB(jogo.igdb_capa_url)
-  const difCor = DIFICULDADE_VAR[jogo.dificuldade] || 'var(--biblioteca-text-muted)'
+  const tempoFormatado = jogo.tempo_jogado > 0 ? formatarTempo(jogo.tempo_jogado) : ''
+  const capaUrl = formatarCapaIGDB(jogo.igdb_capa_url, 't_cover_big')
 
   return (
     <div
       onClick={() => onDetalhes?.(jogo)}
-      className="group flex h-14 cursor-pointer items-center justify-between gap-3 rounded-[8px] border border-[var(--biblioteca-card-border)] bg-[var(--biblioteca-card-bg)] px-3 transition-colors hover:bg-[var(--biblioteca-row-hover)]"
+      className="group flex cursor-pointer items-center justify-between gap-3 rounded-[8px] border border-[var(--biblioteca-card-border)] bg-[var(--biblioteca-card-bg)] px-3 py-2.5 transition-colors hover:bg-[var(--biblioteca-row-hover)]"
     >
       <div className="flex min-w-0 flex-1 items-center gap-3">
         {capaUrl ? (
           <img
             src={capaUrl}
             alt=""
-            className="h-[42px] w-[32px] shrink-0 rounded-[4px] object-cover border border-[var(--biblioteca-card-border)]"
+            className="h-[58px] w-[44px] shrink-0 rounded-[4px] object-cover border border-[var(--biblioteca-card-cover-border)]"
           />
         ) : (
-          <div className="flex h-[42px] w-[32px] shrink-0 items-center justify-center rounded-[4px] border border-[var(--biblioteca-card-border)] bg-[var(--biblioteca-control-bg)] text-[var(--biblioteca-text-faint)]">
-            <Gamepad2 className="h-4 w-4" aria-hidden="true" />
+          <div className="flex h-[58px] w-[44px] shrink-0 items-center justify-center rounded-[4px] border border-[var(--biblioteca-card-cover-border)] bg-[var(--biblioteca-card-cover-bg)] text-[var(--detalhe-capa-icon-sem-arte)]">
+            <Gamepad2 className="h-5 w-5" aria-hidden="true" />
           </div>
         )}
         <div className="min-w-0 flex-1">
@@ -63,9 +61,9 @@ export function BibliotecaListItem({ jogo, onEditar, onExcluir, onDetalhes }: Bi
               {jogo.nome}
             </span>
             {jogo.destaque && (
-              <span className="inline-flex items-center gap-0.5 rounded-[4px] bg-[var(--biblioteca-gold)]/10 px-1.5 py-0.5 text-[10px] font-bold text-[var(--biblioteca-gold)]">
-                <Award className="h-3 w-3" aria-hidden="true" />
-                <span>Destaque</span>
+              <span className="inline-flex items-center gap-1 rounded-[4px] bg-[var(--ouro-jogo-ano)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--ouro-jogo-ano-text)]">
+                <Crown className="h-3 w-3" aria-hidden="true" />
+                <span>Jogo do ano</span>
               </span>
             )}
           </div>
@@ -81,22 +79,16 @@ export function BibliotecaListItem({ jogo, onEditar, onExcluir, onDetalhes }: Bi
         <span className="rounded-[4px] border border-[var(--biblioteca-control-border)] bg-[var(--biblioteca-control-bg)] px-2 py-0.5 text-xs font-medium text-[var(--biblioteca-text-muted)]">
           {jogo.console}
         </span>
-        <span className="hidden text-xs text-[var(--biblioteca-text-muted)] lg:inline-block">
-          {tempoFormatado}
-        </span>
+        {tempoFormatado && (
+          <span className="hidden text-xs text-[var(--biblioteca-text-muted)] lg:inline-block">
+            {tempoFormatado}
+          </span>
+        )}
         <span className="hidden text-xs text-[var(--biblioteca-text-muted)] sm:inline-block">
           {isoParaDataPt(jogo.finalizado_em)}
         </span>
-        <span
-          style={{ borderColor: difCor, color: difCor }}
-          className="rounded-[4px] border px-1.5 py-0.5 text-[10px] font-bold"
-        >
-          {jogo.dificuldade}
-        </span>
-        <div className="flex items-center gap-1 rounded-[4px] bg-[var(--biblioteca-control-bg)] px-1.5 py-0.5 text-xs font-bold text-[var(--biblioteca-gold)]">
-          <Star className="h-3 w-3 fill-[var(--biblioteca-gold)]" aria-hidden="true" />
-          <span>Nota {jogo.nota}</span>
-        </div>
+        <DificuldadePill nivel={jogo.dificuldade} variante="neutra" />
+        <NotaBadge nota={jogo.nota} tamanho="sm" />
       </div>
 
       <div

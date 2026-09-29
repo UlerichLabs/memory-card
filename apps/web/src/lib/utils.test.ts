@@ -12,6 +12,11 @@ describe('formatarCapaIGDB', () => {
     expect(formatarCapaIGDB(input)).toBe('https://images.igdb.com/igdb/image/upload/t_cover_big/co39u6.jpg')
   })
 
+  it('suporta tamanho t_cover_big_2x para detalhe', () => {
+    const input = '//images.igdb.com/igdb/image/upload/t_thumb/co39u6.jpg'
+    expect(formatarCapaIGDB(input, 't_cover_big_2x')).toBe('https://images.igdb.com/igdb/image/upload/t_cover_big_2x/co39u6.jpg')
+  })
+
   it('retorna string vazia sem quebrar para url vazia ou undefined', () => {
     expect(formatarCapaIGDB('')).toBe('')
     expect(formatarCapaIGDB(undefined)).toBe('')

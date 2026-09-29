@@ -2,6 +2,7 @@ export type Dificuldade = 'C' | 'B' | 'A' | 'AA' | 'AAA'
 
 export interface JogoZeradoDTO {
   id: number
+  numero?: number
   usuario_id: number
   igdb_id?: number | null
   nome: string

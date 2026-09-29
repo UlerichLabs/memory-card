@@ -49,7 +49,7 @@ export function ExcluirJogoDialog({
             variant="destructive"
             onClick={() => onConfirm()}
             disabled={isLoading}
-            className="bg-[#E05A4E] text-white hover:bg-[#E05A4E]/80"
+            className="bg-[var(--danger)] text-white hover:bg-[var(--danger)]/80"
           >
             {isLoading ? 'Excluindo...' : 'Excluir'}
           </Button>

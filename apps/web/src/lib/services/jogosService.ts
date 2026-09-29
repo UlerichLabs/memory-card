@@ -2,7 +2,6 @@ import type {
   JogoZeradoDTO, IGDBJogoSugestao, SalvarJogoPayload, ListarJogosParams,
   ListarJogosResposta, ListagemMeta, OpcoesFiltrosDTO, Dificuldade,
 } from '@/types/jogos'
-
 export type { Dificuldade, JogoZeradoDTO, IGDBJogoSugestao, SalvarJogoPayload, ListarJogosParams, ListarJogosResposta, ListagemMeta, OpcoesFiltrosDTO }
 
 export class JogosApiError extends Error {
@@ -71,6 +70,7 @@ export const jogosService = {
   criar: (payload: SalvarJogoPayload, token?: string) => request<JogoZeradoDTO>('/jogos', { method: 'POST', body: JSON.stringify(payload) }, token),
   atualizar: (id: number, payload: SalvarJogoPayload, token?: string) => request<JogoZeradoDTO>(`/jogos/${id}`, { method: 'PUT', body: JSON.stringify(payload) }, token),
   excluir: (id: number, token?: string) => request<void>(`/jogos/${id}`, { method: 'DELETE' }, token),
+  obterPorId: (id: number, token?: string, signal?: AbortSignal) => request<JogoZeradoDTO>(`/jogos/${id}`, { method: 'GET', signal }, token),
   buscarIGDB: async (termo: string, token?: string, signal?: AbortSignal) => {
     try {
       return await request<IGDBJogoSugestao[]>(`/igdb/jogos/busca?q=${encodeURIComponent(termo)}`, { method: 'GET', signal }, token)
