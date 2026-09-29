@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 	"unicode"
 
 	"github.com/UlerichLabs/memory-card/apps/api/internal/igdbclient"
@@ -33,6 +34,7 @@ type IGDBClient interface {
 	SearchFranchises(context.Context, string) ([]igdbclient.Franchise, error)
 	FranchiseDetails(context.Context, int64) (*igdbclient.Franchise, error)
 	GamesByFranchise(context.Context, int64) ([]igdbclient.Game, error)
+	GamesByFranchiseParaDesafio(context.Context, int64) ([]igdbclient.Game, error)
 }
 
 type IGDBSnapshotRepository interface {
@@ -318,6 +320,113 @@ func (svc *IGDBService) AtualizarJogosDaFranquia(ctx context.Context, id int64) 
 	return svc.atualizarSnapshot(ctx, fmt.Sprintf("franchise:%d", id), func() ([]igdbclient.Game, error) {
 		return svc.client.GamesByFranchise(ctx, id)
 	})
+}
+
+func (svc *IGDBService) JogosDaFranquiaParaDesafio(ctx context.Context, id int64) ([]igdbclient.Game, error) {
+	return svc.jogosSnapshot(ctx, fmt.Sprintf("franchise-desafio:%d", id), func() ([]igdbclient.Game, error) {
+		return svc.client.GamesByFranchiseParaDesafio(ctx, id)
+	})
+}
+
+func (svc *IGDBService) AtualizarJogosDaFranquiaParaDesafio(ctx context.Context, id int64) ([]igdbclient.Game, error) {
+	return svc.atualizarSnapshot(ctx, fmt.Sprintf("franchise-desafio:%d", id), func() ([]igdbclient.Game, error) {
+		return svc.client.GamesByFranchiseParaDesafio(ctx, id)
+	})
+}
+
+func FiltrarJogosDesafioFranquia(franquiaID int64, jogos []igdbclient.Game, agora ...time.Time) []igdbclient.Game {
+	return filtrarJogosDesafioFranquia(franquiaID, jogos, agora...)
+}
+
+func filtrarJogosDesafioFranquia(franquiaID int64, jogos []igdbclient.Game, agora ...time.Time) []igdbclient.Game {
+	var filtrados []igdbclient.Game
+	refTime := time.Now()
+	if len(agora) > 0 {
+		refTime = agora[0]
+	}
+	agoraUnix := refTime.Unix()
+
+	for _, g := range jogos {
+		switch g.GameType {
+		case igdbclient.GameTypeMainGame,
+			igdbclient.GameTypeRemake,
+			igdbclient.GameTypeRemaster,
+			igdbclient.GameTypeExpandedGame,
+			igdbclient.GameTypePort,
+			igdbclient.GameTypeFork,
+			igdbclient.GameTypeUpdate:
+		default:
+			continue
+		}
+
+		if g.VersionParent != nil {
+			continue
+		}
+
+		if g.FirstReleaseDate == nil || *g.FirstReleaseDate > agoraUnix {
+			continue
+		}
+
+		if g.Franchise != nil && *g.Franchise != franquiaID {
+			continue
+		}
+
+		if len(g.Franchises) > 0 {
+			pertence := false
+			for _, fid := range g.Franchises {
+				if fid == franquiaID {
+					pertence = true
+					break
+				}
+			}
+			if !pertence {
+				continue
+			}
+		}
+
+		filtrados = append(filtrados, g)
+	}
+
+	seen := make(map[int64]bool, len(filtrados))
+	unicos := make([]igdbclient.Game, 0, len(filtrados))
+	for _, g := range filtrados {
+		if !seen[g.ID] {
+			seen[g.ID] = true
+			unicos = append(unicos, g)
+		}
+	}
+
+	sort.SliceStable(unicos, func(i, j int) bool {
+		dateA := *unicos[i].FirstReleaseDate
+		dateB := *unicos[j].FirstReleaseDate
+		if dateA != dateB {
+			return dateA < dateB
+		}
+		return unicos[i].Name < unicos[j].Name
+	})
+
+	return unicos
+}
+
+func MapearTipoJogo(gameType int) string {
+	switch gameType {
+	case igdbclient.GameTypeMainGame:
+		return "main_game"
+	case igdbclient.GameTypeRemake:
+		return "remake"
+	case igdbclient.GameTypeRemaster:
+		return "remaster"
+	case igdbclient.GameTypeExpandedGame:
+		return "expanded_game"
+	case igdbclient.GameTypePort:
+		return "port"
+	case igdbclient.GameTypeFork:
+		return "fork"
+	case igdbclient.GameTypeUpdate:
+		return "update"
+	default:
+		return "outro"
+	}
 }
 
 func (svc *IGDBService) jogosSnapshot(ctx context.Context, key string, buscar func() ([]igdbclient.Game, error)) ([]igdbclient.Game, error) {

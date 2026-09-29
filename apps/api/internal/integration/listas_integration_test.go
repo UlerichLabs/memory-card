@@ -73,6 +73,20 @@ func (m *mockIntegrationIGDB) AtualizarJogosDaFranquia(ctx context.Context, id i
 	return []igdbclient.Game{}, nil
 }
 
+func (m *mockIntegrationIGDB) JogosDaFranquiaParaDesafio(ctx context.Context, id int64) ([]igdbclient.Game, error) {
+	if m.jogosDaFranquiaFn != nil {
+		return m.jogosDaFranquiaFn(ctx, id)
+	}
+	return []igdbclient.Game{}, nil
+}
+
+func (m *mockIntegrationIGDB) AtualizarJogosDaFranquiaParaDesafio(ctx context.Context, id int64) ([]igdbclient.Game, error) {
+	if m.atualizarJogosDaFranquiaFn != nil {
+		return m.atualizarJogosDaFranquiaFn(ctx, id)
+	}
+	return []igdbclient.Game{}, nil
+}
+
 func setupListasIntegrationEnv(t *testing.T) *listasIntegrationEnv {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
@@ -156,10 +170,12 @@ func setupListasIntegrationEnv(t *testing.T) *listasIntegrationEnv {
 	privadas.DELETE("/listas/:id", listasHandler.ExcluirLista)
 	privadas.POST("/listas/:id/itens", listasHandler.AdicionarItem)
 	privadas.DELETE("/listas/:id/itens/:itemId", listasHandler.ExcluirItem)
+	privadas.POST("/listas/:id/itens/:itemId/restaurar", listasHandler.RestaurarItem)
 	privadas.PUT("/listas/:id/ordem", listasHandler.ReordenarItens)
 	privadas.PUT("/listas/:id/itens/:itemId/zeramento", listasHandler.AssociarJogoZerado)
 	privadas.DELETE("/listas/:id/itens/:itemId/zeramento", listasHandler.DesassociarJogoZerado)
 	privadas.POST("/listas/:id/sincronizar", listasHandler.SincronizarFranquia)
+	privadas.GET("/franquias/:igdbId/previa-desafio", listasHandler.PreviaDesafioFranquia)
 
 	return &listasIntegrationEnv{
 		pool:       pool,
@@ -228,6 +244,21 @@ func TestIntegration_MigrationUpDown(t *testing.T) {
 		t.Fatalf("falha ao executar migration down: %v", err)
 	}
 
+	var colExists bool
+	err = env.pool.QueryRow(context.Background(),
+		"SELECT EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'lista_itens' AND column_name = 'ignorado')",
+	).Scan(&colExists)
+	if err != nil {
+		t.Fatalf("consulta coluna ignorado: %v", err)
+	}
+	if colExists {
+		t.Fatal("esperava que a coluna ignorado fosse removida apos migration down 0010")
+	}
+
+	if err := m.Steps(-1); err != nil {
+		t.Fatalf("falha ao executar migration down 0009: %v", err)
+	}
+
 	var tableExists bool
 	err = env.pool.QueryRow(context.Background(),
 		"SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'listas')",
@@ -248,6 +279,13 @@ func TestIntegration_MigrationUpDown(t *testing.T) {
 	).Scan(&tableExists)
 	if err != nil || !tableExists {
 		t.Fatalf("esperava que a tabela listas existisse apos migration up, erro: %v", err)
+	}
+
+	err = env.pool.QueryRow(context.Background(),
+		"SELECT EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'lista_itens' AND column_name = 'ignorado')",
+	).Scan(&colExists)
+	if err != nil || !colExists {
+		t.Fatalf("esperava que a coluna ignorado existisse apos migration up, erro: %v", err)
 	}
 }
 
@@ -700,6 +738,7 @@ func TestIntegration_IsolamentoEntreUsuarios(t *testing.T) {
 		{"PUT", fmt.Sprintf("/api/v1/listas/%d/itens/%d/zeramento", listaIDA, itemIDA), `{"jogo_zerado_id":1}`},
 		{"DELETE", fmt.Sprintf("/api/v1/listas/%d/itens/%d/zeramento", listaIDA, itemIDA), ""},
 		{"POST", fmt.Sprintf("/api/v1/listas/%d/sincronizar", listaIDA), ""},
+		{"POST", fmt.Sprintf("/api/v1/listas/%d/itens/%d/restaurar", listaIDA, itemIDA), ""},
 	}
 
 	for _, tt := range tentativas {
@@ -714,5 +753,189 @@ func TestIntegration_IsolamentoEntreUsuarios(t *testing.T) {
 				t.Fatalf("esperava 404 para acesso indevido do usuario B em %s %s, obteve: %d", tt.metodo, tt.url, rec.Code)
 			}
 		})
+	}
+}
+
+func TestListasIntegration_DesafioFranquiaCalibrado(t *testing.T) {
+	env := setupListasIntegrationEnv(t)
+	defer env.pool.Close()
+
+	userEmail := fmt.Sprintf("calibrado_%s@test.com", uuid.NewString()[:8])
+	usuarioID := criarUsuarioNoBanco(t, env.pool, userEmail)
+	token := gerarTokenIntegracao(t, env.secret, usuarioID)
+
+	pastDate := time.Now().Add(-24 * time.Hour).Unix()
+	igdbMock := &mockIntegrationIGDB{
+		obterFranquiaFn: func(ctx context.Context, id int64) (*igdbclient.Franchise, error) {
+			return &igdbclient.Franchise{ID: id, Name: "The Legend of Zelda"}, nil
+		},
+		jogosDaFranquiaFn: func(ctx context.Context, id int64) ([]igdbclient.Game, error) {
+			return []igdbclient.Game{
+				{ID: 1001, Name: "Zelda 1", GameType: igdbclient.GameTypeMainGame, FirstReleaseDate: &pastDate},
+				{ID: 1002, Name: "Zelda 2", GameType: igdbclient.GameTypeMainGame, FirstReleaseDate: &pastDate},
+				{ID: 1003, Name: "Zelda 3", GameType: igdbclient.GameTypeMainGame, FirstReleaseDate: &pastDate},
+			}, nil
+		},
+	}
+
+	listasService := service.NewListasService(env.listasRepo, igdbMock)
+	listasHandler := handler.NewListasHandler(listasService)
+	router := gin.New()
+	privadas := middleware.GrupoPrivado(router, env.tokens)
+	privadas.GET("/listas", listasHandler.ListarListas)
+	privadas.POST("/listas", listasHandler.CriarLista)
+	privadas.GET("/listas/:id", listasHandler.ObterLista)
+	privadas.PUT("/listas/:id", listasHandler.AtualizarLista)
+	privadas.DELETE("/listas/:id/itens/:itemId", listasHandler.ExcluirItem)
+	privadas.POST("/listas/:id/itens/:itemId/restaurar", listasHandler.RestaurarItem)
+	privadas.POST("/listas/:id/sincronizar", listasHandler.SincronizarFranquia)
+	privadas.GET("/franquias/:igdbId/previa-desafio", listasHandler.PreviaDesafioFranquia)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/franquias/596/previa-desafio", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("falha ao obter previa: %d - %s", w.Code, w.Body.String())
+	}
+
+	var previaResp struct {
+		Data service.PreviaDesafioResultado `json:"data"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &previaResp); err != nil {
+		t.Fatalf("falha ao decodificar previa: %v", err)
+	}
+	if previaResp.Data.Total != 3 {
+		t.Fatalf("esperava 3 jogos na previa, obteve %d", previaResp.Data.Total)
+	}
+
+	criarBody := `{
+		"tipo": "desafio",
+		"nome": "Zelda Calibrado",
+		"regra": {
+			"tipo": "franquia",
+			"igdb_id": 596,
+			"igdb_ids_ignorados": [1001]
+		},
+		"meta": 2
+	}`
+	req = httptest.NewRequest(http.MethodPost, "/api/v1/listas", bytes.NewBufferString(criarBody))
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("falha ao criar lista: %d - %s", w.Code, w.Body.String())
+	}
+
+	var listaCriada struct {
+		Data service.ListaDetalhada `json:"data"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &listaCriada); err != nil {
+		t.Fatalf("falha ao decodificar lista criada: %v", err)
+	}
+	listaID := listaCriada.Data.ID
+	if listaCriada.Data.TotalItens != 2 {
+		t.Fatalf("esperava 2 itens ativos, obteve %d", listaCriada.Data.TotalItens)
+	}
+	if listaCriada.Data.TotalIgnorados != 1 {
+		t.Fatalf("esperava 1 item ignorado, obteve %d", listaCriada.Data.TotalIgnorados)
+	}
+
+	var itemIgnoradoID int64
+	var itemAtivoID int64
+	for _, it := range listaCriada.Data.Itens {
+		if it.IgdbID != nil && *it.IgdbID == 1001 {
+			itemIgnoradoID = it.ID
+			if !it.Ignorado {
+				t.Fatalf("esperava item 1001 como ignorado")
+			}
+		}
+		if it.IgdbID != nil && *it.IgdbID == 1002 {
+			itemAtivoID = it.ID
+			if it.Ignorado {
+				t.Fatalf("esperava item 1002 como ativo")
+			}
+		}
+	}
+
+	req = httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/api/v1/listas/%d/itens/%d", listaID, itemAtivoID), nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusNoContent {
+		t.Fatalf("falha ao excluir item ativo: %d - %s", w.Code, w.Body.String())
+	}
+
+	req = httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/v1/listas/%d", listaID), nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("falha ao obter lista apos exclusao: %d", w.Code)
+	}
+	var listaAposExclusao struct {
+		Data service.ListaDetalhada `json:"data"`
+	}
+	_ = json.Unmarshal(w.Body.Bytes(), &listaAposExclusao)
+	if listaAposExclusao.Data.TotalItens != 1 {
+		t.Fatalf("esperava 1 item ativo apos exclusao, obteve %d", listaAposExclusao.Data.TotalItens)
+	}
+	if listaAposExclusao.Data.TotalIgnorados != 2 {
+		t.Fatalf("esperava 2 itens ignorados apos exclusao, obteve %d", listaAposExclusao.Data.TotalIgnorados)
+	}
+
+	req = httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/v1/listas/%d/itens/%d/restaurar", listaID, itemIgnoradoID), nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("falha ao restaurar item: %d - %s", w.Code, w.Body.String())
+	}
+
+	req = httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/v1/listas/%d", listaID), nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	var listaAposRestauracao struct {
+		Data service.ListaDetalhada `json:"data"`
+	}
+	_ = json.Unmarshal(w.Body.Bytes(), &listaAposRestauracao)
+	if listaAposRestauracao.Data.TotalItens != 2 {
+		t.Fatalf("esperava 2 itens ativos apos restauracao, obteve %d", listaAposRestauracao.Data.TotalItens)
+	}
+	if listaAposRestauracao.Data.TotalIgnorados != 1 {
+		t.Fatalf("esperava 1 item ignorado apos restauracao, obteve %d", listaAposRestauracao.Data.TotalIgnorados)
+	}
+
+	req = httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/v1/listas/%d/sincronizar", listaID), nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("falha ao sincronizar: %d - %s", w.Code, w.Body.String())
+	}
+	var sincResp struct {
+		Adicionados int `json:"adicionados"`
+	}
+	_ = json.Unmarshal(w.Body.Bytes(), &sincResp)
+	if sincResp.Adicionados != 0 {
+		t.Fatalf("sincronizacao nao deveria readicionar itens ignorados, adicionou %d", sincResp.Adicionados)
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/api/v1/listas", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("falha ao listar listas: %d", w.Code)
+	}
+	var rawResp map[string]json.RawMessage
+	_ = json.Unmarshal(w.Body.Bytes(), &rawResp)
+	if _, ok := rawResp["data"]; !ok {
+		t.Fatalf("esperava chave 'data' na resposta")
+	}
+	if _, ok := rawResp["dados"]; ok {
+		t.Fatalf("chave 'dados' duplicada nao deve estar presente")
 	}
 }

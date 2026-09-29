@@ -34,10 +34,16 @@ WHERE id = $1 AND usuario_id = $2;
 
 -- name: CriarItemLista :one
 INSERT INTO lista_itens (
-    lista_id, igdb_id, nome, console, igdb_capa_url, ano_lancamento, posicao, jogo_zerado_id
+    lista_id, igdb_id, nome, console, igdb_capa_url, ano_lancamento, posicao, jogo_zerado_id, ignorado
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8
+    $1, $2, $3, $4, $5, $6, $7, $8, $9
 ) RETURNING *;
+
+-- name: DefinirIgnoradoItem :one
+UPDATE lista_itens
+SET ignorado = $3
+WHERE id = $1 AND lista_id = $2
+RETURNING *;
 
 -- name: BuscarItemPorID :one
 SELECT i.*

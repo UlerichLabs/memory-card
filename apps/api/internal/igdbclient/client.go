@@ -72,6 +72,9 @@ type Game struct {
 	Summary          string     `json:"summary,omitempty"`
 	GameType         int        `json:"game_type"`
 	TotalRatingCount *int       `json:"total_rating_count,omitempty"`
+	VersionParent    *int64     `json:"version_parent,omitempty"`
+	Franchise        *int64     `json:"franchise,omitempty"`
+	Franchises       []int64    `json:"franchises,omitempty"`
 }
 
 type Platform struct {
@@ -251,6 +254,10 @@ func (c *Client) FranchiseDetails(ctx context.Context, id int64) (*Franchise, er
 
 func (c *Client) GamesByFranchise(ctx context.Context, id int64) ([]Game, error) {
 	return c.games(ctx, fmt.Sprintf("fields id,name,cover.url,first_release_date; where franchises = (%d); limit 500;", id))
+}
+
+func (c *Client) GamesByFranchiseParaDesafio(ctx context.Context, id int64) ([]Game, error) {
+	return c.games(ctx, fmt.Sprintf("fields id,name,cover.url,first_release_date,game_type,version_parent,franchise,franchises; where franchises = (%d); limit 500;", id))
 }
 
 func (c *Client) games(ctx context.Context, query string) ([]Game, error) {

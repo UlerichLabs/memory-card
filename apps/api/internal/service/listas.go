@@ -28,6 +28,8 @@ var (
 	ErrListaRegraInvalida             = errors.New("listas.regra_invalida")
 	ErrListaMetaInvalida              = errors.New("listas.meta_invalida")
 	ErrListaFranquiaNaoEncontrada     = errors.New("listas.franquia_nao_encontrada")
+	ErrListaFranquiaSemJogos          = errors.New("listas.franquia_sem_jogos")
+	ErrListaRestauracaoNaoPermitida   = errors.New("listas.restauracao_nao_permitida")
 	ErrListaCampoImutavel             = errors.New("listas.campo_imutavel")
 	ErrListaNaoEncontrada             = errors.New("listas.nao_encontrada")
 	ErrListaItemNaoEncontrado         = errors.New("listas.item_nao_encontrado")
@@ -42,6 +44,8 @@ type ListasIGDBService interface {
 	ObterFranquia(ctx context.Context, id int64) (*igdbclient.Franchise, error)
 	JogosDaFranquia(ctx context.Context, id int64) ([]igdbclient.Game, error)
 	AtualizarJogosDaFranquia(ctx context.Context, id int64) ([]igdbclient.Game, error)
+	JogosDaFranquiaParaDesafio(ctx context.Context, id int64) ([]igdbclient.Game, error)
+	AtualizarJogosDaFranquiaParaDesafio(ctx context.Context, id int64) ([]igdbclient.Game, error)
 }
 
 type RegraDetalhe struct {
@@ -74,6 +78,7 @@ type ListaItemDetalhe struct {
 	Posicao       int              `json:"posicao"`
 	Origem        string           `json:"origem"`
 	Zerado        bool             `json:"zerado"`
+	Ignorado      bool             `json:"ignorado"`
 	JogoZerado    *JogoZeradoMatch `json:"jogo_zerado"`
 }
 
@@ -85,6 +90,7 @@ type ListaResumo struct {
 	Regra          *RegraDetalhe     `json:"regra"`
 	Meta           *int              `json:"meta"`
 	TotalItens     int               `json:"total_itens"`
+	TotalIgnorados int               `json:"total_ignorados"`
 	ItensPendentes int               `json:"itens_pendentes"`
 	Progresso      *ProgressoDetalhe `json:"progresso"`
 	CreatedAt      time.Time         `json:"created_at"`
@@ -101,10 +107,32 @@ type SincronizarResultado struct {
 	Adicionados int `json:"adicionados"`
 }
 
+type PreviaFranquiaInfo struct {
+	IgdbID int64  `json:"igdb_id"`
+	Nome   string `json:"nome"`
+}
+
+type PreviaJogoItem struct {
+	IgdbID        int32   `json:"igdb_id"`
+	Nome          string  `json:"nome"`
+	IgdbCapaURL   *string `json:"igdb_capa_url"`
+	AnoLancamento *int    `json:"ano_lancamento"`
+	Tipo          string  `json:"tipo"`
+	JaZerado      bool    `json:"ja_zerado"`
+	JogoZeradoID  *int32  `json:"jogo_zerado_id"`
+}
+
+type PreviaDesafioResultado struct {
+	Franquia PreviaFranquiaInfo `json:"franquia"`
+	Total    int                `json:"total"`
+	Jogos    []*PreviaJogoItem  `json:"jogos"`
+}
+
 type CriarListaRegraInput struct {
-	Tipo   string `json:"tipo"`
-	Valor  string `json:"valor"`
-	IgdbID *int32 `json:"igdb_id"`
+	Tipo              string  `json:"tipo"`
+	Valor             string  `json:"valor"`
+	IgdbID            *int32  `json:"igdb_id"`
+	IgdbIDsIgnorados []int32 `json:"igdb_ids_ignorados,omitempty"`
 }
 
 type CriarListaInput struct {
@@ -225,30 +253,44 @@ func (s *ListasService) CriarLista(ctx context.Context, input CriarListaInput) (
 			return nil, ErrListaFranquiaNaoEncontrada
 		}
 
-		games, err := s.igdb.JogosDaFranquia(ctx, int64(*input.Regra.IgdbID))
+		games, err := s.igdb.JogosDaFranquiaParaDesafio(ctx, int64(*input.Regra.IgdbID))
 		if err != nil {
 			return nil, err
 		}
 
-		sort.SliceStable(games, func(i, j int) bool {
+		filtered := filtrarJogosDesafioFranquia(int64(*input.Regra.IgdbID), games)
+		if len(filtered) == 0 {
+			return nil, ErrListaFranquiaSemJogos
+		}
+
+		sort.SliceStable(filtered, func(i, j int) bool {
 			dateA := int64(1<<62 - 1)
-			if games[i].FirstReleaseDate != nil {
-				dateA = *games[i].FirstReleaseDate
+			if filtered[i].FirstReleaseDate != nil {
+				dateA = *filtered[i].FirstReleaseDate
 			}
 			dateB := int64(1<<62 - 1)
-			if games[j].FirstReleaseDate != nil {
-				dateB = *games[j].FirstReleaseDate
+			if filtered[j].FirstReleaseDate != nil {
+				dateB = *filtered[j].FirstReleaseDate
 			}
 			if dateA != dateB {
 				return dateA < dateB
 			}
-			return games[i].ID < games[j].ID
+			return filtered[i].ID < filtered[j].ID
 		})
 
-		seenIDs := make(map[int32]bool, len(games))
-		itensParams := make([]repository.CriarItemParams, 0, len(games))
+		ignoradoSet := make(map[int32]bool)
+		if input.Regra != nil {
+			for _, id := range input.Regra.IgdbIDsIgnorados {
+				ignoradoSet[id] = true
+			}
+		}
+
+		seenIDs := make(map[int32]bool, len(filtered))
+		itensParams := make([]repository.CriarItemParams, 0, len(filtered))
 		pos := 1
-		for _, g := range games {
+		nonIgnoredCount := 0
+
+		for _, g := range filtered {
 			gid := int32(g.ID)
 			if seenIDs[gid] {
 				continue
@@ -269,14 +311,30 @@ func (s *ListasService) CriarLista(ctx context.Context, input CriarListaInput) (
 				ano = &y
 			}
 
+			isIgnorado := ignoradoSet[gid]
+			if !isIgnorado {
+				nonIgnoredCount++
+			}
+
 			itensParams = append(itensParams, repository.CriarItemParams{
 				IgdbID:        &gid,
 				Nome:          g.Name,
 				IgdbCapaURL:   capaURL,
 				AnoLancamento: ano,
 				Posicao:       pos,
+				Ignorado:      isIgnorado,
 			})
 			pos++
+		}
+
+		if nonIgnoredCount == 0 {
+			return nil, ErrListaFranquiaSemJogos
+		}
+
+		if input.Meta != nil {
+			if *input.Meta < 1 || *input.Meta > nonIgnoredCount {
+				return nil, ErrListaMetaInvalida
+			}
 		}
 
 		lista, _, err := s.repo.CriarComItens(ctx, repository.CriarListaComItensParams{
@@ -459,21 +517,32 @@ func (s *ListasService) AtualizarLista(ctx context.Context, input AtualizarLista
 			return nil, ErrListaMetaInvalida
 		}
 		metaPtr = nil
+	} else if lista.RegraTipo != nil && *lista.RegraTipo == "franquia" {
+		if input.Meta != nil {
+			if *input.Meta < 1 {
+				return nil, ErrListaMetaInvalida
+			}
+			dbItens, err := s.repo.ListarItensPorLista(ctx, input.ID, input.UsuarioID)
+			if err != nil {
+				return nil, err
+			}
+			ativos := 0
+			for _, it := range dbItens {
+				if !it.Ignorado {
+					ativos++
+				}
+			}
+			if *input.Meta > ativos {
+				return nil, ErrListaMetaInvalida
+			}
+			metaPtr = input.Meta
+		}
 	} else {
-		if lista.RegraTipo != nil && (*lista.RegraTipo == "plataforma" || *lista.RegraTipo == "genero") {
-			if input.Meta != nil {
-				if *input.Meta < 1 || *input.Meta > 10000 {
-					return nil, ErrListaMetaInvalida
-				}
-				metaPtr = input.Meta
+		if input.Meta != nil {
+			if *input.Meta < 1 || *input.Meta > 10000 {
+				return nil, ErrListaMetaInvalida
 			}
-		} else {
-			if input.Meta != nil {
-				if *input.Meta < 1 || *input.Meta > 10000 {
-					return nil, ErrListaMetaInvalida
-				}
-				metaPtr = input.Meta
-			}
+			metaPtr = input.Meta
 		}
 	}
 
@@ -552,7 +621,34 @@ func (s *ListasService) AdicionarItem(ctx context.Context, input AdicionarItemIn
 }
 
 func (s *ListasService) ExcluirItem(ctx context.Context, itemID int64, listaID int64, usuarioID int32) error {
-	err := s.repo.ExcluirItemERecompactar(ctx, itemID, listaID, usuarioID)
+	lista, err := s.repo.BuscarPorID(ctx, listaID, usuarioID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrListaNaoEncontrada
+		}
+		return err
+	}
+	if lista == nil {
+		return ErrListaNaoEncontrada
+	}
+
+	item, err := s.repo.BuscarItemPorID(ctx, itemID, listaID, usuarioID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrListaItemNaoEncontrado
+		}
+		return err
+	}
+	if item == nil {
+		return ErrListaItemNaoEncontrado
+	}
+
+	if lista.Tipo == "desafio" && lista.RegraTipo != nil && *lista.RegraTipo == "franquia" {
+		_, err := s.repo.DefinirIgnoradoItem(ctx, itemID, listaID, usuarioID, true)
+		return err
+	}
+
+	err = s.repo.ExcluirItemERecompactar(ctx, itemID, listaID, usuarioID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrListaItemNaoEncontrado
@@ -560,6 +656,46 @@ func (s *ListasService) ExcluirItem(ctx context.Context, itemID int64, listaID i
 		return err
 	}
 	return nil
+}
+
+func (s *ListasService) RestaurarItem(ctx context.Context, itemID int64, listaID int64, usuarioID int32) (*ListaItemDetalhe, error) {
+	lista, err := s.repo.BuscarPorID(ctx, listaID, usuarioID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrListaNaoEncontrada
+		}
+		return nil, err
+	}
+	if lista == nil {
+		return nil, ErrListaNaoEncontrada
+	}
+
+	if lista.Tipo != "desafio" || lista.RegraTipo == nil || *lista.RegraTipo != "franquia" {
+		return nil, ErrListaRestauracaoNaoPermitida
+	}
+
+	item, err := s.repo.BuscarItemPorID(ctx, itemID, listaID, usuarioID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrListaItemNaoEncontrado
+		}
+		return nil, err
+	}
+	if item == nil {
+		return nil, ErrListaItemNaoEncontrado
+	}
+
+	updatedItem, err := s.repo.DefinirIgnoradoItem(ctx, itemID, listaID, usuarioID, false)
+	if err != nil {
+		return nil, err
+	}
+
+	jogos, err := s.repo.ListarJogosZeradosUsuario(ctx, usuarioID)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.construirItemDetalhe(updatedItem, jogos), nil
 }
 
 func (s *ListasService) ReordenarItens(ctx context.Context, listaID int64, usuarioID int32, itemIDs []int64) ([]*ListaItemDetalhe, error) {
@@ -712,10 +848,12 @@ func (s *ListasService) SincronizarFranquia(ctx context.Context, listaID int64, 
 		return nil, ErrListaSincronizacaoNaoPermitida
 	}
 
-	games, err := s.igdb.AtualizarJogosDaFranquia(ctx, int64(*lista.RegraIgdbID))
+	games, err := s.igdb.AtualizarJogosDaFranquiaParaDesafio(ctx, int64(*lista.RegraIgdbID))
 	if err != nil {
 		return nil, err
 	}
+
+	filtered := filtrarJogosDesafioFranquia(int64(*lista.RegraIgdbID), games)
 
 	itensExistentes, err := s.repo.ListarItensPorLista(ctx, listaID, usuarioID)
 	if err != nil {
@@ -730,7 +868,7 @@ func (s *ListasService) SincronizarFranquia(ctx context.Context, listaID int64, 
 	}
 
 	novosJogos := make([]igdbclient.Game, 0)
-	for _, g := range games {
+	for _, g := range filtered {
 		gid := int32(g.ID)
 		if !igdbIDsExistentes[gid] {
 			novosJogos = append(novosJogos, g)
@@ -752,9 +890,15 @@ func (s *ListasService) SincronizarFranquia(ctx context.Context, listaID int64, 
 		return novosJogos[i].ID < novosJogos[j].ID
 	})
 
+	seenIDs := make(map[int32]bool, len(novosJogos))
 	novosParams := make([]repository.CriarItemParams, 0, len(novosJogos))
 	for _, g := range novosJogos {
 		gid := int32(g.ID)
+		if seenIDs[gid] {
+			continue
+		}
+		seenIDs[gid] = true
+
 		var capaURL *string
 		if g.Cover != nil {
 			g.Cover.EnsureURL()
@@ -773,6 +917,7 @@ func (s *ListasService) SincronizarFranquia(ctx context.Context, listaID int64, 
 			Nome:          g.Name,
 			IgdbCapaURL:   capaURL,
 			AnoLancamento: ano,
+			Ignorado:      false,
 		})
 	}
 
@@ -789,6 +934,112 @@ func (s *ListasService) SincronizarFranquia(ctx context.Context, listaID int64, 
 	return &SincronizarResultado{
 		ListaDetalhada: *listaCompleta,
 		Adicionados:    adicionados,
+	}, nil
+}
+
+func (s *ListasService) PreviaDesafioFranquia(ctx context.Context, franquiaID int64, usuarioID int32) (*PreviaDesafioResultado, error) {
+	if franquiaID <= 0 {
+		return nil, ErrListaIDInvalido
+	}
+
+	franchise, err := s.igdb.ObterFranquia(ctx, franquiaID)
+	if err != nil {
+		if errors.Is(err, ErrJogoIGDBNaoEncontrado) {
+			return nil, ErrListaFranquiaNaoEncontrada
+		}
+		return nil, err
+	}
+	if franchise == nil {
+		return nil, ErrListaFranquiaNaoEncontrada
+	}
+
+	games, err := s.igdb.JogosDaFranquiaParaDesafio(ctx, franquiaID)
+	if err != nil {
+		return nil, err
+	}
+
+	filtered := filtrarJogosDesafioFranquia(franquiaID, games)
+	if len(filtered) == 0 {
+		return nil, ErrListaFranquiaSemJogos
+	}
+
+	sort.SliceStable(filtered, func(i, j int) bool {
+		dateA := int64(1<<62 - 1)
+		if filtered[i].FirstReleaseDate != nil {
+			dateA = *filtered[i].FirstReleaseDate
+		}
+		dateB := int64(1<<62 - 1)
+		if filtered[j].FirstReleaseDate != nil {
+			dateB = *filtered[j].FirstReleaseDate
+		}
+		if dateA != dateB {
+			return dateA < dateB
+		}
+		return filtered[i].ID < filtered[j].ID
+	})
+
+	jogosZerados, err := s.repo.ListarJogosZeradosUsuario(ctx, usuarioID)
+	if err != nil {
+		return nil, err
+	}
+
+	matchByIgdbID := make(map[int32]int32)
+	for _, j := range jogosZerados {
+		if j.IgdbID != nil {
+			if _, exists := matchByIgdbID[*j.IgdbID]; !exists {
+				matchByIgdbID[*j.IgdbID] = j.ID
+			}
+		}
+	}
+
+	seenIDs := make(map[int32]bool, len(filtered))
+	previaItens := make([]*PreviaJogoItem, 0, len(filtered))
+	for _, g := range filtered {
+		gid := int32(g.ID)
+		if seenIDs[gid] {
+			continue
+		}
+		seenIDs[gid] = true
+
+		var capaURL *string
+		if g.Cover != nil {
+			g.Cover.EnsureURL()
+			if g.Cover.URL != "" {
+				c := g.Cover.URL
+				capaURL = &c
+			}
+		}
+		var ano *int
+		if g.FirstReleaseDate != nil {
+			y := time.Unix(*g.FirstReleaseDate, 0).UTC().Year()
+			ano = &y
+		}
+
+		var jogoZeradoID *int32
+		jaZerado := false
+		if zid, ok := matchByIgdbID[gid]; ok {
+			jaZerado = true
+			jogoZeradoID = &zid
+		}
+
+		previaItens = append(previaItens, &PreviaJogoItem{
+			IgdbID:        gid,
+			Nome:          g.Name,
+			IgdbCapaURL:   capaURL,
+			AnoLancamento: ano,
+			Tipo:          MapearTipoJogo(g.GameType),
+			JaZerado:      jaZerado,
+			JogoZeradoID:  jogoZeradoID,
+		})
+	}
+
+	return &PreviaDesafioResultado{
+		Franquia: PreviaFranquiaInfo{
+			IgdbID: franchise.ID,
+			Nome:   franchise.Name,
+		},
+		Total: len(previaItens),
+		Jogos: previaItens,
 	}, nil
 }
 
@@ -881,6 +1132,7 @@ func (s *ListasService) calcularLista(lista *repository.Lista, jogos []*reposito
 			Regra:          regra,
 			Meta:           lista.Meta,
 			TotalItens:     len(matchedJogos),
+			TotalIgnorados: 0,
 			ItensPendentes: 0,
 			Progresso:      progresso,
 			CreatedAt:      lista.CreatedAt,
@@ -893,10 +1145,17 @@ func (s *ListasService) calcularLista(lista *repository.Lista, jogos []*reposito
 	detalhesItens := make([]*ListaItemDetalhe, 0, len(itens))
 	var matchedFinalizados []time.Time
 	feitos := 0
+	totalItens := 0
+	totalIgnorados := 0
 
 	for _, it := range itens {
 		d := s.construirItemDetalhe(it, jogos)
 		detalhesItens = append(detalhesItens, d)
+		if it.Ignorado {
+			totalIgnorados++
+			continue
+		}
+		totalItens++
 		if d.Zerado {
 			feitos++
 			if d.JogoZerado != nil {
@@ -905,7 +1164,6 @@ func (s *ListasService) calcularLista(lista *repository.Lista, jogos []*reposito
 		}
 	}
 
-	totalItens := len(itens)
 	var progresso *ProgressoDetalhe
 	var itensPendentes int
 
@@ -955,6 +1213,7 @@ func (s *ListasService) calcularLista(lista *repository.Lista, jogos []*reposito
 		Regra:          regra,
 		Meta:           lista.Meta,
 		TotalItens:     totalItens,
+		TotalIgnorados: totalIgnorados,
 		ItensPendentes: itensPendentes,
 		Progresso:      progresso,
 		CreatedAt:      lista.CreatedAt,
@@ -1005,6 +1264,7 @@ func (s *ListasService) construirItemDetalhe(item *repository.ListaItem, jogos [
 		Posicao:       item.Posicao,
 		Origem:        "item",
 		Zerado:        match != nil,
+		Ignorado:      item.Ignorado,
 	}
 
 	if match != nil {

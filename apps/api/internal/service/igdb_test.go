@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/UlerichLabs/memory-card/apps/api/internal/igdbclient"
 )
@@ -47,6 +48,11 @@ func (m *igdbMock) FranchiseDetails(context.Context, int64) (*igdbclient.Franchi
 }
 
 func (m *igdbMock) GamesByFranchise(context.Context, int64) ([]igdbclient.Game, error) {
+	m.franchiseGamesCalls++
+	return []igdbclient.Game{{ID: 8, Name: "Franchise"}}, nil
+}
+
+func (m *igdbMock) GamesByFranchiseParaDesafio(context.Context, int64) ([]igdbclient.Game, error) {
 	m.franchiseGamesCalls++
 	return []igdbclient.Game{{ID: 8, Name: "Franchise"}}, nil
 }
@@ -641,5 +647,151 @@ func TestBuscarJogos_RebaixaSemAvaliacao(t *testing.T) {
 	}
 	if len(games) != 3 || games[0].ID != 1 || games[1].ID != 2 || games[2].ID != 3 {
 		t.Fatalf("games=%+v, esperava resultados sem avaliação no fim", games)
+	}
+}
+
+func TestFiltrarJogosDesafioFranquia(t *testing.T) {
+	refTime := time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC)
+	pastDate := refTime.Add(-24 * time.Hour).Unix()
+	futureDate := refTime.Add(24 * time.Hour).Unix()
+	parentID := int64(999)
+	franchiseID := int64(596)
+	otherFranchiseID := int64(845)
+
+	tests := []struct {
+		name       string
+		game       igdbclient.Game
+		shouldKeep bool
+	}{
+		{
+			name:       "main game valido",
+			game:       igdbclient.Game{ID: 1, Name: "Zelda 1", GameType: igdbclient.GameTypeMainGame, FirstReleaseDate: &pastDate, Franchise: &franchiseID},
+			shouldKeep: true,
+		},
+		{
+			name:       "remake valido",
+			game:       igdbclient.Game{ID: 2, Name: "Link's Awakening Remake", GameType: igdbclient.GameTypeRemake, FirstReleaseDate: &pastDate, Franchise: &franchiseID},
+			shouldKeep: true,
+		},
+		{
+			name:       "remaster valido",
+			game:       igdbclient.Game{ID: 3, Name: "Wind Waker HD", GameType: igdbclient.GameTypeRemaster, FirstReleaseDate: &pastDate, Franchise: &franchiseID},
+			shouldKeep: true,
+		},
+		{
+			name:       "expanded game valido",
+			game:       igdbclient.Game{ID: 4, Name: "Expanded Zelda", GameType: igdbclient.GameTypeExpandedGame, FirstReleaseDate: &pastDate, Franchise: &franchiseID},
+			shouldKeep: true,
+		},
+		{
+			name:       "port valido",
+			game:       igdbclient.Game{ID: 5, Name: "Zelda Port", GameType: igdbclient.GameTypePort, FirstReleaseDate: &pastDate, Franchise: &franchiseID},
+			shouldKeep: true,
+		},
+		{
+			name:       "fork valido",
+			game:       igdbclient.Game{ID: 6, Name: "Zelda Fork", GameType: igdbclient.GameTypeFork, FirstReleaseDate: &pastDate, Franchise: &franchiseID},
+			shouldKeep: true,
+		},
+		{
+			name:       "update valido",
+			game:       igdbclient.Game{ID: 7, Name: "Zelda Update", GameType: igdbclient.GameTypeUpdate, FirstReleaseDate: &pastDate, Franchise: &franchiseID},
+			shouldKeep: true,
+		},
+		{
+			name:       "dlc descartado",
+			game:       igdbclient.Game{ID: 8, Name: "Zelda DLC", GameType: igdbclient.GameTypeDLC, FirstReleaseDate: &pastDate, Franchise: &franchiseID},
+			shouldKeep: false,
+		},
+		{
+			name:       "expansion descartada",
+			game:       igdbclient.Game{ID: 9, Name: "Zelda Expansion", GameType: igdbclient.GameTypeExpansion, FirstReleaseDate: &pastDate, Franchise: &franchiseID},
+			shouldKeep: false,
+		},
+		{
+			name:       "bundle descartado",
+			game:       igdbclient.Game{ID: 10, Name: "Zelda Bundle", GameType: igdbclient.GameTypeBundle, FirstReleaseDate: &pastDate, Franchise: &franchiseID},
+			shouldKeep: false,
+		},
+		{
+			name:       "standalone expansion descartada",
+			game:       igdbclient.Game{ID: 11, Name: "Zelda Standalone", GameType: igdbclient.GameTypeStandaloneExpansion, FirstReleaseDate: &pastDate, Franchise: &franchiseID},
+			shouldKeep: false,
+		},
+		{
+			name:       "mod descartado",
+			game:       igdbclient.Game{ID: 12, Name: "Zelda Mod", GameType: igdbclient.GameTypeMod, FirstReleaseDate: &pastDate, Franchise: &franchiseID},
+			shouldKeep: false,
+		},
+		{
+			name:       "version parent descartado",
+			game:       igdbclient.Game{ID: 13, Name: "Zelda Special Edition", GameType: igdbclient.GameTypeMainGame, FirstReleaseDate: &pastDate, VersionParent: &parentID, Franchise: &franchiseID},
+			shouldKeep: false,
+		},
+		{
+			name:       "data de lancamento nula descartada",
+			game:       igdbclient.Game{ID: 14, Name: "Zelda Unreleased", GameType: igdbclient.GameTypeMainGame, FirstReleaseDate: nil, Franchise: &franchiseID},
+			shouldKeep: false,
+		},
+		{
+			name:       "data futura descartada",
+			game:       igdbclient.Game{ID: 15, Name: "Zelda Future", GameType: igdbclient.GameTypeMainGame, FirstReleaseDate: &futureDate, Franchise: &franchiseID},
+			shouldKeep: false,
+		},
+		{
+			name:       "outra franquia descartada",
+			game:       igdbclient.Game{ID: 16, Name: "Mario Game", GameType: igdbclient.GameTypeMainGame, FirstReleaseDate: &pastDate, Franchise: &otherFranchiseID},
+			shouldKeep: false,
+		},
+		{
+			name:       "franchises contem franquia valida mantido",
+			game:       igdbclient.Game{ID: 17, Name: "Zelda Crossover", GameType: igdbclient.GameTypeMainGame, FirstReleaseDate: &pastDate, Franchises: []int64{franchiseID, otherFranchiseID}},
+			shouldKeep: true,
+		},
+		{
+			name:       "franchises nao contem franquia descartado",
+			game:       igdbclient.Game{ID: 18, Name: "Other Crossover", GameType: igdbclient.GameTypeMainGame, FirstReleaseDate: &pastDate, Franchises: []int64{otherFranchiseID}},
+			shouldKeep: false,
+		},
+		{
+			name:       "sem franchise nem franchises mantido",
+			game:       igdbclient.Game{ID: 19, Name: "Zelda Unknown Franchise", GameType: igdbclient.GameTypeMainGame, FirstReleaseDate: &pastDate},
+			shouldKeep: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			res := FiltrarJogosDesafioFranquia(franchiseID, []igdbclient.Game{tc.game}, refTime)
+			if tc.shouldKeep && len(res) != 1 {
+				t.Fatalf("esperava manter o jogo, mas foi filtrado")
+			}
+			if !tc.shouldKeep && len(res) != 0 {
+				t.Fatalf("esperava filtrar o jogo, mas foi mantido")
+			}
+		})
+	}
+}
+
+func TestMapearTipoJogo(t *testing.T) {
+	tests := []struct {
+		gameType int
+		want     string
+	}{
+		{igdbclient.GameTypeMainGame, "main_game"},
+		{igdbclient.GameTypeRemake, "remake"},
+		{igdbclient.GameTypeRemaster, "remaster"},
+		{igdbclient.GameTypeExpandedGame, "expanded_game"},
+		{igdbclient.GameTypePort, "port"},
+		{igdbclient.GameTypeFork, "fork"},
+		{igdbclient.GameTypeUpdate, "update"},
+		{999, "outro"},
+	}
+
+	for _, tc := range tests {
+		got := MapearTipoJogo(tc.gameType)
+		if got != tc.want {
+			t.Fatalf("MapearTipoJogo(%d) = %q, want %q", tc.gameType, got, tc.want)
+		}
 	}
 }

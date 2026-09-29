@@ -152,10 +152,12 @@ func run() error {
 	privadas.DELETE("/listas/:id", listasHandler.ExcluirLista)
 	privadas.POST("/listas/:id/itens", listasHandler.AdicionarItem)
 	privadas.DELETE("/listas/:id/itens/:itemId", listasHandler.ExcluirItem)
+	privadas.POST("/listas/:id/itens/:itemId/restaurar", listasHandler.RestaurarItem)
 	privadas.PUT("/listas/:id/ordem", listasHandler.ReordenarItens)
 	privadas.PUT("/listas/:id/itens/:itemId/zeramento", listasHandler.AssociarJogoZerado)
 	privadas.DELETE("/listas/:id/itens/:itemId/zeramento", listasHandler.DesassociarJogoZerado)
 	privadas.POST("/listas/:id/sincronizar", listasHandler.SincronizarFranquia)
+	privadas.GET("/franquias/:igdbId/previa-desafio", listasHandler.PreviaDesafioFranquia)
 
 	server := &http.Server{
 		Addr:              ":" + cfg.Port,

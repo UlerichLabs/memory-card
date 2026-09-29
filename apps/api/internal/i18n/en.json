@@ -63,5 +63,7 @@
   "listas.item_duplicado": "This game is already in the list.",
   "listas.ordem_invalida": "Invalid item order.",
   "listas.sincronizacao_nao_permitida": "Synchronization is only allowed for franchise challenges.",
-  "listas.id_invalido": "Invalid identifier."
+  "listas.id_invalido": "Invalid identifier.",
+  "listas.franquia_sem_jogos": "No games found for this franchise.",
+  "listas.restauracao_nao_permitida": "Restoration is only allowed for franchise challenges."
 }

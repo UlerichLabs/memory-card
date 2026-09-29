@@ -344,6 +344,7 @@ type ListaIten struct {
 	Posicao       int32
 	JogoZeradoID  pgtype.Int4
 	CreatedAt     pgtype.Timestamptz
+	Ignorado      bool
 }
 
 type TokensRefreshAtivo struct {
