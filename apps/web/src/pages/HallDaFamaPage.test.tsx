@@ -133,4 +133,106 @@ describe('HallDaFamaPage', () => {
 
     expect(await screen.findByText('Game do Ano de 2024')).toBeInTheDocument()
   })
+
+  it('exibe estado de nenhum Game da Vida quando não houver jogos com nota 11', async () => {
+    vi.spyOn(jogosService, 'obterResumoGameDoAno').mockResolvedValue(resumoMock)
+    vi.spyOn(jogosService, 'listar').mockResolvedValue({
+      data: [],
+      meta: { pagina: 1, por_pagina: 100, total: 0, total_paginas: 0 },
+    })
+
+    renderPage()
+
+    expect(await screen.findByText('Nenhum Game da Vida ainda')).toBeInTheDocument()
+    expect(
+      screen.getByText('Quando um jogo marcar a sua vida, dê nota 11 a ele.')
+    ).toBeInTheDocument()
+  })
+
+  it('modal Trocar: atualiza card do ano e selos de Games da Vida após confirmação', async () => {
+    const jogoA: JogoZeradoDTO = {
+      id: 1,
+      usuario_id: 1,
+      nome: 'Chrono Trigger',
+      console: 'SNES',
+      finalizado_em: '2024-05-15T00:00:00Z',
+      tempo_jogado: 36000,
+      nota: 11,
+      dificuldade: 'A',
+      destaque: true,
+    }
+    const jogoB: JogoZeradoDTO = {
+      id: 2,
+      usuario_id: 1,
+      nome: 'Super Mario 64',
+      console: 'N64',
+      finalizado_em: '2024-06-20T00:00:00Z',
+      tempo_jogado: 40000,
+      nota: 10,
+      dificuldade: 'B',
+      destaque: false,
+    }
+
+    const spyResumo = vi.spyOn(jogosService, 'obterResumoGameDoAno').mockResolvedValue([
+      { ano: 2024, total_jogos: 2, game_do_ano: jogoA },
+    ])
+
+    const spyListar = vi.spyOn(jogosService, 'listar').mockImplementation((params) => {
+      if (params?.ano === 2024) {
+        return Promise.resolve({
+          data: [jogoA, jogoB],
+          meta: { pagina: 1, por_pagina: 100, total: 2, total_paginas: 1 },
+        })
+      }
+      return Promise.resolve({
+        data: [jogoA],
+        meta: { pagina: 1, por_pagina: 100, total: 1, total_paginas: 1 },
+      })
+    })
+
+    vi.spyOn(jogosService, 'definirGameDoAno').mockResolvedValue({
+      ano: 2024,
+      anterior_id: 1,
+      game_do_ano: { ...jogoB, destaque: true },
+    })
+
+    const user = userEvent.setup()
+    renderPage()
+
+    expect(await screen.findByText('Jogo do ano 2024')).toBeInTheDocument()
+
+    const btnTrocar = screen.getByRole('button', { name: 'Trocar' })
+    await user.click(btnTrocar)
+
+    expect(await screen.findByText('Game do Ano de 2024')).toBeInTheDocument()
+
+    spyResumo.mockResolvedValue([
+      { ano: 2024, total_jogos: 2, game_do_ano: { ...jogoB, destaque: true } },
+    ])
+    spyListar.mockImplementation((params) => {
+      if (params?.ano === 2024) {
+        return Promise.resolve({
+          data: [{ ...jogoB, destaque: true }, { ...jogoA, destaque: false }],
+          meta: { pagina: 1, por_pagina: 100, total: 2, total_paginas: 1 },
+        })
+      }
+      return Promise.resolve({
+        data: [{ ...jogoA, destaque: false }],
+        meta: { pagina: 1, por_pagina: 100, total: 1, total_paginas: 1 },
+      })
+    })
+
+    const radioMario = await screen.findByText('Super Mario 64')
+    await user.click(radioMario)
+
+    const btnConfirmar = screen.getByRole('button', { name: /definir como game do ano/i })
+    await user.click(btnConfirmar)
+
+    await waitFor(() => {
+      expect(screen.queryByText('Game do Ano de 2024')).not.toBeInTheDocument()
+    })
+
+    expect(await screen.findByText('Super Mario 64')).toBeInTheDocument()
+    expect(screen.queryByText('Jogo do ano 2024')).not.toBeInTheDocument()
+  })
 })
