@@ -85,12 +85,12 @@ WHERE id = $1 AND lista_id = $2
 RETURNING *;
 
 -- name: ListarJogosZeradosUsuarioParaMatching :many
-SELECT id, usuario_id, igdb_id, nome, console, genero, finalizado_em, nota
+SELECT id, usuario_id, igdb_id, nome, console, genero, finalizado_em, nota, igdb_capa_url
 FROM jogos_zerados
 WHERE usuario_id = $1 AND deleted_at IS NULL
 ORDER BY finalizado_em ASC, id ASC;
 
 -- name: BuscarJogoZeradoDoUsuario :one
-SELECT id, usuario_id, igdb_id, nome, console, genero, finalizado_em, nota
+SELECT id, usuario_id, igdb_id, nome, console, genero, finalizado_em, nota, igdb_capa_url
 FROM jogos_zerados
 WHERE id = $1 AND usuario_id = $2 AND deleted_at IS NULL;

@@ -36,7 +36,6 @@
   "jogos.review_muito_longo": "A review deve ter no máximo 5.000 caracteres.",
   "jogos.destaque_ano_conflito": "já existe um destaque para este ano",
   "jogos.not_found": "Jogo não encontrado.",
-  "jogos.nao_encontrado": "Jogo não encontrado.",
   "jogos.invalid_id": "Identificador de jogo inválido.",
   "jogos.nome_muito_longo": "O nome deve ter no máximo 200 caracteres.",
   "jogos.console_muito_longo": "O console deve ter no máximo 100 caracteres.",

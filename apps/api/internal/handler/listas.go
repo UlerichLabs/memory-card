@@ -499,7 +499,7 @@ func (h *ListasHandler) AssociarJogoZerado(c *gin.Context) {
 		case errors.Is(err, service.ErrListaItemNaoEncontrado):
 			c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"codigo": "listas.item_nao_encontrado", "mensagem": i18n.T(lang, "listas.item_nao_encontrado")}})
 		case errors.Is(err, service.ErrJogoNaoEncontrado):
-			c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"codigo": "jogos.nao_encontrado", "mensagem": i18n.T(lang, "jogos.nao_encontrado")}})
+			c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"codigo": "jogos.not_found", "mensagem": i18n.T(lang, "jogos.not_found")}})
 		default:
 			slog.ErrorContext(c.Request.Context(), "falha ao associar zeramento", "error", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"codigo": "server.internal_error", "mensagem": i18n.T(lang, "server.internal_error")}})

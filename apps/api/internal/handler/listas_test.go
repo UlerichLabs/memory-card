@@ -605,6 +605,19 @@ func TestListasHandler_Zeramento_200_404(t *testing.T) {
 		if w.Code != http.StatusNotFound {
 			t.Fatalf("esperava 404, obteve %d", w.Code)
 		}
+
+		var errResp struct {
+			Error struct {
+				Codigo   string `json:"codigo"`
+				Mensagem string `json:"mensagem"`
+			} `json:"error"`
+		}
+		if err := json.Unmarshal(w.Body.Bytes(), &errResp); err != nil {
+			t.Fatalf("falha ao deserializar erro: %v", err)
+		}
+		if errResp.Error.Codigo != "jogos.not_found" {
+			t.Fatalf("esperava codigo 'jogos.not_found', obteve '%s'", errResp.Error.Codigo)
+		}
 	})
 
 	t.Run("desassociar zeramento 200", func(t *testing.T) {

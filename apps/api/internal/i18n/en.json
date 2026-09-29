@@ -36,7 +36,6 @@
   "jogos.review_muito_longo": "Review must be 5,000 characters or fewer.",
   "jogos.destaque_ano_conflito": "There is already a highlight for this year.",
   "jogos.not_found": "Game not found.",
-  "jogos.nao_encontrado": "Game not found.",
   "jogos.invalid_id": "Invalid game identifier.",
   "jogos.nome_muito_longo": "Game name must be 200 characters or fewer.",
   "jogos.console_muito_longo": "Console must be 100 characters or fewer.",

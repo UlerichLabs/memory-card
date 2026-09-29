@@ -133,7 +133,7 @@ func (q *Queries) BuscarItemPorID(ctx context.Context, arg BuscarItemPorIDParams
 }
 
 const buscarJogoZeradoDoUsuario = `-- name: BuscarJogoZeradoDoUsuario :one
-SELECT id, usuario_id, igdb_id, nome, console, genero, finalizado_em, nota
+SELECT id, usuario_id, igdb_id, nome, console, genero, finalizado_em, nota, igdb_capa_url
 FROM jogos_zerados
 WHERE id = $1 AND usuario_id = $2 AND deleted_at IS NULL
 `
@@ -152,6 +152,7 @@ type BuscarJogoZeradoDoUsuarioRow struct {
 	Genero       pgtype.Text
 	FinalizadoEm pgtype.Timestamp
 	Nota         int32
+	IgdbCapaUrl  pgtype.Text
 }
 
 func (q *Queries) BuscarJogoZeradoDoUsuario(ctx context.Context, arg BuscarJogoZeradoDoUsuarioParams) (BuscarJogoZeradoDoUsuarioRow, error) {
@@ -166,6 +167,7 @@ func (q *Queries) BuscarJogoZeradoDoUsuario(ctx context.Context, arg BuscarJogoZ
 		&i.Genero,
 		&i.FinalizadoEm,
 		&i.Nota,
+		&i.IgdbCapaUrl,
 	)
 	return i, err
 }
@@ -427,7 +429,7 @@ func (q *Queries) ListarItensPorLista(ctx context.Context, listaID int64) ([]Lis
 }
 
 const listarJogosZeradosUsuarioParaMatching = `-- name: ListarJogosZeradosUsuarioParaMatching :many
-SELECT id, usuario_id, igdb_id, nome, console, genero, finalizado_em, nota
+SELECT id, usuario_id, igdb_id, nome, console, genero, finalizado_em, nota, igdb_capa_url
 FROM jogos_zerados
 WHERE usuario_id = $1 AND deleted_at IS NULL
 ORDER BY finalizado_em ASC, id ASC
@@ -442,6 +444,7 @@ type ListarJogosZeradosUsuarioParaMatchingRow struct {
 	Genero       pgtype.Text
 	FinalizadoEm pgtype.Timestamp
 	Nota         int32
+	IgdbCapaUrl  pgtype.Text
 }
 
 func (q *Queries) ListarJogosZeradosUsuarioParaMatching(ctx context.Context, usuarioID int32) ([]ListarJogosZeradosUsuarioParaMatchingRow, error) {
@@ -462,6 +465,7 @@ func (q *Queries) ListarJogosZeradosUsuarioParaMatching(ctx context.Context, usu
 			&i.Genero,
 			&i.FinalizadoEm,
 			&i.Nota,
+			&i.IgdbCapaUrl,
 		); err != nil {
 			return nil, err
 		}

@@ -49,6 +49,7 @@ type JogoZeradoResumo struct {
 	Genero       string
 	FinalizadoEm time.Time
 	Nota         int32
+	IgdbCapaURL  *string
 }
 
 type CriarListaParams struct {
@@ -654,6 +655,9 @@ func (r *SQLListasRepository) ListarJogosZeradosUsuario(ctx context.Context, usu
 		if row.Genero.Valid {
 			item.Genero = row.Genero.String
 		}
+		if row.IgdbCapaUrl.Valid && row.IgdbCapaUrl.String != "" {
+			item.IgdbCapaURL = &row.IgdbCapaUrl.String
+		}
 		res = append(res, item)
 	}
 	return res, nil
@@ -684,6 +688,9 @@ func (r *SQLListasRepository) BuscarJogoZeradoUsuario(ctx context.Context, id in
 	}
 	if row.Genero.Valid {
 		item.Genero = row.Genero.String
+	}
+	if row.IgdbCapaUrl.Valid && row.IgdbCapaUrl.String != "" {
+		item.IgdbCapaURL = &row.IgdbCapaUrl.String
 	}
 	return item, nil
 }
