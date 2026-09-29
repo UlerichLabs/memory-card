@@ -38,6 +38,11 @@ describe('montarQueryString', () => {
     expect(qs).toContain('dificuldade=A')
   })
 
+  it('adiciona parâmetro ordenar quando especificado', () => {
+    expect(montarQueryString({ ordenar: 'nota' })).toBe('ordenar=nota')
+    expect(montarQueryString({ ordenar: 'recentes' })).toBe('ordenar=recentes')
+  })
+
   it('ignora parâmetros vazios ou com espaços em branco', () => {
     const qs = montarQueryString({
       busca: '   ',
@@ -131,5 +136,31 @@ describe('erros de tamanho dos jogos', () => {
       'jogos.tipo_muito_longo', 'jogos.review_muito_longo',
     ])
     expect(JOGOS_CAMPO_ERRO_MENSAGENS['jogos.console_muito_longo'].campo).toBe('console')
+  })
+})
+
+describe('jogosService - game do ano', () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  it('obterResumoGameDoAno busca resumo na rota /jogos/game-do-ano', async () => {
+    const mockResumo = [{ ano: 2026, total_jogos: 5, game_do_ano: null }]
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ data: mockResumo }), { status: 200 })))
+
+    const res = await jogosService.obterResumoGameDoAno('fake-token')
+    expect(res).toEqual(mockResumo)
+  })
+
+  it('definirGameDoAno envia PUT para /jogos/:id/game-do-ano', async () => {
+    const mockResp = { ano: 2026, anterior_id: null, game_do_ano: { id: 10, nome: 'Zelda' } }
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ data: mockResp }), { status: 200 })))
+
+    const res = await jogosService.definirGameDoAno(10, 'fake-token')
+    expect(res).toEqual(mockResp)
+  })
+
+  it('removerGameDoAno envia DELETE para /jogos/:id/game-do-ano', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 204 })))
+
+    await expect(jogosService.removerGameDoAno(10, 'fake-token')).resolves.toBeUndefined()
   })
 })

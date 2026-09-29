@@ -147,6 +147,45 @@
     --dif-pill-neutra-bg: #25262c;
     --dif-barra-trilho: #2f3037;
 
+    --nav-link-active-text: #8fa8ff;
+    --nav-link-active-border: #6b8dff;
+
+    --hall-subtitulo: #a3a5ae;
+    --hall-ouro: #f0be50;
+    --hall-dark-icon: #1e1f24;
+    --hall-muted: #8b8d97;
+    --hall-divider: #2a2b32;
+    --hall-plataforma: #a3a5ae;
+    --hall-card-bg: #1b1c21;
+    --hall-card-border: #4d4128;
+    --hall-ano-ouro: #f0be50;
+    --hall-andamento-bg: #232a45;
+    --hall-andamento-border: #3d4c86;
+    --hall-andamento-text: #c9d3ff;
+    --hall-btn-trocar-border: #3a3c46;
+    --hall-btn-trocar-text: #c6c7ce;
+    --hall-card-vazio-border: #3a3c46;
+    --hall-ano-vazio: #6f7285;
+    --hall-coroa-vazio: #565968;
+    --hall-vazio-titulo: #c6c7ce;
+    --hall-btn-escolher-bg: #2a2412;
+    --hall-btn-escolher-border: #8a6d2c;
+    --hall-pill-contagem-bg: #25262c;
+    --hall-pill-contagem-border: #383942;
+    --hall-pill-contagem-text: #c6c7ce;
+    --hall-link-biblioteca: #8fa8ff;
+    --hall-modal-bg: #1e1f24;
+    --hall-modal-border: #2f3037;
+    --hall-radio-item-bg: #25262c;
+    --hall-radio-item-border: #2f3037;
+    --hall-radio-item-active-bg: #2a2412;
+    --hall-radio-circle-border: #5c5e68;
+    --hall-aviso-bg: #2a2412;
+    --hall-aviso-border: #5c4a22;
+    --hall-aviso-text: #e8cf94;
+    --hall-modal-btn-cancelar-border: #3a3c46;
+    --hall-btn-remover-text: #f07a7a;
+
     --detalhe-link-voltar: #c6c7ce;
     --detalhe-btn-editar-bg: #25262c;
     --detalhe-btn-editar-border: #3a3c46;

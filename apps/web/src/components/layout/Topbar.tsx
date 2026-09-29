@@ -8,6 +8,7 @@ import { JogosContext } from '@/stores/jogosStore'
 const navLinks = [
   { label: 'Dashboard', href: '/' },
   { label: 'Biblioteca', href: '/biblioteca' },
+  { label: 'Hall da Fama', href: '/hall-da-fama' },
   { label: 'Abandonados', href: '/abandonados' },
   { label: 'Desafios', href: '/desafios' },
   { label: 'Listas', href: '/listas' },
@@ -51,7 +52,7 @@ export function Topbar() {
                   to={item.href}
                   className={`flex h-[60px] items-center border-b-2 transition-colors ${
                     ativo
-                      ? 'border-[var(--accent)] font-semibold text-[var(--accent)]'
+                      ? 'border-[var(--nav-link-active-border)] font-semibold text-[var(--nav-link-active-text)]'
                       : 'border-transparent font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                   }`}
                 >
