@@ -120,4 +120,15 @@ describe('Topbar - Menu de usuário', () => {
     const linkBiblioteca = screen.getByRole('link', { name: 'Biblioteca' })
     expect(linkBiblioteca).toHaveClass('border-transparent')
   })
+
+  it('exibe item único Listas e Desafios apontando para /listas e ativo em /listas/5', () => {
+    renderTopbar('/listas/5')
+    const link = screen.getByRole('link', { name: 'Listas e Desafios' })
+    expect(link).toBeInTheDocument()
+    expect(link).toHaveAttribute('href', '/listas')
+    expect(link).toHaveClass('border-[var(--nav-link-active-border)]')
+
+    expect(screen.queryByRole('link', { name: /^Desafios$/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /^Listas$/ })).not.toBeInTheDocument()
+  })
 })

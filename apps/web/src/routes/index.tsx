@@ -11,6 +11,7 @@ import { ContaTrocarSenhaPage } from '@/pages/ContaTrocarSenhaPage'
 import { BibliotecaPage } from '@/pages/BibliotecaPage'
 import { JogoDetalhePage } from '@/pages/JogoDetalhePage'
 import { HallDaFamaPage } from '@/pages/HallDaFamaPage'
+import { ListasPage } from '@/pages/ListasPage'
 import { EmConstrucaoPage } from '@/pages/EmConstrucaoPage'
 import { GameFormDialog } from '@/components/jogos/GameForm/GameFormDialog'
 
@@ -30,8 +31,9 @@ export function AppRoutes() {
               <Route path="/jogos/novo" element={<Navigate to="/biblioteca" replace />} />
               <Route path="/jogos/:id/editar" element={<Navigate to="/biblioteca" replace />} />
               <Route path="/abandonados" element={<EmConstrucaoPage modulo="Abandonados" />} />
-              <Route path="/desafios" element={<EmConstrucaoPage modulo="Desafios" />} />
-              <Route path="/listas" element={<EmConstrucaoPage modulo="Listas" />} />
+              <Route path="/desafios" element={<Navigate to="/listas" replace />} />
+              <Route path="/listas" element={<ListasPage />} />
+              <Route path="/listas/:id" element={<ListasPage />} />
               <Route path="/explorador" element={<EmConstrucaoPage modulo="Explorador" />} />
             </Route>
             <Route path="/login" element={<LoginPage />} />

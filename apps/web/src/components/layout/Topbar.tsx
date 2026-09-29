@@ -9,9 +9,8 @@ const navLinks = [
   { label: 'Dashboard', href: '/' },
   { label: 'Biblioteca', href: '/biblioteca' },
   { label: 'Hall da Fama', href: '/hall-da-fama' },
+  { label: 'Listas e Desafios', href: '/listas' },
   { label: 'Abandonados', href: '/abandonados' },
-  { label: 'Desafios', href: '/desafios' },
-  { label: 'Listas', href: '/listas' },
   { label: 'Explorador', href: '/explorador' },
 ]
 

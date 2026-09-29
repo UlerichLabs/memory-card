@@ -26,7 +26,7 @@ describe('DashboardPage', () => {
 
   it('renderiza os 6 itens de navegação na topbar na ordem correta', () => {
     renderDashboard()
-    const linksEsperados = ['Dashboard', 'Biblioteca', 'Abandonados', 'Desafios', 'Listas', 'Explorador']
+    const linksEsperados = ['Dashboard', 'Biblioteca', 'Hall da Fama', 'Listas e Desafios', 'Abandonados', 'Explorador']
     const nav = screen.getByRole('navigation', { name: 'Navegação Principal' })
     linksEsperados.forEach((label) => {
       expect(screen.getByRole('link', { name: label })).toBeInTheDocument()

@@ -223,4 +223,27 @@ describe('jogosStore', () => {
 
     expect(resultado).toEqual(sugestoes)
   })
+
+  it('armazena valoresIniciais e onSalvo em modalRegistroOpcoes e limpa ao fecharModal', () => {
+    const onSalvo = vi.fn()
+    const { result } = renderHook(() => useJogosStore(), { wrapper: JogosProvider })
+
+    act(() => {
+      result.current.abrirModalRegistro({
+        valoresIniciais: { nome: 'Super Mario 64', igdb_id: 1070 },
+        onSalvo,
+      })
+    })
+
+    expect(result.current.isModalOpen).toBe(true)
+    expect(result.current.modalRegistroOpcoes?.valoresIniciais).toEqual({ nome: 'Super Mario 64', igdb_id: 1070 })
+    expect(result.current.modalRegistroOpcoes?.onSalvo).toBe(onSalvo)
+
+    act(() => {
+      result.current.fecharModal()
+    })
+
+    expect(result.current.isModalOpen).toBe(false)
+    expect(result.current.modalRegistroOpcoes).toBeNull()
+  })
 })
