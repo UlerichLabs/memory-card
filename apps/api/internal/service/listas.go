@@ -857,13 +857,14 @@ func (s *ListasService) calcularLista(lista *repository.Lista, jogos []*reposito
 		for idx, j := range matchedJogos {
 			consoleStr := j.Console
 			itensDetalhe = append(itensDetalhe, &ListaItemDetalhe{
-				ID:      int64(j.ID),
-				IgdbID:  j.IgdbID,
-				Nome:    j.Nome,
-				Console: &consoleStr,
-				Posicao: idx + 1,
-				Origem:  "regra",
-				Zerado:  true,
+				ID:          int64(j.ID),
+				IgdbID:      j.IgdbID,
+				Nome:        j.Nome,
+				Console:     &consoleStr,
+				IgdbCapaURL: j.IgdbCapaURL,
+				Posicao:     idx + 1,
+				Origem:      "regra",
+				Zerado:      true,
 				JogoZerado: &JogoZeradoMatch{
 					ID:           j.ID,
 					Nota:         j.Nota,

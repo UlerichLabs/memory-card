@@ -751,3 +751,45 @@ func TestListasService_PgxErrNoRows(t *testing.T) {
 		t.Fatalf("esperava ErrListaItemNaoEncontrado, obteve %v", err)
 	}
 }
+
+func TestListasService_Contagem_PreencheIgdbCapaURL(t *testing.T) {
+	regra := "plataforma"
+	val := "SNES"
+	meta := 1
+	lista := &repository.Lista{
+		ID:         1,
+		UsuarioID:  1,
+		Tipo:       "desafio",
+		RegraTipo:  &regra,
+		RegraValor: &val,
+		Meta:       &meta,
+		CreatedAt:  time.Now(),
+		UpdatedAt:  time.Now(),
+	}
+
+	capa := "//images.igdb.com/igdb/image/upload/t_thumb/co123.jpg"
+	jogos := []*repository.JogoZeradoResumo{
+		{
+			ID:           10,
+			Nome:         "Super Mario World",
+			Console:      "SNES",
+			Genero:       "Platform",
+			FinalizadoEm: time.Now(),
+			Nota:         10,
+			IgdbCapaURL:  &capa,
+		},
+	}
+
+	svc := NewListasService(&mockListasRepo{}, &mockListasIGDB{})
+	_, itens := svc.calcularLista(lista, jogos, nil)
+
+	if len(itens) != 1 {
+		t.Fatalf("esperava 1 item de regra, obteve %d", len(itens))
+	}
+	if itens[0].Origem != "regra" {
+		t.Fatalf("esperava origem 'regra', obteve %s", itens[0].Origem)
+	}
+	if itens[0].IgdbCapaURL == nil || *itens[0].IgdbCapaURL != capa {
+		t.Fatalf("esperava igdb_capa_url %s, obteve %v", capa, itens[0].IgdbCapaURL)
+	}
+}

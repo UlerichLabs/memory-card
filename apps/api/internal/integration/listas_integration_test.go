@@ -443,6 +443,7 @@ func TestIntegration_ContagemPlataforma_CaseInsensitive(t *testing.T) {
 		FinalizadoEm: time.Now(),
 		Nota:         9,
 		Dificuldade:  "A",
+		IgdbCapaURL:  "//images.igdb.com/capa_alex_kidd.jpg",
 	})
 	if err != nil {
 		t.Fatalf("falha ao criar jogo zerado: %v", err)
@@ -483,6 +484,9 @@ func TestIntegration_ContagemPlataforma_CaseInsensitive(t *testing.T) {
 	}
 	if detalhe.Data.Itens[0].Origem != "regra" || !detalhe.Data.Itens[0].Zerado {
 		t.Fatalf("item deveria ter origem 'regra' e zerado=true")
+	}
+	if detalhe.Data.Itens[0].IgdbCapaURL == nil || *detalhe.Data.Itens[0].IgdbCapaURL != "//images.igdb.com/capa_alex_kidd.jpg" {
+		t.Fatalf("esperava igdb_capa_url preenchido na regra, obteve %v", detalhe.Data.Itens[0].IgdbCapaURL)
 	}
 	if !detalhe.Data.Progresso.Concluido || detalhe.Data.Progresso.Feitos != 1 {
 		t.Fatalf("desafio deveria estar concluido: %+v", detalhe.Data.Progresso)
