@@ -238,6 +238,17 @@ func (c *Client) SearchFranchises(ctx context.Context, query string) ([]Franchis
 	return result, nil
 }
 
+func (c *Client) FranchiseDetails(ctx context.Context, id int64) (*Franchise, error) {
+	var result []Franchise
+	if err := c.query(ctx, "franchises", fmt.Sprintf("fields id,name; where id = %d; limit 1;", id), &result); err != nil {
+		return nil, err
+	}
+	if len(result) == 0 {
+		return nil, nil
+	}
+	return &result[0], nil
+}
+
 func (c *Client) GamesByFranchise(ctx context.Context, id int64) ([]Game, error) {
 	return c.games(ctx, fmt.Sprintf("fields id,name,cover.url,first_release_date; where franchises = (%d); limit 500;", id))
 }
