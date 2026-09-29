@@ -114,7 +114,7 @@ describe('BibliotecaPage', () => {
     expect(await screen.findByTestId('biblioteca-grade')).toBeInTheDocument()
   })
 
-  it('busca com debounce de 300ms e ignora espaços extras nas pontas', async () => {
+  it('busca com debounce de 300ms, ignora espaços extras nas pontas e limpar a busca volta a listar tudo', async () => {
     const user = userEvent.setup()
     const spyListar = vi.spyOn(jogosService, 'listar').mockResolvedValue({
       data: [jogoMock],
@@ -135,6 +135,18 @@ describe('BibliotecaPage', () => {
         expect.any(AbortSignal)
       )
     }, { timeout: 1000 })
+    expect(spyListar).toHaveBeenCalledTimes(1)
+
+    const btnLimpar = screen.getByRole('button', { name: 'Limpar busca' })
+    await user.click(btnLimpar)
+
+    await waitFor(() => {
+      expect(spyListar).toHaveBeenLastCalledWith(
+        expect.not.objectContaining({ busca: 'Zelda' }),
+        undefined,
+        expect.any(AbortSignal)
+      )
+    })
   })
 
   it('filtra por select atualizando a requisição e resetando pagina', async () => {
@@ -159,6 +171,85 @@ describe('BibliotecaPage', () => {
         expect.any(AbortSignal)
       )
     })
+  })
+
+  it('filtra por genero, tipo e ano e mudar qualquer filtro quando pagina > 1 reseta para pagina 1', async () => {
+    const user = userEvent.setup()
+    const spyListar = vi.spyOn(jogosService, 'listar').mockResolvedValue({
+      data: [jogoMock],
+      meta: { pagina: 2, por_pagina: 24, total: 48, total_paginas: 2 },
+    })
+
+    renderBiblioteca('/biblioteca?pagina=2')
+    await screen.findByRole('heading', { name: 'Chrono Trigger' })
+    spyListar.mockClear()
+
+    const selectGenero = screen.getByLabelText('Filtrar por gênero')
+    await user.click(selectGenero)
+    await user.click(screen.getByRole('option', { name: 'JRPG' }))
+
+    await waitFor(() => {
+      expect(spyListar).toHaveBeenCalledWith(
+        expect.objectContaining({ genero: 'JRPG', pagina: 1 }),
+        undefined,
+        expect.any(AbortSignal)
+      )
+    })
+    spyListar.mockClear()
+
+    const selectTipo = screen.getByLabelText('Filtrar por tipo')
+    await user.click(selectTipo)
+    await user.click(screen.getByRole('option', { name: 'Campanha' }))
+
+    await waitFor(() => {
+      expect(spyListar).toHaveBeenCalledWith(
+        expect.objectContaining({ tipo: 'Campanha', pagina: 1 }),
+        undefined,
+        expect.any(AbortSignal)
+      )
+    })
+    spyListar.mockClear()
+
+    const selectAno = screen.getByLabelText('Filtrar por ano')
+    await user.click(selectAno)
+    await user.click(screen.getByRole('option', { name: '2026' }))
+
+    await waitFor(() => {
+      expect(spyListar).toHaveBeenCalledWith(
+        expect.objectContaining({ ano: 2026, pagina: 1 }),
+        undefined,
+        expect.any(AbortSignal)
+      )
+    })
+  })
+
+  it('monta a página com todos os parâmetros na URL e reproduz filtros, página e modo', async () => {
+    const spyListar = vi.spyOn(jogosService, 'listar').mockResolvedValue({
+      data: [jogoMock],
+      meta: { pagina: 2, por_pagina: 24, total: 48, total_paginas: 2 },
+    })
+
+    const urlCompleta = '/biblioteca?busca=Chrono&console=SNES&genero=JRPG&tipo=Campanha&ano=2026&nota_min=8&nota_max=10&dificuldade=A&pagina=2&modo=list'
+    renderBiblioteca(urlCompleta)
+
+    await waitFor(() => {
+      expect(spyListar).toHaveBeenCalledWith(
+        expect.objectContaining({
+          busca: 'Chrono',
+          console: 'SNES',
+          genero: 'JRPG',
+          tipo: 'Campanha',
+          ano: 2026,
+          nota_min: 8,
+          nota_max: 10,
+          dificuldade: 'A',
+          pagina: 2,
+        }),
+        undefined,
+        expect.any(AbortSignal)
+      )
+    })
+    expect(await screen.findByTestId('biblioteca-lista')).toBeInTheDocument()
   })
 
   it('ajusta faixa de nota quando min > max', async () => {

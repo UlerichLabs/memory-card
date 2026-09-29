@@ -41,8 +41,8 @@ export function BibliotecaFiltros(props: BibliotecaFiltrosProps) {
 
   return (
     <div className="rounded-[12px] border border-[var(--biblioteca-panel-border)] bg-[var(--biblioteca-panel-bg)] p-4 space-y-3">
-      <div className="grid grid-cols-1 gap-2.5 md:grid-cols-[1fr_210px_180px_150px_140px]">
-        <div className="relative flex items-center">
+      <div className="flex flex-col gap-2.5 xl:grid xl:grid-cols-[1fr_210px_180px_150px_140px]">
+        <div className="relative flex items-center w-full">
           <Search className="absolute left-3.5 h-4 w-4 text-[var(--biblioteca-control-placeholder)]" aria-hidden="true" />
           <input
             type="search"
@@ -77,10 +77,12 @@ export function BibliotecaFiltros(props: BibliotecaFiltrosProps) {
           onDificuldadeToggle={props.onDificuldadeToggle} onLimparFiltros={props.onLimparFiltros}
         />
 
-        <div className="hidden md:block"><BibliotecaSelect value={props.consoleVal} onChange={props.onConsoleChange} options={props.opcoesConsole} ariaLabel="Filtrar por console" /></div>
-        <div className="hidden md:block"><BibliotecaSelect value={props.generoVal} onChange={props.onGeneroChange} options={props.opcoesGenero} ariaLabel="Filtrar por gênero" /></div>
-        <div className="hidden md:block"><BibliotecaSelect value={props.tipoVal} onChange={props.onTipoChange} options={props.opcoesTipo} ariaLabel="Filtrar por tipo" /></div>
-        <div className="hidden md:block"><BibliotecaSelect value={props.anoVal} onChange={props.onAnoChange} options={props.opcoesAno} ariaLabel="Filtrar por ano" /></div>
+        <div className="hidden md:flex md:flex-wrap xl:contents gap-2.5">
+          <div className="flex-1 min-w-[180px] xl:w-auto xl:flex-none"><BibliotecaSelect value={props.consoleVal} onChange={props.onConsoleChange} options={props.opcoesConsole} ariaLabel="Filtrar por console" /></div>
+          <div className="flex-1 min-w-[160px] xl:w-auto xl:flex-none"><BibliotecaSelect value={props.generoVal} onChange={props.onGeneroChange} options={props.opcoesGenero} ariaLabel="Filtrar por gênero" /></div>
+          <div className="flex-1 min-w-[140px] xl:w-auto xl:flex-none"><BibliotecaSelect value={props.tipoVal} onChange={props.onTipoChange} options={props.opcoesTipo} ariaLabel="Filtrar por tipo" /></div>
+          <div className="flex-1 min-w-[130px] xl:w-auto xl:flex-none"><BibliotecaSelect value={props.anoVal} onChange={props.onAnoChange} options={props.opcoesAno} ariaLabel="Filtrar por ano" /></div>
+        </div>
       </div>
 
       <div className="hidden items-center justify-between border-t border-[var(--biblioteca-divider)] pt-3 md:flex">

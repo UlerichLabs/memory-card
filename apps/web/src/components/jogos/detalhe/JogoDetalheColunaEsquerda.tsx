@@ -20,7 +20,7 @@ export function JogoDetalheColunaEsquerda({ jogo, className = '' }: JogoDetalheC
 
   return (
     <aside className={`flex flex-col items-center sm:items-start gap-3.5 ${className}`.trim()}>
-      <div className="relative aspect-[3/4] w-[200px] sm:w-[240px] lg:w-[320px] overflow-hidden rounded-[14px] lg:rounded-[16px] border border-[var(--detalhe-capa-border)] bg-[var(--detalhe-capa-bg)]">
+      <div className="relative aspect-[3/4] w-[200px] sm:w-[240px] lg:w-[320px] lg:h-[427px] overflow-hidden rounded-[14px] lg:rounded-[16px] border border-[var(--detalhe-capa-border)] bg-[var(--detalhe-capa-bg)]">
         {capaUrl ? (
           <img
             src={capaUrl}

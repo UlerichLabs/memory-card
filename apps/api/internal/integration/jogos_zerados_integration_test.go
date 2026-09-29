@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -1312,5 +1313,467 @@ func TestIntegration_JogosZerados(t *testing.T) {
 		if resDesc.StatusCode != http.StatusOK || detalheDesc.IgdbDescricao != "Descricao persistida com sucesso" {
 			t.Fatalf("esperava igdb_descricao persistida, obteve status %d descricao=%q", resDesc.StatusCode, detalheDesc.IgdbDescricao)
 		}
+	})
+
+	t.Run("18_QA_Busca_Lacunas", func(t *testing.T) {
+		usuarioID := criarUsuarioTeste(t, env.pool)
+		token := gerarAccessTokenTeste(t, env.secret, usuarioID)
+
+		now := time.Now()
+		jZelda, err := env.repo.Criar(context.Background(), repository.CriarJogoZeradoParams{
+			UsuarioID: usuarioID, Nome: "The Legend of Zelda: Ocarina of Time", Console: "N64", FinalizadoEm: now, TempoJogado: 1000, Nota: 10, Dificuldade: "A",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		jMarioUnderscore, err := env.repo.Criar(context.Background(), repository.CriarJogoZeradoParams{
+			UsuarioID: usuarioID, Nome: "Super_Mario_Bros", Console: "NES", FinalizadoEm: now, TempoJogado: 1000, Nota: 9, Dificuldade: "A",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		_, err = env.repo.Criar(context.Background(), repository.CriarJogoZeradoParams{
+			UsuarioID: usuarioID, Nome: "Super Mario World", Console: "SNES", FinalizadoEm: now, TempoJogado: 1000, Nota: 10, Dificuldade: "A",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		fazerBusca := func(termo string) listagemEnvelope {
+			req := httptest.NewRequest(http.MethodGet, "/api/v1/jogos?busca="+termo, nil)
+			req.Header.Set("Authorization", "Bearer "+token)
+			w := httptest.NewRecorder()
+			env.router.ServeHTTP(w, req)
+			if w.Code != http.StatusOK {
+				t.Fatalf("esperava 200 na busca %q, obteve %d", termo, w.Code)
+			}
+			var resp listagemEnvelope
+			if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+				t.Fatal(err)
+			}
+			return resp
+		}
+
+		rMaiusculo := fazerBusca("ZELDA")
+		rMinusculo := fazerBusca("zelda")
+		rMisto := fazerBusca("Zelda")
+		if len(rMaiusculo.Data) != 1 || len(rMinusculo.Data) != 1 || len(rMisto.Data) != 1 {
+			t.Fatalf("esperava 1 resultado para todas as variacoes de caixa, obteve ZELDA=%d, zelda=%d, Zelda=%d",
+				len(rMaiusculo.Data), len(rMinusculo.Data), len(rMisto.Data))
+		}
+		if rMaiusculo.Data[0].ID != jZelda.ID || rMinusculo.Data[0].ID != jZelda.ID || rMisto.Data[0].ID != jZelda.ID {
+			t.Fatalf("IDs divergiram entre buscas de caixa: %d, %d, %d",
+				rMaiusculo.Data[0].ID, rMinusculo.Data[0].ID, rMisto.Data[0].ID)
+		}
+
+		rMeio := fazerBusca("ocarina")
+		if len(rMeio.Data) != 1 || rMeio.Data[0].ID != jZelda.ID {
+			t.Fatalf("busca parcial no meio do nome falhou: %+v", rMeio.Data)
+		}
+
+		rEspacos := fazerBusca("%20%20zelda%20%20")
+		if len(rEspacos.Data) != 1 || rEspacos.Data[0].ID != jZelda.ID {
+			t.Fatalf("busca com espacos nas pontas falhou: %+v", rEspacos.Data)
+		}
+
+		rUnderscore := fazerBusca("_")
+		if len(rUnderscore.Data) != 1 || rUnderscore.Data[0].ID != jMarioUnderscore.ID {
+			t.Fatalf("busca por '_' literal falhou, deveria retornar apenas Super_Mario_Bros: %+v", rUnderscore.Data)
+		}
+
+		rInexistente := fazerBusca("TermoQueNaoExisteEmNenhumJogo999")
+		if len(rInexistente.Data) != 0 || rInexistente.Meta.Total != 0 || rInexistente.Meta.TotalPaginas != 0 {
+			t.Fatalf("termo sem resultado deveria ter data vazia e total 0: %+v", rInexistente)
+		}
+	})
+
+	t.Run("19_QA_Filtros_Isolados", func(t *testing.T) {
+		usuarioID := criarUsuarioTeste(t, env.pool)
+		token := gerarAccessTokenTeste(t, env.secret, usuarioID)
+
+		d2024 := time.Date(2024, 12, 31, 23, 59, 59, 0, time.UTC)
+		d2025Inicio := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+		d2025Fim := time.Date(2025, 12, 31, 23, 59, 59, 0, time.UTC)
+		d2026 := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+
+		j1, err := env.repo.Criar(context.Background(), repository.CriarJogoZeradoParams{
+			UsuarioID: usuarioID, Nome: "Jogo SNES", Console: "SNES", Genero: "Ação, Aventura", Tipo: "Campanha",
+			FinalizadoEm: d2024, TempoJogado: 1000, Nota: 8, Dificuldade: "A",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		j2, err := env.repo.Criar(context.Background(), repository.CriarJogoZeradoParams{
+			UsuarioID: usuarioID, Nome: "Jogo Mega", Console: "Mega Drive", Genero: "Plataforma, Ação", Tipo: "100%",
+			FinalizadoEm: d2025Inicio, TempoJogado: 1000, Nota: 10, Dificuldade: "AA",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		j3, err := env.repo.Criar(context.Background(), repository.CriarJogoZeradoParams{
+			UsuarioID: usuarioID, Nome: "Jogo PS1", Console: "PlayStation", Genero: "RPG, Ficção Científica", Tipo: "DLC",
+			FinalizadoEm: d2025Fim, TempoJogado: 1000, Nota: 5, Dificuldade: "B",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		j4, err := env.repo.Criar(context.Background(), repository.CriarJogoZeradoParams{
+			UsuarioID: usuarioID, Nome: "Jogo N64", Console: "N64", Genero: "Corrida", Tipo: "Speedrun",
+			FinalizadoEm: d2026, TempoJogado: 1000, Nota: 11, Dificuldade: "AAA",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		consultar := func(queryString string) listagemEnvelope {
+			req := httptest.NewRequest(http.MethodGet, "/api/v1/jogos?"+queryString, nil)
+			req.Header.Set("Authorization", "Bearer "+token)
+			w := httptest.NewRecorder()
+			env.router.ServeHTTP(w, req)
+			if w.Code != http.StatusOK {
+				t.Fatalf("filtro %q falhou com status %d: %s", queryString, w.Code, w.Body.String())
+			}
+			var resp listagemEnvelope
+			if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+				t.Fatal(err)
+			}
+			return resp
+		}
+
+		rConsole := consultar("console=SNES")
+		if len(rConsole.Data) != 1 || rConsole.Data[0].ID != j1.ID {
+			t.Fatalf("filtro isolado console falhou: %+v", rConsole.Data)
+		}
+
+		rGeneroSemAcento := consultar("genero=ficcao")
+		if len(rGeneroSemAcento.Data) != 1 || rGeneroSemAcento.Data[0].ID != j3.ID {
+			t.Fatalf("filtro isolado genero sem acento falhou: %+v", rGeneroSemAcento.Data)
+		}
+		rGeneroMaiusculo := consultar("genero=AVENTURA")
+		if len(rGeneroMaiusculo.Data) != 1 || rGeneroMaiusculo.Data[0].ID != j1.ID {
+			t.Fatalf("filtro isolado genero maiusculo falhou: %+v", rGeneroMaiusculo.Data)
+		}
+
+		rTipo := consultar("tipo=100%25")
+		if len(rTipo.Data) != 1 || rTipo.Data[0].ID != j2.ID {
+			t.Fatalf("filtro isolado tipo falhou: %+v", rTipo.Data)
+		}
+		rTipoCase := consultar("tipo=campanha")
+		if len(rTipoCase.Data) != 1 || rTipoCase.Data[0].ID != j1.ID {
+			t.Fatalf("filtro isolado tipo case insensitive falhou: %+v", rTipoCase.Data)
+		}
+
+		rNotaMin := consultar("nota_min=10")
+		if len(rNotaMin.Data) != 2 || rNotaMin.Data[0].ID != j4.ID || rNotaMin.Data[1].ID != j2.ID {
+			t.Fatalf("filtro isolado nota_min falhou: %+v", rNotaMin.Data)
+		}
+		rNotaMax := consultar("nota_max=8")
+		if len(rNotaMax.Data) != 2 || rNotaMax.Data[0].ID != j3.ID || rNotaMax.Data[1].ID != j1.ID {
+			t.Fatalf("filtro isolado nota_max falhou: %+v", rNotaMax.Data)
+		}
+		rNotaFaixa := consultar("nota_min=8&nota_max=10")
+		if len(rNotaFaixa.Data) != 2 || rNotaFaixa.Data[0].ID != j2.ID || rNotaFaixa.Data[1].ID != j1.ID {
+			t.Fatalf("filtro isolado faixa de nota incluindo bordas falhou: %+v", rNotaFaixa.Data)
+		}
+
+		rAno2024 := consultar("ano=2024")
+		if len(rAno2024.Data) != 1 || rAno2024.Data[0].ID != j1.ID {
+			t.Fatalf("filtro isolado ano 2024 com 31/12 falhou: %+v", rAno2024.Data)
+		}
+		rAno2025 := consultar("ano=2025")
+		if len(rAno2025.Data) != 2 || rAno2025.Data[0].ID != j3.ID || rAno2025.Data[1].ID != j2.ID {
+			t.Fatalf("filtro isolado ano 2025 com bordas 01/01 e 31/12 falhou: %+v", rAno2025.Data)
+		}
+
+		rDif := consultar("dificuldade=AAA")
+		if len(rDif.Data) != 1 || rDif.Data[0].ID != j4.ID {
+			t.Fatalf("filtro isolado dificuldade falhou: %+v", rDif.Data)
+		}
+	})
+
+	t.Run("20_QA_Combinacoes_Lacunas", func(t *testing.T) {
+		usuarioID := criarUsuarioTeste(t, env.pool)
+		token := gerarAccessTokenTeste(t, env.secret, usuarioID)
+
+		now := time.Now()
+		j1, err := env.repo.Criar(context.Background(), repository.CriarJogoZeradoParams{
+			UsuarioID: usuarioID, Nome: "Metroid Fusion", Console: "GBA", Genero: "Metroidvania", Tipo: "Campanha",
+			FinalizadoEm: now, TempoJogado: 1000, Nota: 9, Dificuldade: "A",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		_, err = env.repo.Criar(context.Background(), repository.CriarJogoZeradoParams{
+			UsuarioID: usuarioID, Nome: "Castlevania Aria of Sorrow", Console: "GBA", Genero: "Metroidvania", Tipo: "Campanha",
+			FinalizadoEm: now, TempoJogado: 1000, Nota: 10, Dificuldade: "AA",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		consultar := func(queryString string) listagemEnvelope {
+			req := httptest.NewRequest(http.MethodGet, "/api/v1/jogos?"+queryString, nil)
+			req.Header.Set("Authorization", "Bearer "+token)
+			w := httptest.NewRecorder()
+			env.router.ServeHTTP(w, req)
+			var resp listagemEnvelope
+			_ = json.Unmarshal(w.Body.Bytes(), &resp)
+			return resp
+		}
+
+		rBuscaEFiltro := consultar("busca=Metroid&console=GBA")
+		if len(rBuscaEFiltro.Data) != 1 || rBuscaEFiltro.Data[0].ID != j1.ID {
+			t.Fatalf("busca + filtro falhou: %+v", rBuscaEFiltro.Data)
+		}
+
+		rDoisFiltros := consultar("console=GBA&dificuldade=A")
+		if len(rDoisFiltros.Data) != 1 || rDoisFiltros.Data[0].ID != j1.ID {
+			t.Fatalf("dois filtros falhou: %+v", rDoisFiltros.Data)
+		}
+
+		rSemIntersecao := consultar("console=GBA&dificuldade=AAA")
+		if len(rSemIntersecao.Data) != 0 || rSemIntersecao.Meta.Total != 0 {
+			t.Fatalf("combinacao sem intersecao deveria retornar data vazia: %+v", rSemIntersecao)
+		}
+	})
+
+	t.Run("21_QA_SoftDelete_ComFiltros", func(t *testing.T) {
+		usuarioID := criarUsuarioTeste(t, env.pool)
+		token := gerarAccessTokenTeste(t, env.secret, usuarioID)
+
+		d2025 := time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC)
+		jAtivo, err := env.repo.Criar(context.Background(), repository.CriarJogoZeradoParams{
+			UsuarioID: usuarioID, Nome: "GameBoy Ativo", Console: "GameBoy", FinalizadoEm: d2025, TempoJogado: 1000, Nota: 8, Dificuldade: "B",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		jExcluido, err := env.repo.Criar(context.Background(), repository.CriarJogoZeradoParams{
+			UsuarioID: usuarioID, Nome: "GameBoy Excluido", Console: "GameBoy", FinalizadoEm: d2025, TempoJogado: 1000, Nota: 8, Dificuldade: "B",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		reqDel := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/api/v1/jogos/%d", jExcluido.ID), nil)
+		reqDel.Header.Set("Authorization", "Bearer "+token)
+		wDel := httptest.NewRecorder()
+		env.router.ServeHTTP(wDel, reqDel)
+		if wDel.Code != http.StatusNoContent {
+			t.Fatalf("status delete: %d", wDel.Code)
+		}
+
+		reqListar := httptest.NewRequest(http.MethodGet, "/api/v1/jogos?console=GameBoy&ano=2025", nil)
+		reqListar.Header.Set("Authorization", "Bearer "+token)
+		wListar := httptest.NewRecorder()
+		env.router.ServeHTTP(wListar, reqListar)
+		var respListar listagemEnvelope
+		_ = json.Unmarshal(wListar.Body.Bytes(), &respListar)
+		if len(respListar.Data) != 1 || respListar.Data[0].ID != jAtivo.ID {
+			t.Fatalf("registro excluido apareceu em listagem com filtros: %+v", respListar.Data)
+		}
+
+		jUnicoVirtualBoy, err := env.repo.Criar(context.Background(), repository.CriarJogoZeradoParams{
+			UsuarioID: usuarioID, Nome: "VirtualBoy Unico", Console: "VirtualBoyExclusivo", FinalizadoEm: d2025, TempoJogado: 1000, Nota: 7, Dificuldade: "C",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		reqDelVB := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/api/v1/jogos/%d", jUnicoVirtualBoy.ID), nil)
+		reqDelVB.Header.Set("Authorization", "Bearer "+token)
+		wDelVB := httptest.NewRecorder()
+		env.router.ServeHTTP(wDelVB, reqDelVB)
+		if wDelVB.Code != http.StatusNoContent {
+			t.Fatalf("status delete VB: %d", wDelVB.Code)
+		}
+
+		reqListarVB := httptest.NewRequest(http.MethodGet, "/api/v1/jogos?console=VirtualBoyExclusivo", nil)
+		reqListarVB.Header.Set("Authorization", "Bearer "+token)
+		wListarVB := httptest.NewRecorder()
+		env.router.ServeHTTP(wListarVB, reqListarVB)
+		var respListarVB listagemEnvelope
+		_ = json.Unmarshal(wListarVB.Body.Bytes(), &respListarVB)
+		if len(respListarVB.Data) != 0 || respListarVB.Meta.Total != 0 {
+			t.Fatalf("console exclusivo excluido retornou itens: %+v", respListarVB)
+		}
+
+		reqFiltros := httptest.NewRequest(http.MethodGet, "/api/v1/jogos/filtros", nil)
+		reqFiltros.Header.Set("Authorization", "Bearer "+token)
+		wFiltros := httptest.NewRecorder()
+		env.router.ServeHTTP(wFiltros, reqFiltros)
+		var respFiltros filtrosEnvelope
+		_ = json.Unmarshal(wFiltros.Body.Bytes(), &respFiltros)
+		for _, c := range respFiltros.Data.Consoles {
+			if c == "VirtualBoyExclusivo" {
+				t.Fatal("console de registro unico excluido apareceu nos filtros")
+			}
+		}
+
+		reqDetalhe := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/v1/jogos/%d", jUnicoVirtualBoy.ID), nil)
+		reqDetalhe.Header.Set("Authorization", "Bearer "+token)
+		wDetalhe := httptest.NewRecorder()
+		env.router.ServeHTTP(wDetalhe, reqDetalhe)
+		if wDetalhe.Code != http.StatusNotFound {
+			t.Fatalf("esperava 404 no detalhe de registro excluido, obteve %d", wDetalhe.Code)
+		}
+	})
+
+	t.Run("22_QA_Paginacao_Limites_E_FiltroAtivo", func(t *testing.T) {
+		usuarioID := criarUsuarioTeste(t, env.pool)
+		token := gerarAccessTokenTeste(t, env.secret, usuarioID)
+
+		baseDate := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+		var idsCriadosSNES []int32
+		for i := 1; i <= 5; i++ {
+			j, err := env.repo.Criar(context.Background(), repository.CriarJogoZeradoParams{
+				UsuarioID: usuarioID, Nome: fmt.Sprintf("SNES Game %d", i), Console: "SNES",
+				FinalizadoEm: baseDate.Add(time.Duration(i) * time.Hour), TempoJogado: 1000, Nota: 8, Dificuldade: "A",
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			idsCriadosSNES = append([]int32{j.ID}, idsCriadosSNES...)
+		}
+
+		for i := 1; i <= 3; i++ {
+			_, err := env.repo.Criar(context.Background(), repository.CriarJogoZeradoParams{
+				UsuarioID: usuarioID, Nome: fmt.Sprintf("Genesis Game %d", i), Console: "Genesis",
+				FinalizadoEm: baseDate.Add(time.Duration(i) * time.Hour), TempoJogado: 1000, Nota: 8, Dificuldade: "A",
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+
+		reqP100 := httptest.NewRequest(http.MethodGet, "/api/v1/jogos?por_pagina=100", nil)
+		reqP100.Header.Set("Authorization", "Bearer "+token)
+		wP100 := httptest.NewRecorder()
+		env.router.ServeHTTP(wP100, reqP100)
+		if wP100.Code != http.StatusOK {
+			t.Fatalf("esperava 200 em por_pagina=100, obteve %d", wP100.Code)
+		}
+
+		reqP1 := httptest.NewRequest(http.MethodGet, "/api/v1/jogos?por_pagina=1", nil)
+		reqP1.Header.Set("Authorization", "Bearer "+token)
+		wP1 := httptest.NewRecorder()
+		env.router.ServeHTTP(wP1, reqP1)
+		if wP1.Code != http.StatusOK {
+			t.Fatalf("esperava 200 em por_pagina=1, obteve %d", wP1.Code)
+		}
+		var respP1 listagemEnvelope
+		_ = json.Unmarshal(wP1.Body.Bytes(), &respP1)
+		if len(respP1.Data) != 1 {
+			t.Fatalf("esperava 1 item em por_pagina=1, obteve %d", len(respP1.Data))
+		}
+
+		reqP0 := httptest.NewRequest(http.MethodGet, "/api/v1/jogos?por_pagina=0", nil)
+		reqP0.Header.Set("Authorization", "Bearer "+token)
+		wP0 := httptest.NewRecorder()
+		env.router.ServeHTTP(wP0, reqP0)
+		if wP0.Code != http.StatusBadRequest {
+			t.Fatalf("esperava 400 em por_pagina=0, obteve %d", wP0.Code)
+		}
+
+		reqP101 := httptest.NewRequest(http.MethodGet, "/api/v1/jogos?por_pagina=101", nil)
+		reqP101.Header.Set("Authorization", "Bearer "+token)
+		wP101 := httptest.NewRecorder()
+		env.router.ServeHTTP(wP101, reqP101)
+		if wP101.Code != http.StatusBadRequest {
+			t.Fatalf("esperava 400 em por_pagina=101, obteve %d", wP101.Code)
+		}
+
+		var idsRecebidos []int32
+		for pagina := 1; pagina <= 3; pagina++ {
+			url := fmt.Sprintf("/api/v1/jogos?console=SNES&por_pagina=2&pagina=%d", pagina)
+			reqPag := httptest.NewRequest(http.MethodGet, url, nil)
+			reqPag.Header.Set("Authorization", "Bearer "+token)
+			wPag := httptest.NewRecorder()
+			env.router.ServeHTTP(wPag, reqPag)
+			if wPag.Code != http.StatusOK {
+				t.Fatalf("esperava 200 na pagina %d com filtro, obteve %d", pagina, wPag.Code)
+			}
+			var respPag listagemEnvelope
+			_ = json.Unmarshal(wPag.Body.Bytes(), &respPag)
+			if respPag.Meta.Total != 5 || respPag.Meta.TotalPaginas != 3 {
+				t.Fatalf("meta incorreto na pagina %d: %+v", pagina, respPag.Meta)
+			}
+			for _, jogo := range respPag.Data {
+				idsRecebidos = append(idsRecebidos, jogo.ID)
+			}
+		}
+
+		if len(idsRecebidos) != 5 {
+			t.Fatalf("esperava 5 registros paginados com filtro, obteve %d", len(idsRecebidos))
+		}
+		for i, id := range idsRecebidos {
+			if id != idsCriadosSNES[i] {
+				t.Fatalf("ordem incorreta ou pulo/repeticao no index %d: esperava %d, obteve %d", i, idsCriadosSNES[i], id)
+			}
+		}
+	})
+
+	t.Run("23_QA_Explain_1000_Registros", func(t *testing.T) {
+		usuarioID := criarUsuarioTeste(t, env.pool)
+		baseDate := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+
+		const totalRegistros = 1000
+		for i := 1; i <= totalRegistros; i++ {
+			_, err := env.pool.Exec(context.Background(),
+				`INSERT INTO jogos_zerados (usuario_id, nome, console, genero, tipo, finalizado_em, tempo_jogado, nota, dificuldade)
+				 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+				usuarioID, fmt.Sprintf("Jogo Teste %04d", i), "SNES", "RPG", "Campanha",
+				baseDate.Add(time.Duration(i)*time.Hour), 3600, 10, "A",
+			)
+			if err != nil {
+				t.Fatalf("falha ao inserir registro %d: %v", i, err)
+			}
+		}
+
+		_, err := env.pool.Exec(context.Background(), "ANALYZE jogos_zerados;")
+		if err != nil {
+			t.Fatalf("falha ao executar ANALYZE: %v", err)
+		}
+
+		rows, err := env.pool.Query(context.Background(),
+			`EXPLAIN (FORMAT TEXT)
+			SELECT * FROM jogos_zerados
+			WHERE usuario_id = $1
+			  AND deleted_at IS NULL
+			  AND ($2::text IS NULL OR unaccent(nome) ILIKE unaccent('%' || $2::text || '%'))
+			  AND ($3::varchar IS NULL OR console = $3)
+			  AND ($4::text IS NULL OR unaccent(genero) ILIKE unaccent('%' || $4::text || '%'))
+			  AND ($5::varchar IS NULL OR LOWER(tipo) = LOWER($5))
+			  AND ($6::int IS NULL OR nota >= $6)
+			  AND ($7::int IS NULL OR nota <= $7)
+			  AND ($8::int IS NULL OR EXTRACT(YEAR FROM finalizado_em) = $8)
+			  AND ($9::varchar IS NULL OR dificuldade = $9::dificuldade)
+			ORDER BY finalizado_em DESC, id DESC
+			LIMIT 24 OFFSET 0;`,
+			usuarioID, nil, nil, nil, nil, nil, nil, nil, nil,
+		)
+		if err != nil {
+			t.Fatalf("falha ao rodar EXPLAIN: %v", err)
+		}
+		defer rows.Close()
+
+		var explainOutput strings.Builder
+		for rows.Next() {
+			var line string
+			if err := rows.Scan(&line); err != nil {
+				t.Fatal(err)
+			}
+			explainOutput.WriteString(line + "\n")
+		}
+
+		plan := explainOutput.String()
+		t.Logf("EXPLAIN PLAN:\n%s", plan)
 	})
 }
