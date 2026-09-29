@@ -400,6 +400,76 @@ func (q *Queries) ObterConsolesUsuario(ctx context.Context, usuarioID int32) ([]
 	return items, nil
 }
 
+const obterDetalhesJogoZerado = `-- name: ObterDetalhesJogoZerado :one
+WITH jogos_numerados AS (
+    SELECT id, usuario_id, igdb_id, nome, console, genero, tipo,
+           iniciado_em, finalizado_em, tempo_jogado, nota, dificuldade,
+           review, destaque, igdb_capa_url, igdb_descricao, created_at, updated_at, deleted_at,
+           ROW_NUMBER() OVER (PARTITION BY usuario_id ORDER BY created_at ASC, id ASC)::int AS numero
+    FROM jogos_zerados
+    WHERE usuario_id = $2
+)
+SELECT id, usuario_id, igdb_id, nome, console, genero, tipo,
+       iniciado_em, finalizado_em, tempo_jogado, nota, dificuldade,
+       review, destaque, igdb_capa_url, igdb_descricao, created_at, updated_at, numero
+FROM jogos_numerados
+WHERE id = $1 AND deleted_at IS NULL
+`
+
+type ObterDetalhesJogoZeradoParams struct {
+	ID        int32
+	UsuarioID int32
+}
+
+type ObterDetalhesJogoZeradoRow struct {
+	ID            int32
+	UsuarioID     int32
+	IgdbID        pgtype.Int4
+	Nome          string
+	Console       string
+	Genero        pgtype.Text
+	Tipo          pgtype.Text
+	IniciadoEm    pgtype.Timestamp
+	FinalizadoEm  pgtype.Timestamp
+	TempoJogado   int32
+	Nota          int32
+	Dificuldade   Dificuldade
+	Review        pgtype.Text
+	Destaque      pgtype.Bool
+	IgdbCapaUrl   pgtype.Text
+	IgdbDescricao pgtype.Text
+	CreatedAt     pgtype.Timestamp
+	UpdatedAt     pgtype.Timestamp
+	Numero        int32
+}
+
+func (q *Queries) ObterDetalhesJogoZerado(ctx context.Context, arg ObterDetalhesJogoZeradoParams) (ObterDetalhesJogoZeradoRow, error) {
+	row := q.db.QueryRow(ctx, obterDetalhesJogoZerado, arg.ID, arg.UsuarioID)
+	var i ObterDetalhesJogoZeradoRow
+	err := row.Scan(
+		&i.ID,
+		&i.UsuarioID,
+		&i.IgdbID,
+		&i.Nome,
+		&i.Console,
+		&i.Genero,
+		&i.Tipo,
+		&i.IniciadoEm,
+		&i.FinalizadoEm,
+		&i.TempoJogado,
+		&i.Nota,
+		&i.Dificuldade,
+		&i.Review,
+		&i.Destaque,
+		&i.IgdbCapaUrl,
+		&i.IgdbDescricao,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Numero,
+	)
+	return i, err
+}
+
 const obterGenerosUsuario = `-- name: ObterGenerosUsuario :many
 SELECT DISTINCT genero
 FROM jogos_zerados

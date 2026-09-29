@@ -24,6 +24,7 @@ type JogosServicer interface {
 	ExcluirJogoZerado(ctx context.Context, id int32, usuarioID int32) error
 	ListarJogosZerados(ctx context.Context, params service.ListarJogosParams) (*service.ResultadoListagem, error)
 	ObterOpcoesFiltros(ctx context.Context, usuarioID int32) (*repository.OpcoesFiltros, error)
+	ObterDetalhesJogoZerado(ctx context.Context, id int32, usuarioID int32) (*repository.JogoZerado, error)
 }
 
 type JogosHandler struct {
@@ -580,6 +581,59 @@ func (h *JogosHandler) ObterFiltros(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"data": filtros,
 	})
+}
+
+func (h *JogosHandler) ObterDetalhesJogo(c *gin.Context) {
+	usuario, ok := middleware.UsuarioDoContexto(c.Request.Context())
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": gin.H{
+				"codigo":   "auth.session.unauthorized",
+				"mensagem": i18n.T(c.GetHeader("Accept-Language"), "auth.session.unauthorized"),
+			},
+		})
+		return
+	}
+
+	usuarioID, err := strconv.Atoi(usuario.ID)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": gin.H{
+				"codigo":   "auth.session.unauthorized",
+				"mensagem": i18n.T(c.GetHeader("Accept-Language"), "auth.session.unauthorized"),
+			},
+		})
+		return
+	}
+
+	jogoID, ok := parseJogoID(c)
+	if !ok {
+		return
+	}
+
+	jogo, err := h.service.ObterDetalhesJogoZerado(c.Request.Context(), jogoID, int32(usuarioID))
+	if err != nil {
+		lang := c.GetHeader("Accept-Language")
+		if errors.Is(err, service.ErrJogoNaoEncontrado) {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": gin.H{
+					"codigo":   "jogos.not_found",
+					"mensagem": i18n.T(lang, "jogos.not_found"),
+				},
+			})
+			return
+		}
+		slog.ErrorContext(c.Request.Context(), "falha ao obter detalhes do jogo zerado", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": gin.H{
+				"codigo":   "server.internal_error",
+				"mensagem": i18n.T(lang, "server.internal_error"),
+			},
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": jogo})
 }
 
 func parseJogoID(c *gin.Context) (int32, bool) {

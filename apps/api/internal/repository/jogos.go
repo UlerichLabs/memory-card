@@ -16,6 +16,7 @@ import (
 
 type JogoZerado struct {
 	ID            int32      `json:"id"`
+	Numero        int        `json:"numero,omitempty"`
 	UsuarioID     int32      `json:"usuario_id"`
 	IgdbID        *int32     `json:"igdb_id,omitempty"`
 	Nome          string     `json:"nome"`
@@ -99,6 +100,7 @@ type JogosRepository interface {
 	Excluir(ctx context.Context, id int32, usuarioID int32) error
 	Listar(ctx context.Context, params ListarJogosZeradosParams) ([]*JogoZerado, int64, error)
 	ObterFiltros(ctx context.Context, usuarioID int32) (*OpcoesFiltros, error)
+	ObterPorID(ctx context.Context, id int32, usuarioID int32) (*JogoZerado, error)
 }
 
 type SQLJogosRepository struct {
@@ -401,6 +403,64 @@ func (r *SQLJogosRepository) ObterFiltros(ctx context.Context, usuarioID int32) 
 		Tipos:    tipos,
 		Anos:     anos,
 	}, nil
+}
+
+func (r *SQLJogosRepository) ObterPorID(ctx context.Context, id int32, usuarioID int32) (*JogoZerado, error) {
+	row, err := r.queries.ObterDetalhesJogoZerado(ctx, db.ObterDetalhesJogoZeradoParams{
+		ID:        id,
+		UsuarioID: usuarioID,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, pgx.ErrNoRows
+		}
+		return nil, fmt.Errorf("obter detalhes jogo zerado: %w", err)
+	}
+
+	jogo := &JogoZerado{
+		ID:          row.ID,
+		Numero:      int(row.Numero),
+		UsuarioID:   row.UsuarioID,
+		Nome:        row.Nome,
+		Console:     row.Console,
+		TempoJogado: row.TempoJogado,
+		Nota:        row.Nota,
+		Dificuldade: string(row.Dificuldade),
+	}
+	if row.IgdbID.Valid {
+		jogo.IgdbID = &row.IgdbID.Int32
+	}
+	if row.Genero.Valid {
+		jogo.Genero = row.Genero.String
+	}
+	if row.Tipo.Valid {
+		jogo.Tipo = row.Tipo.String
+	}
+	if row.IniciadoEm.Valid {
+		jogo.IniciadoEm = &row.IniciadoEm.Time
+	}
+	if row.FinalizadoEm.Valid {
+		jogo.FinalizadoEm = row.FinalizadoEm.Time
+	}
+	if row.Review.Valid {
+		jogo.Review = row.Review.String
+	}
+	if row.Destaque.Valid {
+		jogo.Destaque = row.Destaque.Bool
+	}
+	if row.IgdbCapaUrl.Valid {
+		jogo.IgdbCapaURL = row.IgdbCapaUrl.String
+	}
+	if row.IgdbDescricao.Valid {
+		jogo.IgdbDescricao = row.IgdbDescricao.String
+	}
+	if row.CreatedAt.Valid {
+		jogo.CreatedAt = row.CreatedAt.Time
+	}
+	if row.UpdatedAt.Valid {
+		jogo.UpdatedAt = row.UpdatedAt.Time
+	}
+	return jogo, nil
 }
 
 func mapearJogoZerado(row db.JogosZerado) *JogoZerado {

@@ -63,6 +63,8 @@ type criarJogoInput struct {
 	Dificuldade         string  `json:"dificuldade"`
 	Review              string  `json:"review,omitempty"`
 	Destaque            bool    `json:"destaque"`
+	IgdbDescricao       string  `json:"igdb_descricao,omitempty"`
+	IgdbCapaURL         string  `json:"igdb_capa_url,omitempty"`
 }
 
 type jogoEnvelope struct {
@@ -166,6 +168,7 @@ func setupIntegrationEnv(t *testing.T) *postgresIntegrationEnv {
 	privadas.DELETE("/jogos/:id", h.ExcluirJogo)
 	privadas.GET("/jogos", h.ListarJogos)
 	privadas.GET("/jogos/filtros", h.ObterFiltros)
+	privadas.GET("/jogos/:id", h.ObterDetalhesJogo)
 
 	return &postgresIntegrationEnv{
 		pool:    pool,
@@ -1178,6 +1181,136 @@ func TestIntegration_JogosZerados(t *testing.T) {
 
 		if len(resp.Data.Anos) != 3 || resp.Data.Anos[0] != 2026 || resp.Data.Anos[1] != 2025 || resp.Data.Anos[2] != 2024 {
 			t.Fatalf("anos ordenados descendentemente incorretamente: %+v", resp.Data.Anos)
+		}
+	})
+
+	t.Run("10_DetalheJogo_MEMOR96", func(t *testing.T) {
+		usuarioA := criarUsuarioTeste(t, env.pool)
+		tokenA := gerarAccessTokenTeste(t, env.secret, usuarioA)
+		usuarioB := criarUsuarioTeste(t, env.pool)
+		tokenB := gerarAccessTokenTeste(t, env.secret, usuarioB)
+
+		fazerCriar := func(token string, nome string, review string, igdbDescricao string) repository.JogoZerado {
+			input := criarJogoInput{
+				Nome:          nome,
+				Console:       "SNES",
+				FinalizadoEm:  "2026-05-10T14:30:00Z",
+				TempoJogado:   func(v int32) *int32 { return &v }(3600),
+				Nota:          10,
+				Dificuldade:   "A",
+				Review:        review,
+				IgdbDescricao: igdbDescricao,
+			}
+			body, _ := json.Marshal(input)
+			req := httptest.NewRequest(http.MethodPost, "/api/v1/jogos", bytes.NewReader(body))
+			req.Header.Set("Authorization", "Bearer "+token)
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			env.router.ServeHTTP(w, req)
+			if w.Code != http.StatusCreated {
+				t.Fatalf("esperava 201 ao criar jogo, obteve %d: %s", w.Code, w.Body.String())
+			}
+			var resp jogoEnvelope
+			if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+				t.Fatal(err)
+			}
+			return resp.Data
+		}
+
+		fazerGetDetalhe := func(token string, id int32) (*http.Response, repository.JogoZerado, erroEnvelope) {
+			req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/v1/jogos/%d", id), nil)
+			if token != "" {
+				req.Header.Set("Authorization", "Bearer "+token)
+			}
+			w := httptest.NewRecorder()
+			env.router.ServeHTTP(w, req)
+			var resp jogoEnvelope
+			var errResp erroEnvelope
+			if w.Code == http.StatusOK {
+				_ = json.Unmarshal(w.Body.Bytes(), &resp)
+			} else {
+				_ = json.Unmarshal(w.Body.Bytes(), &errResp)
+			}
+			return w.Result(), resp.Data, errResp
+		}
+
+		fazerExcluir := func(token string, id int32) int {
+			req := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/api/v1/jogos/%d", id), nil)
+			req.Header.Set("Authorization", "Bearer "+token)
+			w := httptest.NewRecorder()
+			env.router.ServeHTTP(w, req)
+			return w.Code
+		}
+
+		jogoA1 := fazerCriar(tokenA, "Jogo A1", "Review A1 completo", "Descricao IGDB A1 completa")
+		time.Sleep(20 * time.Millisecond)
+		jogoB1 := fazerCriar(tokenB, "Jogo B1", "Review B1", "Descricao IGDB B1")
+		time.Sleep(20 * time.Millisecond)
+		jogoA2 := fazerCriar(tokenA, "Jogo A2", "Review A2", "Descricao IGDB A2")
+		time.Sleep(20 * time.Millisecond)
+		jogoA3 := fazerCriar(tokenA, "Jogo A3", "Review A3", "Descricao IGDB A3")
+
+		resA1, detalheA1, _ := fazerGetDetalhe(tokenA, jogoA1.ID)
+		if resA1.StatusCode != http.StatusOK {
+			t.Fatalf("esperava 200 para A1, obteve %d", resA1.StatusCode)
+		}
+		if detalheA1.IgdbDescricao != "Descricao IGDB A1 completa" || detalheA1.Review != "Review A1 completo" {
+			t.Fatalf("campos completos esperados para A1, obteve igdb_descricao=%q review=%q", detalheA1.IgdbDescricao, detalheA1.Review)
+		}
+
+		if detalheA1.Numero != 1 {
+			t.Fatalf("esperava numero 1 para A1, obteve %d", detalheA1.Numero)
+		}
+
+		resA2, detalheA2, _ := fazerGetDetalhe(tokenA, jogoA2.ID)
+		if resA2.StatusCode != http.StatusOK || detalheA2.Numero != 2 {
+			t.Fatalf("esperava numero 2 para A2, obteve %d", detalheA2.Numero)
+		}
+
+		resA3, detalheA3, _ := fazerGetDetalhe(tokenA, jogoA3.ID)
+		if resA3.StatusCode != http.StatusOK || detalheA3.Numero != 3 {
+			t.Fatalf("esperava numero 3 para A3, obteve %d", detalheA3.Numero)
+		}
+
+		resB1, detalheB1, _ := fazerGetDetalhe(tokenB, jogoB1.ID)
+		if resB1.StatusCode != http.StatusOK || detalheB1.Numero != 1 {
+			t.Fatalf("esperava numero 1 para B1, obteve %d", detalheB1.Numero)
+		}
+
+		statusExclusao := fazerExcluir(tokenA, jogoA2.ID)
+		if statusExclusao != http.StatusNoContent {
+			t.Fatalf("esperava 204 ao excluir A2, obteve %d", statusExclusao)
+		}
+
+		resA3AposExclusao, detalheA3AposExclusao, _ := fazerGetDetalhe(tokenA, jogoA3.ID)
+		if resA3AposExclusao.StatusCode != http.StatusOK || detalheA3AposExclusao.Numero != 3 {
+			t.Fatalf("esperava que A3 continuasse com numero 3 apos exclusao de A2, obteve %d", detalheA3AposExclusao.Numero)
+		}
+
+		resA1AposExclusao, detalheA1AposExclusao, _ := fazerGetDetalhe(tokenA, jogoA1.ID)
+		if resA1AposExclusao.StatusCode != http.StatusOK || detalheA1AposExclusao.Numero != 1 {
+			t.Fatalf("esperava que A1 continuasse com numero 1, obteve %d", detalheA1AposExclusao.Numero)
+		}
+
+		resA2Excluido, _, errA2 := fazerGetDetalhe(tokenA, jogoA2.ID)
+		if resA2Excluido.StatusCode != http.StatusNotFound || errA2.Error.Codigo != "jogos.not_found" {
+			t.Fatalf("esperava 404 jogos.not_found para jogo excluido, obteve %d: %s", resA2Excluido.StatusCode, errA2.Error.Codigo)
+		}
+
+		resOutroUsuario, _, errOutroUsuario := fazerGetDetalhe(tokenA, jogoB1.ID)
+		if resOutroUsuario.StatusCode != http.StatusNotFound || errOutroUsuario.Error.Codigo != "jogos.not_found" {
+			t.Fatalf("esperava 404 jogos.not_found para jogo de outro usuario, obteve %d: %s", resOutroUsuario.StatusCode, errOutroUsuario.Error.Codigo)
+		}
+
+		resBtentandoA, _, errBtentandoA := fazerGetDetalhe(tokenB, jogoA1.ID)
+		if resBtentandoA.StatusCode != http.StatusNotFound || errBtentandoA.Error.Codigo != "jogos.not_found" {
+			t.Fatalf("esperava 404 jogos.not_found para usuario B tentando ver A1, obteve %d: %s", resBtentandoA.StatusCode, errBtentandoA.Error.Codigo)
+		}
+
+		jogoDesc := fazerCriar(tokenA, "Jogo Com Descricao", "Review", "Descricao persistida com sucesso")
+		resDesc, detalheDesc, _ := fazerGetDetalhe(tokenA, jogoDesc.ID)
+		if resDesc.StatusCode != http.StatusOK || detalheDesc.IgdbDescricao != "Descricao persistida com sucesso" {
+			t.Fatalf("esperava igdb_descricao persistida, obteve status %d descricao=%q", resDesc.StatusCode, detalheDesc.IgdbDescricao)
 		}
 	})
 }

@@ -31,6 +31,7 @@ type Querier interface {
 	ListarRefreshTokensAtivosPorUsuario(ctx context.Context, usuarioID int32) ([]TokensRefreshAtivo, error)
 	ObterAnosUsuario(ctx context.Context, usuarioID int32) ([]int32, error)
 	ObterConsolesUsuario(ctx context.Context, usuarioID int32) ([]string, error)
+	ObterDetalhesJogoZerado(ctx context.Context, arg ObterDetalhesJogoZeradoParams) (ObterDetalhesJogoZeradoRow, error)
 	ObterGenerosUsuario(ctx context.Context, usuarioID int32) ([]pgtype.Text, error)
 	ObterTiposUsuario(ctx context.Context, usuarioID int32) ([]pgtype.Text, error)
 	RegistrarRefreshTokenAtivo(ctx context.Context, arg RegistrarRefreshTokenAtivoParams) error
