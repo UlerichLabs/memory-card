@@ -61,6 +61,21 @@ ORDER BY ano DESC;
 -- name: BuscarJogoPorID :one
 SELECT * FROM jogos_zerados WHERE id = $1 AND usuario_id = $2 AND deleted_at IS NULL;
 
+-- name: ObterDetalhesJogoZerado :one
+WITH jogos_numerados AS (
+    SELECT id, usuario_id, igdb_id, nome, console, genero, tipo,
+           iniciado_em, finalizado_em, tempo_jogado, nota, dificuldade,
+           review, destaque, igdb_capa_url, igdb_descricao, created_at, updated_at, deleted_at,
+           ROW_NUMBER() OVER (PARTITION BY usuario_id ORDER BY created_at ASC, id ASC)::int AS numero
+    FROM jogos_zerados
+    WHERE usuario_id = $2
+)
+SELECT id, usuario_id, igdb_id, nome, console, genero, tipo,
+       iniciado_em, finalizado_em, tempo_jogado, nota, dificuldade,
+       review, destaque, igdb_capa_url, igdb_descricao, created_at, updated_at, numero
+FROM jogos_numerados
+WHERE id = $1 AND deleted_at IS NULL;
+
 -- name: AtualizarJogoZerado :one
 UPDATE jogos_zerados SET
     igdb_id = $3,

@@ -21,11 +21,12 @@ import (
 )
 
 type mockJogosService struct {
-	criarFn        func(ctx context.Context, params repository.CriarJogoZeradoParams) (*repository.JogoZerado, error)
-	atualizarFn    func(ctx context.Context, params repository.AtualizarJogoZeradoParams) (*repository.JogoZerado, error)
-	excluirFn      func(ctx context.Context, id int32, usuarioID int32) error
-	listarFn       func(ctx context.Context, params service.ListarJogosParams) (*service.ResultadoListagem, error)
-	obterFiltrosFn func(ctx context.Context, usuarioID int32) (*repository.OpcoesFiltros, error)
+	criarFn         func(ctx context.Context, params repository.CriarJogoZeradoParams) (*repository.JogoZerado, error)
+	atualizarFn     func(ctx context.Context, params repository.AtualizarJogoZeradoParams) (*repository.JogoZerado, error)
+	excluirFn       func(ctx context.Context, id int32, usuarioID int32) error
+	listarFn        func(ctx context.Context, params service.ListarJogosParams) (*service.ResultadoListagem, error)
+	obterFiltrosFn  func(ctx context.Context, usuarioID int32) (*repository.OpcoesFiltros, error)
+	obterDetalhesFn func(ctx context.Context, id int32, usuarioID int32) (*repository.JogoZerado, error)
 }
 
 func (m *mockJogosService) CriarJogoZerado(ctx context.Context, params repository.CriarJogoZeradoParams) (*repository.JogoZerado, error) {
@@ -59,6 +60,13 @@ func (m *mockJogosService) ListarJogosZerados(ctx context.Context, params servic
 func (m *mockJogosService) ObterOpcoesFiltros(ctx context.Context, usuarioID int32) (*repository.OpcoesFiltros, error) {
 	if m.obterFiltrosFn != nil {
 		return m.obterFiltrosFn(ctx, usuarioID)
+	}
+	return nil, nil
+}
+
+func (m *mockJogosService) ObterDetalhesJogoZerado(ctx context.Context, id int32, usuarioID int32) (*repository.JogoZerado, error) {
+	if m.obterDetalhesFn != nil {
+		return m.obterDetalhesFn(ctx, id, usuarioID)
 	}
 	return nil, nil
 }
@@ -1309,3 +1317,263 @@ func TestJogosHandler_ObterFiltros_Sucesso(t *testing.T) {
 	}
 }
 
+func TestJogosHandler_ObterDetalhesJogo_Sucesso(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	secret := uuid.NewString()
+	tokens, err := service.NewAuthToken(secret, time.Hour, 24*time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	igdbID := int32(1029)
+	iniciadoEm := time.Date(2024, 1, 10, 0, 0, 0, 0, time.UTC)
+	finalizadoEm := time.Date(2024, 5, 15, 0, 0, 0, 0, time.UTC)
+	createdAt := time.Date(2024, 1, 10, 10, 0, 0, 0, time.UTC)
+	updatedAt := time.Date(2024, 5, 15, 12, 0, 0, 0, time.UTC)
+
+	svc := &mockJogosService{
+		obterDetalhesFn: func(ctx context.Context, id int32, usuarioID int32) (*repository.JogoZerado, error) {
+			if id != 20 {
+				t.Fatalf("esperava id 20, obteve %d", id)
+			}
+			if usuarioID != 42 {
+				t.Fatalf("esperava usuarioID 42, obteve %d", usuarioID)
+			}
+			return &repository.JogoZerado{
+				ID:            20,
+				Numero:        1,
+				UsuarioID:     42,
+				IgdbID:        &igdbID,
+				Nome:          "The Legend of Zelda: Ocarina of Time",
+				Console:       "Nintendo 64",
+				Genero:        "Adventure, Role-playing (RPG)",
+				Tipo:          "Campanha",
+				IniciadoEm:    &iniciadoEm,
+				FinalizadoEm:  finalizadoEm,
+				TempoJogado:   128700,
+				Nota:          11,
+				Dificuldade:   "A",
+				Review:        "Masterpiece.",
+				Destaque:      true,
+				IgdbCapaURL:   "//images.igdb.com/igdb/image/upload/t_thumb/co3nnx.jpg",
+				IgdbDescricao: "A young boy named Link...",
+				CreatedAt:     createdAt,
+				UpdatedAt:     updatedAt,
+			}, nil
+		},
+	}
+
+	router := gin.New()
+	privadas := middleware.GrupoPrivado(router, tokens)
+	h := NewJogosHandler(svc)
+	privadas.GET("/jogos/:id", h.ObterDetalhesJogo)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/jogos/20", nil)
+	req.Header.Set("Authorization", "Bearer "+generateTestAccessToken(t, secret, "42"))
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("esperava status 200, obteve %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp struct {
+		Data struct {
+			ID            int32  `json:"id"`
+			Numero        int    `json:"numero"`
+			IgdbID        *int32 `json:"igdb_id"`
+			Nome          string `json:"nome"`
+			Console       string `json:"console"`
+			Genero        string `json:"genero"`
+			Tipo          string `json:"tipo"`
+			TempoJogado   int32  `json:"tempo_jogado"`
+			Nota          int32  `json:"nota"`
+			Dificuldade   string `json:"dificuldade"`
+			Review        string `json:"review"`
+			Destaque      bool   `json:"destaque"`
+			IgdbCapaURL   string `json:"igdb_capa_url"`
+			IgdbDescricao string `json:"igdb_descricao"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+
+	if resp.Data.ID != 20 || resp.Data.Numero != 1 || resp.Data.Nome != "The Legend of Zelda: Ocarina of Time" {
+		t.Fatalf("dados incorretos: %+v", resp.Data)
+	}
+	if resp.Data.IgdbDescricao != "A young boy named Link..." {
+		t.Fatalf("igdb_descricao incorreto: %q", resp.Data.IgdbDescricao)
+	}
+}
+
+func TestJogosHandler_ObterDetalhesJogo_IDInvalido(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	secret := uuid.NewString()
+	tokens, err := service.NewAuthToken(secret, time.Hour, 24*time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	svc := &mockJogosService{}
+	router := gin.New()
+	privadas := middleware.GrupoPrivado(router, tokens)
+	h := NewJogosHandler(svc)
+	privadas.GET("/jogos/:id", h.ObterDetalhesJogo)
+
+	casos := []string{"abc", "0", "-1"}
+	for _, idParam := range casos {
+		t.Run("id="+idParam, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/api/v1/jogos/"+idParam, nil)
+			req.Header.Set("Authorization", "Bearer "+generateTestAccessToken(t, secret, "42"))
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, req)
+
+			if w.Code != http.StatusBadRequest {
+				t.Fatalf("esperava status 400, obteve %d", w.Code)
+			}
+
+			var resp struct {
+				Error struct {
+					Codigo string `json:"codigo"`
+				} `json:"error"`
+			}
+			if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+				t.Fatal(err)
+			}
+			if resp.Error.Codigo != "jogos.invalid_id" {
+				t.Fatalf("esperava codigo jogos.invalid_id, obteve %s", resp.Error.Codigo)
+			}
+		})
+	}
+}
+
+func TestJogosHandler_ObterDetalhesJogo_SemToken(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	secret := uuid.NewString()
+	tokens, err := service.NewAuthToken(secret, time.Hour, 24*time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	svc := &mockJogosService{}
+	router := gin.New()
+	privadas := middleware.GrupoPrivado(router, tokens)
+	h := NewJogosHandler(svc)
+	privadas.GET("/jogos/:id", h.ObterDetalhesJogo)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/jogos/20", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("esperava status 401, obteve %d", w.Code)
+	}
+
+	var resp struct {
+		Error struct {
+			Codigo string `json:"codigo"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+	if resp.Error.Codigo != "auth.session.unauthorized" {
+		t.Fatalf("esperava auth.session.unauthorized, obteve %s", resp.Error.Codigo)
+	}
+}
+
+func TestJogosHandler_ObterDetalhesJogo_NaoEncontrado(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	secret := uuid.NewString()
+	tokens, err := service.NewAuthToken(secret, time.Hour, 24*time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	svc := &mockJogosService{
+		obterDetalhesFn: func(ctx context.Context, id int32, usuarioID int32) (*repository.JogoZerado, error) {
+			return nil, service.ErrJogoNaoEncontrado
+		},
+	}
+
+	router := gin.New()
+	privadas := middleware.GrupoPrivado(router, tokens)
+	h := NewJogosHandler(svc)
+	privadas.GET("/jogos/:id", h.ObterDetalhesJogo)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/jogos/999999", nil)
+	req.Header.Set("Authorization", "Bearer "+generateTestAccessToken(t, secret, "42"))
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("esperava status 404, obteve %d", w.Code)
+	}
+
+	var resp struct {
+		Error struct {
+			Codigo string `json:"codigo"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+	if resp.Error.Codigo != "jogos.not_found" {
+		t.Fatalf("esperava codigo jogos.not_found, obteve %s", resp.Error.Codigo)
+	}
+}
+
+func TestJogosHandler_RotasSemConflito(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	secret := uuid.NewString()
+	tokens, err := service.NewAuthToken(secret, time.Hour, 24*time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	svc := &mockJogosService{
+		obterFiltrosFn: func(ctx context.Context, usuarioID int32) (*repository.OpcoesFiltros, error) {
+			return &repository.OpcoesFiltros{Consoles: []string{"N64"}}, nil
+		},
+		obterDetalhesFn: func(ctx context.Context, id int32, usuarioID int32) (*repository.JogoZerado, error) {
+			return &repository.JogoZerado{ID: id, Numero: 1, Nome: "Zelda"}, nil
+		},
+	}
+
+	router := gin.New()
+	privadas := middleware.GrupoPrivado(router, tokens)
+	h := NewJogosHandler(svc)
+
+	privadas.GET("/jogos/filtros", h.ObterFiltros)
+	privadas.GET("/jogos/igdb/:id", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"data": gin.H{"igdb_id": c.Param("id")}})
+	})
+	privadas.GET("/jogos/:id", h.ObterDetalhesJogo)
+
+	token := generateTestAccessToken(t, secret, "42")
+
+	reqFiltros := httptest.NewRequest(http.MethodGet, "/api/v1/jogos/filtros", nil)
+	reqFiltros.Header.Set("Authorization", "Bearer "+token)
+	wFiltros := httptest.NewRecorder()
+	router.ServeHTTP(wFiltros, reqFiltros)
+	if wFiltros.Code != http.StatusOK {
+		t.Fatalf("filtros esperava status 200, obteve %d", wFiltros.Code)
+	}
+
+	reqIgdb := httptest.NewRequest(http.MethodGet, "/api/v1/jogos/igdb/1029", nil)
+	reqIgdb.Header.Set("Authorization", "Bearer "+token)
+	wIgdb := httptest.NewRecorder()
+	router.ServeHTTP(wIgdb, reqIgdb)
+	if wIgdb.Code != http.StatusOK {
+		t.Fatalf("igdb esperava status 200, obteve %d", wIgdb.Code)
+	}
+
+	reqJogo := httptest.NewRequest(http.MethodGet, "/api/v1/jogos/42", nil)
+	reqJogo.Header.Set("Authorization", "Bearer "+token)
+	wJogo := httptest.NewRecorder()
+	router.ServeHTTP(wJogo, reqJogo)
+	if wJogo.Code != http.StatusOK {
+		t.Fatalf("jogo esperava status 200, obteve %d", wJogo.Code)
+	}
+}

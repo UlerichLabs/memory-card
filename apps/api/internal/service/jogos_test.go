@@ -20,6 +20,14 @@ type mockJogosRepo struct {
 	excluirFn      func(ctx context.Context, id int32, usuarioID int32) error
 	listarFn       func(ctx context.Context, params repository.ListarJogosZeradosParams) ([]*repository.JogoZerado, int64, error)
 	obterFiltrosFn func(ctx context.Context, usuarioID int32) (*repository.OpcoesFiltros, error)
+	obterPorIDFn   func(ctx context.Context, id int32, usuarioID int32) (*repository.JogoZerado, error)
+}
+
+func (m *mockJogosRepo) ObterPorID(ctx context.Context, id int32, usuarioID int32) (*repository.JogoZerado, error) {
+	if m.obterPorIDFn != nil {
+		return m.obterPorIDFn(ctx, id, usuarioID)
+	}
+	return nil, errors.New("nao implementado")
 }
 
 func (m *mockJogosRepo) Criar(ctx context.Context, params repository.CriarJogoZeradoParams) (*repository.JogoZerado, error) {
@@ -853,3 +861,62 @@ func TestJogosService_ObterOpcoesFiltros_ErroRepositorio(t *testing.T) {
 	}
 }
 
+func TestJogosService_ObterDetalhesJogoZerado_Sucesso(t *testing.T) {
+	esperado := &repository.JogoZerado{
+		ID:            10,
+		Numero:        2,
+		UsuarioID:     42,
+		Nome:          "Super Mario World",
+		Console:       "SNES",
+		TempoJogado:   18000,
+		Nota:          10,
+		Dificuldade:   "B",
+		IgdbDescricao: "Mario saves dinosaur land.",
+	}
+	repo := &mockJogosRepo{
+		obterPorIDFn: func(ctx context.Context, id int32, usuarioID int32) (*repository.JogoZerado, error) {
+			if id != 10 {
+				t.Fatalf("esperava id 10, obteve %d", id)
+			}
+			if usuarioID != 42 {
+				t.Fatalf("esperava usuarioID 42, obteve %d", usuarioID)
+			}
+			return esperado, nil
+		},
+	}
+	svc := NewJogosService(repo)
+	jogo, err := svc.ObterDetalhesJogoZerado(context.Background(), 10, 42)
+	if err != nil {
+		t.Fatalf("erro inesperado: %v", err)
+	}
+	if jogo.ID != 10 || jogo.Numero != 2 || jogo.UsuarioID != 42 || jogo.IgdbDescricao != "Mario saves dinosaur land." {
+		t.Fatalf("jogo inesperado: %+v", jogo)
+	}
+}
+
+func TestJogosService_ObterDetalhesJogoZerado_NaoEncontrado(t *testing.T) {
+	repo := &mockJogosRepo{
+		obterPorIDFn: func(ctx context.Context, id int32, usuarioID int32) (*repository.JogoZerado, error) {
+			return nil, pgx.ErrNoRows
+		},
+	}
+	svc := NewJogosService(repo)
+	_, err := svc.ObterDetalhesJogoZerado(context.Background(), 999, 42)
+	if !errors.Is(err, ErrJogoNaoEncontrado) {
+		t.Fatalf("esperava ErrJogoNaoEncontrado, obteve %v", err)
+	}
+}
+
+func TestJogosService_ObterDetalhesJogoZerado_ErroRepositorio(t *testing.T) {
+	dbErr := errors.New("db error")
+	repo := &mockJogosRepo{
+		obterPorIDFn: func(ctx context.Context, id int32, usuarioID int32) (*repository.JogoZerado, error) {
+			return nil, dbErr
+		},
+	}
+	svc := NewJogosService(repo)
+	_, err := svc.ObterDetalhesJogoZerado(context.Background(), 10, 42)
+	if !errors.Is(err, dbErr) {
+		t.Fatalf("esperava erro %v, obteve %v", dbErr, err)
+	}
+}

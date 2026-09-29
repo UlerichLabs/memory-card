@@ -135,6 +135,7 @@ func run() error {
 	jogosHandler := handler.NewJogosHandler(jogosService)
 	privadas.GET("/jogos", jogosHandler.ListarJogos)
 	privadas.GET("/jogos/filtros", jogosHandler.ObterFiltros)
+	privadas.GET("/jogos/:id", jogosHandler.ObterDetalhesJogo)
 	privadas.POST("/jogos", jogosHandler.CriarJogo)
 	privadas.PUT("/jogos/:id", jogosHandler.AtualizarJogo)
 	privadas.DELETE("/jogos/:id", jogosHandler.ExcluirJogo)

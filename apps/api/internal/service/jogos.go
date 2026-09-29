@@ -41,6 +41,7 @@ type JogosRepository interface {
 	Excluir(ctx context.Context, id int32, usuarioID int32) error
 	Listar(ctx context.Context, params repository.ListarJogosZeradosParams) ([]*repository.JogoZerado, int64, error)
 	ObterFiltros(ctx context.Context, usuarioID int32) (*repository.OpcoesFiltros, error)
+	ObterPorID(ctx context.Context, id int32, usuarioID int32) (*repository.JogoZerado, error)
 }
 
 type JogosService struct {
@@ -305,4 +306,15 @@ func (s *JogosService) ObterOpcoesFiltros(ctx context.Context, usuarioID int32) 
 		return nil, fmt.Errorf("obter opcoes filtros: %w", err)
 	}
 	return filtros, nil
+}
+
+func (s *JogosService) ObterDetalhesJogoZerado(ctx context.Context, id int32, usuarioID int32) (*repository.JogoZerado, error) {
+	jogo, err := s.repo.ObterPorID(ctx, id, usuarioID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrJogoNaoEncontrado
+		}
+		return nil, fmt.Errorf("obter detalhes jogo zerado: %w", err)
+	}
+	return jogo, nil
 }
