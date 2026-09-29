@@ -47,5 +47,6 @@
   "jogos.nota_filtro_invalida": "Rating must be between 1 and 11.",
   "jogos.nota_faixa_invalida": "Minimum rating cannot be greater than maximum rating.",
   "jogos.ano_invalido": "Invalid year.",
-  "jogos.dificuldade_invalida": "Difficulty must be C, B, A, AA or AAA."
+  "jogos.dificuldade_invalida": "Difficulty must be C, B, A, AA or AAA.",
+  "jogos.ordenacao_invalida": "Invalid ordering."
 }

@@ -15,6 +15,7 @@ type Querier interface {
 	AtualizarSenhaUsuario(ctx context.Context, arg AtualizarSenhaUsuarioParams) error
 	BuscarCredenciaisUsuarioPorID(ctx context.Context, id int32) (BuscarCredenciaisUsuarioPorIDRow, error)
 	BuscarJogoPorID(ctx context.Context, arg BuscarJogoPorIDParams) (JogosZerado, error)
+	BuscarJogoPorIDParaUpdate(ctx context.Context, arg BuscarJogoPorIDParaUpdateParams) (JogosZerado, error)
 	BuscarSnapshotIGDB(ctx context.Context, chave string) ([]byte, error)
 	BuscarTokenResetSenha(ctx context.Context, tokenHash string) (TokensResetSenha, error)
 	BuscarUsuarioPorEmail(ctx context.Context, email string) (BuscarUsuarioPorEmailRow, error)
@@ -24,15 +25,20 @@ type Querier interface {
 	CriarJogoZerado(ctx context.Context, arg CriarJogoZeradoParams) (JogosZerado, error)
 	CriarTokenResetSenha(ctx context.Context, arg CriarTokenResetSenhaParams) error
 	CriarUsuario(ctx context.Context, arg CriarUsuarioParams) (CriarUsuarioRow, error)
+	DesmarcarGameDoAnoAtual(ctx context.Context, arg DesmarcarGameDoAnoAtualParams) (int32, error)
+	DesmarcarGameDoAnoPorID(ctx context.Context, arg DesmarcarGameDoAnoPorIDParams) (int64, error)
 	ExcluirJogoZerado(ctx context.Context, arg ExcluirJogoZeradoParams) (int64, error)
 	ExisteUsuarioComEmail(ctx context.Context, email string) (bool, error)
 	LimparTokensRevogadosExpirados(ctx context.Context) error
 	ListarJogosZerados(ctx context.Context, arg ListarJogosZeradosParams) ([]JogosZerado, error)
+	ListarJogosZeradosPorNota(ctx context.Context, arg ListarJogosZeradosPorNotaParams) ([]JogosZerado, error)
 	ListarRefreshTokensAtivosPorUsuario(ctx context.Context, usuarioID int32) ([]TokensRefreshAtivo, error)
+	MarcarGameDoAno(ctx context.Context, arg MarcarGameDoAnoParams) (JogosZerado, error)
 	ObterAnosUsuario(ctx context.Context, usuarioID int32) ([]int32, error)
 	ObterConsolesUsuario(ctx context.Context, usuarioID int32) ([]string, error)
 	ObterDetalhesJogoZerado(ctx context.Context, arg ObterDetalhesJogoZeradoParams) (ObterDetalhesJogoZeradoRow, error)
 	ObterGenerosUsuario(ctx context.Context, usuarioID int32) ([]pgtype.Text, error)
+	ObterResumoGameDoAno(ctx context.Context, usuarioID int32) ([]ObterResumoGameDoAnoRow, error)
 	ObterTiposUsuario(ctx context.Context, usuarioID int32) ([]pgtype.Text, error)
 	RegistrarRefreshTokenAtivo(ctx context.Context, arg RegistrarRefreshTokenAtivoParams) error
 	RegistrarSolicitacaoResetSenha(ctx context.Context, email string) (int16, error)

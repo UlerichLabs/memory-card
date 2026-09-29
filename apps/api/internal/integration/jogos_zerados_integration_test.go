@@ -95,6 +95,42 @@ type erroEnvelope struct {
 	} `json:"error"`
 }
 
+type itemResumoResposta struct {
+	Ano        int                    `json:"ano"`
+	TotalJogos int64                  `json:"total_jogos"`
+	GameDoAno  *repository.JogoZerado `json:"game_do_ano"`
+}
+
+type resumoEnvelope struct {
+	Data []itemResumoResposta `json:"data"`
+}
+
+type definirGameDoAnoEnvelope struct {
+	Data struct {
+		Ano        int                   `json:"ano"`
+		GameDoAno  repository.JogoZerado `json:"game_do_ano"`
+		AnteriorID *int32                `json:"anterior_id"`
+	} `json:"data"`
+}
+
+func criarJogoViaAPI(t *testing.T, env *postgresIntegrationEnv, token string, input criarJogoInput) int32 {
+	t.Helper()
+	body, _ := json.Marshal(input)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/jogos", bytes.NewReader(body))
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	env.router.ServeHTTP(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("falha ao criar jogo via API (%d): %s", w.Code, w.Body.String())
+	}
+	var resp jogoEnvelope
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("falha ao decodificar resposta do jogo: %v", err)
+	}
+	return resp.Data.ID
+}
+
 func setupIntegrationEnv(t *testing.T) *postgresIntegrationEnv {
 	t.Helper()
 
@@ -152,7 +188,7 @@ func setupIntegrationEnv(t *testing.T) *postgresIntegrationEnv {
 	})
 
 	queries := db.New(pool)
-	repo := repository.NewJogosRepository(queries)
+	repo := repository.NewJogosRepository(pool, queries)
 	svc := service.NewJogosService(repo)
 	h := handler.NewJogosHandler(svc)
 
@@ -166,9 +202,12 @@ func setupIntegrationEnv(t *testing.T) *postgresIntegrationEnv {
 	privadas := middleware.GrupoPrivado(router, tokens)
 	privadas.POST("/jogos", h.CriarJogo)
 	privadas.PUT("/jogos/:id", h.AtualizarJogo)
+	privadas.PUT("/jogos/:id/game-do-ano", h.DefinirGameDoAno)
 	privadas.DELETE("/jogos/:id", h.ExcluirJogo)
+	privadas.DELETE("/jogos/:id/game-do-ano", h.RemoverGameDoAno)
 	privadas.GET("/jogos", h.ListarJogos)
 	privadas.GET("/jogos/filtros", h.ObterFiltros)
+	privadas.GET("/jogos/game-do-ano", h.ObterGameDoAnoResumo)
 	privadas.GET("/jogos/:id", h.ObterDetalhesJogo)
 
 	return &postgresIntegrationEnv{
@@ -1776,4 +1815,499 @@ func TestIntegration_JogosZerados(t *testing.T) {
 		plan := explainOutput.String()
 		t.Logf("EXPLAIN PLAN:\n%s", plan)
 	})
+
+	t.Run("24_GameDoAno_1_ResumoTresAnosComESemDestaque", func(t *testing.T) {
+		usuarioID := criarUsuarioTeste(t, env.pool)
+		token := gerarAccessTokenTeste(t, env.secret, usuarioID)
+
+		criarJogoViaAPI(t, env, token, criarJogoInput{
+			Nome: "Jogo 2026 A", Console: "PS5", FinalizadoEm: "2026-03-01T00:00:00Z",
+			Nota: 8, Dificuldade: "B", Destaque: false,
+		})
+		id2026Destaque := criarJogoViaAPI(t, env, token, criarJogoInput{
+			Nome: "Jogo 2026 Destaque", Console: "PS5", FinalizadoEm: "2026-06-01T00:00:00Z",
+			Nota: 11, Dificuldade: "AAA", Destaque: true,
+		})
+		criarJogoViaAPI(t, env, token, criarJogoInput{
+			Nome: "Jogo 2026 B", Console: "PS5", FinalizadoEm: "2026-09-01T00:00:00Z",
+			Nota: 9, Dificuldade: "A", Destaque: false,
+		})
+
+		criarJogoViaAPI(t, env, token, criarJogoInput{
+			Nome: "Jogo 2025 A", Console: "Switch", FinalizadoEm: "2025-04-01T00:00:00Z",
+			Nota: 7, Dificuldade: "C", Destaque: false,
+		})
+		criarJogoViaAPI(t, env, token, criarJogoInput{
+			Nome: "Jogo 2025 B", Console: "Switch", FinalizadoEm: "2025-07-01T00:00:00Z",
+			Nota: 8, Dificuldade: "B", Destaque: false,
+		})
+
+		id2024Destaque := criarJogoViaAPI(t, env, token, criarJogoInput{
+			Nome: "Jogo 2024 Destaque", Console: "PC", FinalizadoEm: "2024-11-01T00:00:00Z",
+			Nota: 10, Dificuldade: "AA", Destaque: true,
+		})
+
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/jogos/game-do-ano", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		w := httptest.NewRecorder()
+		env.router.ServeHTTP(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("esperava 200, obteve %d: %s", w.Code, w.Body.String())
+		}
+
+		var resp resumoEnvelope
+		if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("falha ao decodificar resumo: %v", err)
+		}
+
+		if len(resp.Data) != 3 {
+			t.Fatalf("esperava 3 anos no resumo, obteve %d", len(resp.Data))
+		}
+
+		if resp.Data[0].Ano != 2026 || resp.Data[0].TotalJogos != 3 || resp.Data[0].GameDoAno == nil || resp.Data[0].GameDoAno.ID != id2026Destaque {
+			t.Fatalf("item 2026 incorreto: %+v", resp.Data[0])
+		}
+		if resp.Data[1].Ano != 2025 || resp.Data[1].TotalJogos != 2 || resp.Data[1].GameDoAno != nil {
+			t.Fatalf("item 2025 incorreto: %+v", resp.Data[1])
+		}
+		if resp.Data[2].Ano != 2024 || resp.Data[2].TotalJogos != 1 || resp.Data[2].GameDoAno == nil || resp.Data[2].GameDoAno.ID != id2024Destaque {
+			t.Fatalf("item 2024 incorreto: %+v", resp.Data[2])
+		}
+	})
+
+	t.Run("25_GameDoAno_2_ResumoIgnoraExcluidos", func(t *testing.T) {
+		usuarioID := criarUsuarioTeste(t, env.pool)
+		token := gerarAccessTokenTeste(t, env.secret, usuarioID)
+
+		criarJogoViaAPI(t, env, token, criarJogoInput{
+			Nome: "Jogo Ativo 2026", Console: "PS5", FinalizadoEm: "2026-03-01T00:00:00Z",
+			Nota: 8, Dificuldade: "B", Destaque: false,
+		})
+		idDestaque2026 := criarJogoViaAPI(t, env, token, criarJogoInput{
+			Nome: "Jogo Destaque Excluido 2026", Console: "PS5", FinalizadoEm: "2026-06-01T00:00:00Z",
+			Nota: 10, Dificuldade: "A", Destaque: true,
+		})
+		reqDel1 := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/api/v1/jogos/%d", idDestaque2026), nil)
+		reqDel1.Header.Set("Authorization", "Bearer "+token)
+		wDel1 := httptest.NewRecorder()
+		env.router.ServeHTTP(wDel1, reqDel1)
+		if wDel1.Code != http.StatusNoContent {
+			t.Fatalf("falha ao excluir jogo 2026: %d", wDel1.Code)
+		}
+
+		idExcluido2023 := criarJogoViaAPI(t, env, token, criarJogoInput{
+			Nome: "Jogo Unico 2023 Excluido", Console: "PC", FinalizadoEm: "2023-05-01T00:00:00Z",
+			Nota: 9, Dificuldade: "AA", Destaque: true,
+		})
+		reqDel2 := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/api/v1/jogos/%d", idExcluido2023), nil)
+		reqDel2.Header.Set("Authorization", "Bearer "+token)
+		wDel2 := httptest.NewRecorder()
+		env.router.ServeHTTP(wDel2, reqDel2)
+		if wDel2.Code != http.StatusNoContent {
+			t.Fatalf("falha ao excluir jogo 2023: %d", wDel2.Code)
+		}
+
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/jogos/game-do-ano", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		w := httptest.NewRecorder()
+		env.router.ServeHTTP(w, req)
+
+		var resp resumoEnvelope
+		if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("falha ao decodificar resumo: %v", err)
+		}
+
+		if len(resp.Data) != 1 {
+			t.Fatalf("esperava apenas 1 ano no resumo, obteve %d", len(resp.Data))
+		}
+		if resp.Data[0].Ano != 2026 || resp.Data[0].TotalJogos != 1 || resp.Data[0].GameDoAno != nil {
+			t.Fatalf("dados do ano 2026 incorretos: %+v", resp.Data[0])
+		}
+	})
+
+	t.Run("26_GameDoAno_3_ResumoIsolamentoOutroUsuario", func(t *testing.T) {
+		userA := criarUsuarioTeste(t, env.pool)
+		userB := criarUsuarioTeste(t, env.pool)
+		tokenA := gerarAccessTokenTeste(t, env.secret, userA)
+		tokenB := gerarAccessTokenTeste(t, env.secret, userB)
+
+		idDestaqueA := criarJogoViaAPI(t, env, tokenA, criarJogoInput{
+			Nome: "Jogo A 2026", Console: "PC", FinalizadoEm: "2026-05-01T00:00:00Z",
+			Nota: 10, Dificuldade: "A", Destaque: true,
+		})
+		criarJogoViaAPI(t, env, tokenA, criarJogoInput{
+			Nome: "Jogo A 2025", Console: "PC", FinalizadoEm: "2025-05-01T00:00:00Z",
+			Nota: 8, Dificuldade: "B", Destaque: false,
+		})
+
+		criarJogoViaAPI(t, env, tokenB, criarJogoInput{
+			Nome: "Jogo B 2026", Console: "PS5", FinalizadoEm: "2026-07-01T00:00:00Z",
+			Nota: 11, Dificuldade: "AAA", Destaque: true,
+		})
+		criarJogoViaAPI(t, env, tokenB, criarJogoInput{
+			Nome: "Jogo B 2024", Console: "PS5", FinalizadoEm: "2024-07-01T00:00:00Z",
+			Nota: 9, Dificuldade: "A", Destaque: true,
+		})
+
+		reqA := httptest.NewRequest(http.MethodGet, "/api/v1/jogos/game-do-ano", nil)
+		reqA.Header.Set("Authorization", "Bearer "+tokenA)
+		wA := httptest.NewRecorder()
+		env.router.ServeHTTP(wA, reqA)
+
+		var respA resumoEnvelope
+		if err := json.Unmarshal(wA.Body.Bytes(), &respA); err != nil {
+			t.Fatalf("falha ao decodificar: %v", err)
+		}
+
+		if len(respA.Data) != 2 {
+			t.Fatalf("esperava 2 anos para userA, obteve %d", len(respA.Data))
+		}
+		if respA.Data[0].Ano != 2026 || respA.Data[0].TotalJogos != 1 || respA.Data[0].GameDoAno == nil || respA.Data[0].GameDoAno.ID != idDestaqueA {
+			t.Fatalf("dados do ano 2026 para userA incorretos: %+v", respA.Data[0])
+		}
+		if respA.Data[1].Ano != 2025 || respA.Data[1].TotalJogos != 1 {
+			t.Fatalf("dados do ano 2025 para userA incorretos: %+v", respA.Data[1])
+		}
+	})
+
+	t.Run("27_Listagem_4_OrdenarPorNotaComEmpateEAno", func(t *testing.T) {
+		user := criarUsuarioTeste(t, env.pool)
+		token := gerarAccessTokenTeste(t, env.secret, user)
+
+		j1 := criarJogoViaAPI(t, env, token, criarJogoInput{
+			Nome: "Game 1", Console: "SNES", FinalizadoEm: "2025-05-10T00:00:00Z",
+			Nota: 8, Dificuldade: "B",
+		})
+		j2 := criarJogoViaAPI(t, env, token, criarJogoInput{
+			Nome: "Game 2", Console: "SNES", FinalizadoEm: "2025-06-10T00:00:00Z",
+			Nota: 10, Dificuldade: "A",
+		})
+		j3 := criarJogoViaAPI(t, env, token, criarJogoInput{
+			Nome: "Game 3", Console: "SNES", FinalizadoEm: "2025-06-10T00:00:00Z",
+			Nota: 10, Dificuldade: "A",
+		})
+		j4 := criarJogoViaAPI(t, env, token, criarJogoInput{
+			Nome: "Game 4", Console: "SNES", FinalizadoEm: "2025-04-10T00:00:00Z",
+			Nota: 10, Dificuldade: "A",
+		})
+		j5 := criarJogoViaAPI(t, env, token, criarJogoInput{
+			Nome: "Game 5", Console: "SNES", FinalizadoEm: "2026-01-10T00:00:00Z",
+			Nota: 11, Dificuldade: "AAA",
+		})
+
+		reqNota := httptest.NewRequest(http.MethodGet, "/api/v1/jogos?ordenar=nota", nil)
+		reqNota.Header.Set("Authorization", "Bearer "+token)
+		wNota := httptest.NewRecorder()
+		env.router.ServeHTTP(wNota, reqNota)
+
+		if wNota.Code != http.StatusOK {
+			t.Fatalf("esperava 200, obteve %d", wNota.Code)
+		}
+		var respNota listagemEnvelope
+		_ = json.Unmarshal(wNota.Body.Bytes(), &respNota)
+
+		esperadosNota := []int32{j5, j3, j2, j4, j1}
+		if len(respNota.Data) != len(esperadosNota) {
+			t.Fatalf("esperava %d jogos, obteve %d", len(esperadosNota), len(respNota.Data))
+		}
+		for i, id := range esperadosNota {
+			if respNota.Data[i].ID != id {
+				t.Fatalf("posicao %d: esperava id %d, obteve %d", i, id, respNota.Data[i].ID)
+			}
+		}
+
+		reqAnoNota := httptest.NewRequest(http.MethodGet, "/api/v1/jogos?ano=2025&ordenar=nota", nil)
+		reqAnoNota.Header.Set("Authorization", "Bearer "+token)
+		wAnoNota := httptest.NewRecorder()
+		env.router.ServeHTTP(wAnoNota, reqAnoNota)
+
+		if wAnoNota.Code != http.StatusOK {
+			t.Fatalf("esperava 200, obteve %d", wAnoNota.Code)
+		}
+		var respAnoNota listagemEnvelope
+		_ = json.Unmarshal(wAnoNota.Body.Bytes(), &respAnoNota)
+
+		esperadosAnoNota := []int32{j3, j2, j4, j1}
+		if len(respAnoNota.Data) != len(esperadosAnoNota) {
+			t.Fatalf("esperava %d jogos, obteve %d", len(esperadosAnoNota), len(respAnoNota.Data))
+		}
+		for i, id := range esperadosAnoNota {
+			if respAnoNota.Data[i].ID != id {
+				t.Fatalf("posicao %d filtrado por ano: esperava id %d, obteve %d", i, id, respAnoNota.Data[i].ID)
+			}
+		}
+	})
+
+	t.Run("28_GameDoAno_5_PutSemDestaqueAnterior", func(t *testing.T) {
+		user := criarUsuarioTeste(t, env.pool)
+		token := gerarAccessTokenTeste(t, env.secret, user)
+
+		j1 := criarJogoViaAPI(t, env, token, criarJogoInput{
+			Nome: "Jogo Sem Destaque", Console: "PS4", FinalizadoEm: "2025-08-20T00:00:00Z",
+			Nota: 9, Dificuldade: "A", Destaque: false,
+		})
+
+		req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/api/v1/jogos/%d/game-do-ano", j1), nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		w := httptest.NewRecorder()
+		env.router.ServeHTTP(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("esperava 200, obteve %d: %s", w.Code, w.Body.String())
+		}
+
+		var resp definirGameDoAnoEnvelope
+		if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("falha ao decodificar: %v", err)
+		}
+
+		if resp.Data.Ano != 2025 || resp.Data.GameDoAno.ID != j1 || !resp.Data.GameDoAno.Destaque || resp.Data.AnteriorID != nil {
+			t.Fatalf("resposta inesperada no PUT sem anterior: %+v", resp.Data)
+		}
+
+		var destaqueNoBanco bool
+		err := env.pool.QueryRow(context.Background(), "SELECT destaque FROM jogos_zerados WHERE id = $1", j1).Scan(&destaqueNoBanco)
+		if err != nil || !destaqueNoBanco {
+			t.Fatalf("esperava destaque true no banco, err=%v, val=%v", err, destaqueNoBanco)
+		}
+	})
+
+	t.Run("29_GameDoAno_6_PutTrocandoDestaqueExistente", func(t *testing.T) {
+		user := criarUsuarioTeste(t, env.pool)
+		token := gerarAccessTokenTeste(t, env.secret, user)
+
+		j1 := criarJogoViaAPI(t, env, token, criarJogoInput{
+			Nome: "Destaque Antigo", Console: "NES", FinalizadoEm: "2025-03-10T00:00:00Z",
+			Nota: 8, Dificuldade: "B", Destaque: true,
+		})
+		j2 := criarJogoViaAPI(t, env, token, criarJogoInput{
+			Nome: "Novo Candidato", Console: "NES", FinalizadoEm: "2025-10-10T00:00:00Z",
+			Nota: 10, Dificuldade: "A", Destaque: false,
+		})
+
+		req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/api/v1/jogos/%d/game-do-ano", j2), nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		w := httptest.NewRecorder()
+		env.router.ServeHTTP(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("esperava 200, obteve %d: %s", w.Code, w.Body.String())
+		}
+
+		var resp definirGameDoAnoEnvelope
+		if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("falha ao decodificar: %v", err)
+		}
+
+		if resp.Data.Ano != 2025 || resp.Data.GameDoAno.ID != j2 || !resp.Data.GameDoAno.Destaque {
+			t.Fatalf("jogo marcado incorreto: %+v", resp.Data)
+		}
+		if resp.Data.AnteriorID == nil || *resp.Data.AnteriorID != j1 {
+			t.Fatalf("esperava anterior_id=%d, obteve %v", j1, resp.Data.AnteriorID)
+		}
+
+		var countDestaques int
+		err := env.pool.QueryRow(context.Background(),
+			"SELECT COUNT(*) FROM jogos_zerados WHERE usuario_id = $1 AND EXTRACT(YEAR FROM finalizado_em) = 2025 AND destaque = true AND deleted_at IS NULL",
+			user,
+		).Scan(&countDestaques)
+		if err != nil || countDestaques != 1 {
+			t.Fatalf("esperava exatamente 1 destaque no ano, obteve count=%d, err=%v", countDestaques, err)
+		}
+
+		var j1Destaque, j2Destaque bool
+		_ = env.pool.QueryRow(context.Background(), "SELECT destaque FROM jogos_zerados WHERE id = $1", j1).Scan(&j1Destaque)
+		_ = env.pool.QueryRow(context.Background(), "SELECT destaque FROM jogos_zerados WHERE id = $1", j2).Scan(&j2Destaque)
+		if j1Destaque != false || j2Destaque != true {
+			t.Fatalf("estados incorretos: j1=%v, j2=%v", j1Destaque, j2Destaque)
+		}
+	})
+
+	t.Run("30_GameDoAno_7_PutIdempotenteMesmoRegistro", func(t *testing.T) {
+		user := criarUsuarioTeste(t, env.pool)
+		token := gerarAccessTokenTeste(t, env.secret, user)
+
+		j1 := criarJogoViaAPI(t, env, token, criarJogoInput{
+			Nome: "Destaque Ja Marcado", Console: "GBA", FinalizadoEm: "2025-05-01T00:00:00Z",
+			Nota: 10, Dificuldade: "A", Destaque: true,
+		})
+
+		req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/api/v1/jogos/%d/game-do-ano", j1), nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		w := httptest.NewRecorder()
+		env.router.ServeHTTP(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("esperava 200, obteve %d: %s", w.Code, w.Body.String())
+		}
+
+		var resp definirGameDoAnoEnvelope
+		if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("falha ao decodificar: %v", err)
+		}
+		if resp.Data.Ano != 2025 || resp.Data.GameDoAno.ID != j1 || resp.Data.AnteriorID != nil {
+			t.Fatalf("esperava anterior_id nil em chamada idempotente, obteve: %+v", resp.Data)
+		}
+
+		var j1Destaque bool
+		_ = env.pool.QueryRow(context.Background(), "SELECT destaque FROM jogos_zerados WHERE id = $1", j1).Scan(&j1Destaque)
+		if !j1Destaque {
+			t.Fatal("jogo deveria permanecer como destaque")
+		}
+	})
+
+	t.Run("31_GameDoAno_8_PutExcluidoOuOutroUsuario404", func(t *testing.T) {
+		userA := criarUsuarioTeste(t, env.pool)
+		userB := criarUsuarioTeste(t, env.pool)
+		tokenA := gerarAccessTokenTeste(t, env.secret, userA)
+		tokenB := gerarAccessTokenTeste(t, env.secret, userB)
+
+		jDestaqueA := criarJogoViaAPI(t, env, tokenA, criarJogoInput{
+			Nome: "Destaque Real A", Console: "PC", FinalizadoEm: "2025-01-01T00:00:00Z",
+			Nota: 10, Dificuldade: "A", Destaque: true,
+		})
+		jExcluidoA := criarJogoViaAPI(t, env, tokenA, criarJogoInput{
+			Nome: "A Excluir", Console: "PC", FinalizadoEm: "2025-02-01T00:00:00Z",
+			Nota: 8, Dificuldade: "B", Destaque: false,
+		})
+		reqDel := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/api/v1/jogos/%d", jExcluidoA), nil)
+		reqDel.Header.Set("Authorization", "Bearer "+tokenA)
+		wDel := httptest.NewRecorder()
+		env.router.ServeHTTP(wDel, reqDel)
+		if wDel.Code != http.StatusNoContent {
+			t.Fatalf("falha na exclusao: %d", wDel.Code)
+		}
+
+		jB := criarJogoViaAPI(t, env, tokenB, criarJogoInput{
+			Nome: "Jogo B", Console: "PC", FinalizadoEm: "2025-03-01T00:00:00Z",
+			Nota: 9, Dificuldade: "A", Destaque: false,
+		})
+
+		reqOutro := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/api/v1/jogos/%d/game-do-ano", jB), nil)
+		reqOutro.Header.Set("Authorization", "Bearer "+tokenA)
+		wOutro := httptest.NewRecorder()
+		env.router.ServeHTTP(wOutro, reqOutro)
+		if wOutro.Code != http.StatusNotFound {
+			t.Fatalf("esperava 404 para jogo de outro usuario, obteve %d", wOutro.Code)
+		}
+
+		reqExcluido := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/api/v1/jogos/%d/game-do-ano", jExcluidoA), nil)
+		reqExcluido.Header.Set("Authorization", "Bearer "+tokenA)
+		wExcluido := httptest.NewRecorder()
+		env.router.ServeHTTP(wExcluido, reqExcluido)
+		if wExcluido.Code != http.StatusNotFound {
+			t.Fatalf("esperava 404 para jogo excluido, obteve %d", wExcluido.Code)
+		}
+
+		var jDestaqueAinda bool
+		_ = env.pool.QueryRow(context.Background(), "SELECT destaque FROM jogos_zerados WHERE id = $1", jDestaqueA).Scan(&jDestaqueAinda)
+		if !jDestaqueAinda {
+			t.Fatal("destaque atual do usuario A nao deveria ter sido alterado")
+		}
+	})
+
+	t.Run("32_GameDoAno_9_DeleteSucessoEIdempotente", func(t *testing.T) {
+		user := criarUsuarioTeste(t, env.pool)
+		token := gerarAccessTokenTeste(t, env.secret, user)
+
+		j1 := criarJogoViaAPI(t, env, token, criarJogoInput{
+			Nome: "Jogo a Desmarcar", Console: "N64", FinalizadoEm: "2025-05-01T00:00:00Z",
+			Nota: 10, Dificuldade: "A", Destaque: true,
+		})
+
+		reqDel := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/api/v1/jogos/%d/game-do-ano", j1), nil)
+		reqDel.Header.Set("Authorization", "Bearer "+token)
+		wDel := httptest.NewRecorder()
+		env.router.ServeHTTP(wDel, reqDel)
+
+		if wDel.Code != http.StatusNoContent {
+			t.Fatalf("esperava 204 no primeiro DELETE, obteve %d", wDel.Code)
+		}
+
+		var noBanco bool
+		_ = env.pool.QueryRow(context.Background(), "SELECT destaque FROM jogos_zerados WHERE id = $1", j1).Scan(&noBanco)
+		if noBanco {
+			t.Fatal("esperava destaque false no banco apos DELETE")
+		}
+
+		reqResumo := httptest.NewRequest(http.MethodGet, "/api/v1/jogos/game-do-ano", nil)
+		reqResumo.Header.Set("Authorization", "Bearer "+token)
+		wResumo := httptest.NewRecorder()
+		env.router.ServeHTTP(wResumo, reqResumo)
+		var respResumo resumoEnvelope
+		_ = json.Unmarshal(wResumo.Body.Bytes(), &respResumo)
+		if len(respResumo.Data) != 1 || respResumo.Data[0].GameDoAno != nil {
+			t.Fatalf("esperava game_do_ano null no resumo, obteve: %+v", respResumo.Data)
+		}
+
+		reqDel2 := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/api/v1/jogos/%d/game-do-ano", j1), nil)
+		reqDel2.Header.Set("Authorization", "Bearer "+token)
+		wDel2 := httptest.NewRecorder()
+		env.router.ServeHTTP(wDel2, reqDel2)
+		if wDel2.Code != http.StatusNoContent {
+			t.Fatalf("esperava 204 no segundo DELETE (idempotente), obteve %d", wDel2.Code)
+		}
+
+		reqDel404 := httptest.NewRequest(http.MethodDelete, "/api/v1/jogos/999999/game-do-ano", nil)
+		reqDel404.Header.Set("Authorization", "Bearer "+token)
+		wDel404 := httptest.NewRecorder()
+		env.router.ServeHTTP(wDel404, reqDel404)
+		if wDel404.Code != http.StatusNotFound {
+			t.Fatalf("esperava 404 para id inexistente no DELETE, obteve %d", wDel404.Code)
+		}
+	})
+
+	t.Run("33_GameDoAno_10_TrocaNaoAfetaOutrosAnosNemOutrosUsuarios", func(t *testing.T) {
+		userA := criarUsuarioTeste(t, env.pool)
+		userB := criarUsuarioTeste(t, env.pool)
+		tokenA := gerarAccessTokenTeste(t, env.secret, userA)
+		tokenB := gerarAccessTokenTeste(t, env.secret, userB)
+
+		j2025A := criarJogoViaAPI(t, env, tokenA, criarJogoInput{
+			Nome: "Destaque 2025 A", Console: "PC", FinalizadoEm: "2025-06-01T00:00:00Z",
+			Nota: 10, Dificuldade: "A", Destaque: true,
+		})
+		j2026A1 := criarJogoViaAPI(t, env, tokenA, criarJogoInput{
+			Nome: "Destaque 2026 A1", Console: "PC", FinalizadoEm: "2026-06-01T00:00:00Z",
+			Nota: 9, Dificuldade: "B", Destaque: true,
+		})
+		j2026A2 := criarJogoViaAPI(t, env, tokenA, criarJogoInput{
+			Nome: "Destaque 2026 A2", Console: "PC", FinalizadoEm: "2026-07-01T00:00:00Z",
+			Nota: 11, Dificuldade: "AAA", Destaque: false,
+		})
+
+		j2026B := criarJogoViaAPI(t, env, tokenB, criarJogoInput{
+			Nome: "Destaque 2026 B", Console: "PS5", FinalizadoEm: "2026-06-01T00:00:00Z",
+			Nota: 10, Dificuldade: "AA", Destaque: true,
+		})
+
+		reqTroca := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/api/v1/jogos/%d/game-do-ano", j2026A2), nil)
+		reqTroca.Header.Set("Authorization", "Bearer "+tokenA)
+		wTroca := httptest.NewRecorder()
+		env.router.ServeHTTP(wTroca, reqTroca)
+		if wTroca.Code != http.StatusOK {
+			t.Fatalf("troca esperava 200, obteve %d", wTroca.Code)
+		}
+
+		var j2026A2Destaque, j2026A1Destaque, j2025ADestaque, j2026BDestaque bool
+		_ = env.pool.QueryRow(context.Background(), "SELECT destaque FROM jogos_zerados WHERE id = $1", j2026A2).Scan(&j2026A2Destaque)
+		_ = env.pool.QueryRow(context.Background(), "SELECT destaque FROM jogos_zerados WHERE id = $1", j2026A1).Scan(&j2026A1Destaque)
+		_ = env.pool.QueryRow(context.Background(), "SELECT destaque FROM jogos_zerados WHERE id = $1", j2025A).Scan(&j2025ADestaque)
+		_ = env.pool.QueryRow(context.Background(), "SELECT destaque FROM jogos_zerados WHERE id = $1", j2026B).Scan(&j2026BDestaque)
+
+		if !j2026A2Destaque {
+			t.Fatal("j2026A2 deveria ser destaque")
+		}
+		if j2026A1Destaque {
+			t.Fatal("j2026A1 nao deveria mais ser destaque")
+		}
+		if !j2025ADestaque {
+			t.Fatal("j2025A de outro ano deveria permanecer como destaque")
+		}
+		if !j2026BDestaque {
+			t.Fatal("j2026B de outro usuario deveria permanecer como destaque")
+		}
+	})
 }
+

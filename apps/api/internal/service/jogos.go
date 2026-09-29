@@ -33,6 +33,7 @@ var (
 	ErrNotaFiltroInvalida      = errors.New("jogos.nota_filtro_invalida")
 	ErrNotaFaixaInvalida       = errors.New("jogos.nota_faixa_invalida")
 	ErrAnoInvalido             = errors.New("jogos.ano_invalido")
+	ErrOrdenacaoInvalida       = errors.New("jogos.ordenacao_invalida")
 )
 
 type JogosRepository interface {
@@ -42,6 +43,9 @@ type JogosRepository interface {
 	Listar(ctx context.Context, params repository.ListarJogosZeradosParams) ([]*repository.JogoZerado, int64, error)
 	ObterFiltros(ctx context.Context, usuarioID int32) (*repository.OpcoesFiltros, error)
 	ObterPorID(ctx context.Context, id int32, usuarioID int32) (*repository.JogoZerado, error)
+	ObterResumoGameDoAno(ctx context.Context, usuarioID int32) ([]*repository.ItemResumoGameDoAno, error)
+	DefinirGameDoAno(ctx context.Context, id int32, usuarioID int32) (*repository.DefinirGameDoAnoResultado, error)
+	RemoverGameDoAno(ctx context.Context, id int32, usuarioID int32) error
 }
 
 type JogosService struct {
@@ -180,6 +184,7 @@ type ListarJogosParams struct {
 	NotaMax     *int
 	Ano         *int
 	Dificuldade string
+	Ordenar     string
 	Pagina      *int
 	PorPagina   *int
 }
@@ -249,6 +254,14 @@ func (s *JogosService) ListarJogosZerados(ctx context.Context, params ListarJogo
 		}
 	}
 
+	ordenar := strings.TrimSpace(params.Ordenar)
+	if ordenar == "" {
+		ordenar = "recentes"
+	}
+	if ordenar != "recentes" && ordenar != "nota" {
+		return nil, ErrOrdenacaoInvalida
+	}
+
 	termoBusca := strings.TrimSpace(params.Busca)
 	if termoBusca != "" {
 		termoBusca = escaparLike(termoBusca)
@@ -272,6 +285,7 @@ func (s *JogosService) ListarJogosZerados(ctx context.Context, params ListarJogo
 		NotaMax:     notaMaxPtr,
 		Ano:         anoPtr,
 		Dificuldade: params.Dificuldade,
+		Ordenar:     ordenar,
 		Pagina:      pagina,
 		PorPagina:   porPagina,
 	})
@@ -318,3 +332,43 @@ func (s *JogosService) ObterDetalhesJogoZerado(ctx context.Context, id int32, us
 	}
 	return jogo, nil
 }
+
+func (s *JogosService) ObterResumoGameDoAno(ctx context.Context, usuarioID int32) ([]*repository.ItemResumoGameDoAno, error) {
+	resumo, err := s.repo.ObterResumoGameDoAno(ctx, usuarioID)
+	if err != nil {
+		return nil, fmt.Errorf("obter resumo game do ano: %w", err)
+	}
+	if resumo == nil {
+		resumo = []*repository.ItemResumoGameDoAno{}
+	}
+	return resumo, nil
+}
+
+func (s *JogosService) DefinirGameDoAno(ctx context.Context, id int32, usuarioID int32) (*repository.DefinirGameDoAnoResultado, error) {
+	res, err := s.repo.DefinirGameDoAno(ctx, id, usuarioID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrJogoNaoEncontrado
+		}
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) {
+			if pgErr.Code == pgerrcode.UniqueViolation || pgErr.Code == "23505" {
+				return nil, ErrDestaqueAnoConflito
+			}
+		}
+		return nil, fmt.Errorf("definir game do ano: %w", err)
+	}
+	return res, nil
+}
+
+func (s *JogosService) RemoverGameDoAno(ctx context.Context, id int32, usuarioID int32) error {
+	err := s.repo.RemoverGameDoAno(ctx, id, usuarioID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrJogoNaoEncontrado
+		}
+		return fmt.Errorf("remover game do ano: %w", err)
+	}
+	return nil
+}
+

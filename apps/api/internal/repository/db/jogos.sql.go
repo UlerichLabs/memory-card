@@ -131,6 +131,44 @@ func (q *Queries) BuscarJogoPorID(ctx context.Context, arg BuscarJogoPorIDParams
 	return i, err
 }
 
+const buscarJogoPorIDParaUpdate = `-- name: BuscarJogoPorIDParaUpdate :one
+SELECT id, usuario_id, igdb_id, nome, console, genero, tipo, iniciado_em, finalizado_em, tempo_jogado, nota, dificuldade, review, destaque, igdb_capa_url, igdb_descricao, deleted_at, created_at, updated_at FROM jogos_zerados
+WHERE id = $1 AND usuario_id = $2 AND deleted_at IS NULL
+FOR UPDATE
+`
+
+type BuscarJogoPorIDParaUpdateParams struct {
+	ID        int32
+	UsuarioID int32
+}
+
+func (q *Queries) BuscarJogoPorIDParaUpdate(ctx context.Context, arg BuscarJogoPorIDParaUpdateParams) (JogosZerado, error) {
+	row := q.db.QueryRow(ctx, buscarJogoPorIDParaUpdate, arg.ID, arg.UsuarioID)
+	var i JogosZerado
+	err := row.Scan(
+		&i.ID,
+		&i.UsuarioID,
+		&i.IgdbID,
+		&i.Nome,
+		&i.Console,
+		&i.Genero,
+		&i.Tipo,
+		&i.IniciadoEm,
+		&i.FinalizadoEm,
+		&i.TempoJogado,
+		&i.Nota,
+		&i.Dificuldade,
+		&i.Review,
+		&i.Destaque,
+		&i.IgdbCapaUrl,
+		&i.IgdbDescricao,
+		&i.DeletedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const contarJogosZerados = `-- name: ContarJogosZerados :one
 SELECT COUNT(*) FROM jogos_zerados
 WHERE usuario_id = $1
@@ -245,6 +283,47 @@ func (q *Queries) CriarJogoZerado(ctx context.Context, arg CriarJogoZeradoParams
 	return i, err
 }
 
+const desmarcarGameDoAnoAtual = `-- name: DesmarcarGameDoAnoAtual :one
+UPDATE jogos_zerados
+SET destaque = false, updated_at = now()
+WHERE usuario_id = $1
+  AND EXTRACT(YEAR FROM finalizado_em)::int = $2::int
+  AND destaque = true
+  AND deleted_at IS NULL
+RETURNING id
+`
+
+type DesmarcarGameDoAnoAtualParams struct {
+	UsuarioID int32
+	Ano       int32
+}
+
+func (q *Queries) DesmarcarGameDoAnoAtual(ctx context.Context, arg DesmarcarGameDoAnoAtualParams) (int32, error) {
+	row := q.db.QueryRow(ctx, desmarcarGameDoAnoAtual, arg.UsuarioID, arg.Ano)
+	var id int32
+	err := row.Scan(&id)
+	return id, err
+}
+
+const desmarcarGameDoAnoPorID = `-- name: DesmarcarGameDoAnoPorID :execrows
+UPDATE jogos_zerados
+SET destaque = false, updated_at = now()
+WHERE id = $1 AND usuario_id = $2 AND deleted_at IS NULL
+`
+
+type DesmarcarGameDoAnoPorIDParams struct {
+	ID        int32
+	UsuarioID int32
+}
+
+func (q *Queries) DesmarcarGameDoAnoPorID(ctx context.Context, arg DesmarcarGameDoAnoPorIDParams) (int64, error) {
+	result, err := q.db.Exec(ctx, desmarcarGameDoAnoPorID, arg.ID, arg.UsuarioID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const excluirJogoZerado = `-- name: ExcluirJogoZerado :execrows
 UPDATE jogos_zerados
 SET deleted_at = now()
@@ -344,6 +423,127 @@ func (q *Queries) ListarJogosZerados(ctx context.Context, arg ListarJogosZerados
 		return nil, err
 	}
 	return items, nil
+}
+
+const listarJogosZeradosPorNota = `-- name: ListarJogosZeradosPorNota :many
+SELECT id, usuario_id, igdb_id, nome, console, genero, tipo, iniciado_em, finalizado_em, tempo_jogado, nota, dificuldade, review, destaque, igdb_capa_url, igdb_descricao, deleted_at, created_at, updated_at FROM jogos_zerados
+WHERE usuario_id = $1
+  AND deleted_at IS NULL
+  AND ($2::text IS NULL OR unaccent(nome) ILIKE unaccent('%' || $2::text || '%'))
+  AND ($3::varchar IS NULL OR console = $3)
+  AND ($4::text IS NULL OR unaccent(genero) ILIKE unaccent('%' || $4::text || '%'))
+  AND ($5::varchar IS NULL OR LOWER(tipo) = LOWER($5))
+  AND ($6::int IS NULL OR nota >= $6)
+  AND ($7::int IS NULL OR nota <= $7)
+  AND ($8::int IS NULL OR EXTRACT(YEAR FROM finalizado_em) = $8)
+  AND ($9::varchar IS NULL OR dificuldade = $9::dificuldade)
+ORDER BY nota DESC, finalizado_em DESC, id DESC
+LIMIT $11::int OFFSET $10::int
+`
+
+type ListarJogosZeradosPorNotaParams struct {
+	UsuarioID   int32
+	Busca       pgtype.Text
+	Console     pgtype.Text
+	Genero      pgtype.Text
+	Tipo        pgtype.Text
+	NotaMin     pgtype.Int4
+	NotaMax     pgtype.Int4
+	Ano         pgtype.Int4
+	Dificuldade pgtype.Text
+	OffsetVal   int32
+	Limite      int32
+}
+
+func (q *Queries) ListarJogosZeradosPorNota(ctx context.Context, arg ListarJogosZeradosPorNotaParams) ([]JogosZerado, error) {
+	rows, err := q.db.Query(ctx, listarJogosZeradosPorNota,
+		arg.UsuarioID,
+		arg.Busca,
+		arg.Console,
+		arg.Genero,
+		arg.Tipo,
+		arg.NotaMin,
+		arg.NotaMax,
+		arg.Ano,
+		arg.Dificuldade,
+		arg.OffsetVal,
+		arg.Limite,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []JogosZerado
+	for rows.Next() {
+		var i JogosZerado
+		if err := rows.Scan(
+			&i.ID,
+			&i.UsuarioID,
+			&i.IgdbID,
+			&i.Nome,
+			&i.Console,
+			&i.Genero,
+			&i.Tipo,
+			&i.IniciadoEm,
+			&i.FinalizadoEm,
+			&i.TempoJogado,
+			&i.Nota,
+			&i.Dificuldade,
+			&i.Review,
+			&i.Destaque,
+			&i.IgdbCapaUrl,
+			&i.IgdbDescricao,
+			&i.DeletedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const marcarGameDoAno = `-- name: MarcarGameDoAno :one
+UPDATE jogos_zerados
+SET destaque = true, updated_at = now()
+WHERE id = $1 AND usuario_id = $2 AND deleted_at IS NULL
+RETURNING id, usuario_id, igdb_id, nome, console, genero, tipo, iniciado_em, finalizado_em, tempo_jogado, nota, dificuldade, review, destaque, igdb_capa_url, igdb_descricao, deleted_at, created_at, updated_at
+`
+
+type MarcarGameDoAnoParams struct {
+	ID        int32
+	UsuarioID int32
+}
+
+func (q *Queries) MarcarGameDoAno(ctx context.Context, arg MarcarGameDoAnoParams) (JogosZerado, error) {
+	row := q.db.QueryRow(ctx, marcarGameDoAno, arg.ID, arg.UsuarioID)
+	var i JogosZerado
+	err := row.Scan(
+		&i.ID,
+		&i.UsuarioID,
+		&i.IgdbID,
+		&i.Nome,
+		&i.Console,
+		&i.Genero,
+		&i.Tipo,
+		&i.IniciadoEm,
+		&i.FinalizadoEm,
+		&i.TempoJogado,
+		&i.Nota,
+		&i.Dificuldade,
+		&i.Review,
+		&i.Destaque,
+		&i.IgdbCapaUrl,
+		&i.IgdbDescricao,
+		&i.DeletedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const obterAnosUsuario = `-- name: ObterAnosUsuario :many
@@ -489,6 +689,111 @@ func (q *Queries) ObterGenerosUsuario(ctx context.Context, usuarioID int32) ([]p
 			return nil, err
 		}
 		items = append(items, genero)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const obterResumoGameDoAno = `-- name: ObterResumoGameDoAno :many
+WITH anos AS (
+    SELECT
+        EXTRACT(YEAR FROM j.finalizado_em)::int AS ano,
+        COUNT(*)::bigint AS total_jogos
+    FROM jogos_zerados j
+    WHERE j.usuario_id = $1::int AND j.deleted_at IS NULL
+    GROUP BY EXTRACT(YEAR FROM j.finalizado_em)::int
+),
+destaques AS (
+    SELECT
+        EXTRACT(YEAR FROM d.finalizado_em)::int AS ano,
+        d.id, d.usuario_id, d.igdb_id, d.nome, d.console, d.genero, d.tipo,
+        d.iniciado_em, d.finalizado_em, d.tempo_jogado, d.nota, d.dificuldade,
+        d.review, d.destaque, d.igdb_capa_url, d.igdb_descricao, d.created_at, d.updated_at
+    FROM jogos_zerados d
+    WHERE d.usuario_id = $1::int AND d.deleted_at IS NULL AND d.destaque = true
+)
+SELECT
+    a.ano,
+    a.total_jogos,
+    d.id AS destaque_id,
+    d.usuario_id AS destaque_usuario_id,
+    d.igdb_id AS destaque_igdb_id,
+    d.nome AS destaque_nome,
+    d.console AS destaque_console,
+    d.genero AS destaque_genero,
+    d.tipo AS destaque_tipo,
+    d.iniciado_em AS destaque_iniciado_em,
+    d.finalizado_em AS destaque_finalizado_em,
+    d.tempo_jogado AS destaque_tempo_jogado,
+    d.nota AS destaque_nota,
+    d.dificuldade AS destaque_dificuldade,
+    d.review AS destaque_review,
+    d.destaque AS destaque_destaque,
+    d.igdb_capa_url AS destaque_igdb_capa_url,
+    d.created_at AS destaque_created_at,
+    d.updated_at AS destaque_updated_at
+FROM anos a
+LEFT JOIN destaques d ON a.ano = d.ano
+ORDER BY a.ano DESC
+`
+
+type ObterResumoGameDoAnoRow struct {
+	Ano                  int32
+	TotalJogos           int64
+	DestaqueID           pgtype.Int4
+	DestaqueUsuarioID    pgtype.Int4
+	DestaqueIgdbID       pgtype.Int4
+	DestaqueNome         pgtype.Text
+	DestaqueConsole      pgtype.Text
+	DestaqueGenero       pgtype.Text
+	DestaqueTipo         pgtype.Text
+	DestaqueIniciadoEm   pgtype.Timestamp
+	DestaqueFinalizadoEm pgtype.Timestamp
+	DestaqueTempoJogado  pgtype.Int4
+	DestaqueNota         pgtype.Int4
+	DestaqueDificuldade  NullDificuldade
+	DestaqueReview       pgtype.Text
+	DestaqueDestaque     pgtype.Bool
+	DestaqueIgdbCapaUrl  pgtype.Text
+	DestaqueCreatedAt    pgtype.Timestamp
+	DestaqueUpdatedAt    pgtype.Timestamp
+}
+
+func (q *Queries) ObterResumoGameDoAno(ctx context.Context, usuarioID int32) ([]ObterResumoGameDoAnoRow, error) {
+	rows, err := q.db.Query(ctx, obterResumoGameDoAno, usuarioID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ObterResumoGameDoAnoRow
+	for rows.Next() {
+		var i ObterResumoGameDoAnoRow
+		if err := rows.Scan(
+			&i.Ano,
+			&i.TotalJogos,
+			&i.DestaqueID,
+			&i.DestaqueUsuarioID,
+			&i.DestaqueIgdbID,
+			&i.DestaqueNome,
+			&i.DestaqueConsole,
+			&i.DestaqueGenero,
+			&i.DestaqueTipo,
+			&i.DestaqueIniciadoEm,
+			&i.DestaqueFinalizadoEm,
+			&i.DestaqueTempoJogado,
+			&i.DestaqueNota,
+			&i.DestaqueDificuldade,
+			&i.DestaqueReview,
+			&i.DestaqueDestaque,
+			&i.DestaqueIgdbCapaUrl,
+			&i.DestaqueCreatedAt,
+			&i.DestaqueUpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
