@@ -31,6 +31,7 @@ type IGDBClient interface {
 	Platforms(context.Context) ([]igdbclient.Platform, error)
 	GamesByPlatform(context.Context, int64) ([]igdbclient.Game, error)
 	SearchFranchises(context.Context, string) ([]igdbclient.Franchise, error)
+	FranchiseDetails(context.Context, int64) (*igdbclient.Franchise, error)
 	GamesByFranchise(context.Context, int64) ([]igdbclient.Game, error)
 }
 
@@ -285,6 +286,14 @@ func (svc *IGDBService) BuscarFranquias(ctx context.Context, termo string) ([]ig
 		return nil, ErrTermoIGDBVazio
 	}
 	return svc.client.SearchFranchises(ctx, termo)
+}
+
+func (svc *IGDBService) ObterFranquia(ctx context.Context, id int64) (*igdbclient.Franchise, error) {
+	franchise, err := svc.client.FranchiseDetails(ctx, id)
+	if err != nil {
+		return nil, traduzErroIGDB(err)
+	}
+	return franchise, nil
 }
 
 func (svc *IGDBService) JogosDaPlataforma(ctx context.Context, id int64) ([]igdbclient.Game, error) {

@@ -42,6 +42,10 @@ func (m *igdbMock) SearchFranchises(context.Context, string) ([]igdbclient.Franc
 	return []igdbclient.Franchise{}, nil
 }
 
+func (m *igdbMock) FranchiseDetails(context.Context, int64) (*igdbclient.Franchise, error) {
+	return &igdbclient.Franchise{ID: 1, Name: "Test Franchise"}, nil
+}
+
 func (m *igdbMock) GamesByFranchise(context.Context, int64) ([]igdbclient.Game, error) {
 	m.franchiseGamesCalls++
 	return []igdbclient.Game{{ID: 8, Name: "Franchise"}}, nil

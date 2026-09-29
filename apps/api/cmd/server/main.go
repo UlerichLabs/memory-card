@@ -142,6 +142,20 @@ func run() error {
 	privadas.PUT("/jogos/:id/game-do-ano", jogosHandler.DefinirGameDoAno)
 	privadas.DELETE("/jogos/:id", jogosHandler.ExcluirJogo)
 	privadas.DELETE("/jogos/:id/game-do-ano", jogosHandler.RemoverGameDoAno)
+	listasRepo := repository.NewListasRepository(pool, queries)
+	listasService := service.NewListasService(listasRepo, igdbService)
+	listasHandler := handler.NewListasHandler(listasService)
+	privadas.GET("/listas", listasHandler.ListarListas)
+	privadas.POST("/listas", listasHandler.CriarLista)
+	privadas.GET("/listas/:id", listasHandler.ObterLista)
+	privadas.PUT("/listas/:id", listasHandler.AtualizarLista)
+	privadas.DELETE("/listas/:id", listasHandler.ExcluirLista)
+	privadas.POST("/listas/:id/itens", listasHandler.AdicionarItem)
+	privadas.DELETE("/listas/:id/itens/:itemId", listasHandler.ExcluirItem)
+	privadas.PUT("/listas/:id/ordem", listasHandler.ReordenarItens)
+	privadas.PUT("/listas/:id/itens/:itemId/zeramento", listasHandler.AssociarJogoZerado)
+	privadas.DELETE("/listas/:id/itens/:itemId/zeramento", listasHandler.DesassociarJogoZerado)
+	privadas.POST("/listas/:id/sincronizar", listasHandler.SincronizarFranquia)
 
 	server := &http.Server{
 		Addr:              ":" + cfg.Port,

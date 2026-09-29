@@ -56,6 +56,92 @@ func (ns NullDificuldade) Value() (driver.Value, error) {
 	return string(ns.Dificuldade), nil
 }
 
+type ListaRegraTipo string
+
+const (
+	ListaRegraTipoFranquia   ListaRegraTipo = "franquia"
+	ListaRegraTipoPlataforma ListaRegraTipo = "plataforma"
+	ListaRegraTipoGenero     ListaRegraTipo = "genero"
+	ListaRegraTipoManual     ListaRegraTipo = "manual"
+)
+
+func (e *ListaRegraTipo) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ListaRegraTipo(s)
+	case string:
+		*e = ListaRegraTipo(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ListaRegraTipo: %T", src)
+	}
+	return nil
+}
+
+type NullListaRegraTipo struct {
+	ListaRegraTipo ListaRegraTipo
+	Valid          bool // Valid is true if ListaRegraTipo is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullListaRegraTipo) Scan(value interface{}) error {
+	if value == nil {
+		ns.ListaRegraTipo, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ListaRegraTipo.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullListaRegraTipo) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ListaRegraTipo), nil
+}
+
+type ListaTipo string
+
+const (
+	ListaTipoFila    ListaTipo = "fila"
+	ListaTipoDesafio ListaTipo = "desafio"
+)
+
+func (e *ListaTipo) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ListaTipo(s)
+	case string:
+		*e = ListaTipo(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ListaTipo: %T", src)
+	}
+	return nil
+}
+
+type NullListaTipo struct {
+	ListaTipo ListaTipo
+	Valid     bool // Valid is true if ListaTipo is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullListaTipo) Scan(value interface{}) error {
+	if value == nil {
+		ns.ListaTipo, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ListaTipo.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullListaTipo) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ListaTipo), nil
+}
+
 type TipoDesafio string
 
 const (
@@ -231,6 +317,33 @@ type LimitesSolicitacaoResetSenha struct {
 	Email            string
 	JanelaIniciadaEm pgtype.Timestamptz
 	Quantidade       int16
+}
+
+type Lista struct {
+	ID          int64
+	UsuarioID   int32
+	Tipo        ListaTipo
+	Nome        string
+	Descricao   pgtype.Text
+	RegraTipo   NullListaRegraTipo
+	RegraValor  pgtype.Text
+	RegraIgdbID pgtype.Int4
+	Meta        pgtype.Int4
+	CreatedAt   pgtype.Timestamptz
+	UpdatedAt   pgtype.Timestamptz
+}
+
+type ListaIten struct {
+	ID            int64
+	ListaID       int64
+	IgdbID        pgtype.Int4
+	Nome          string
+	Console       pgtype.Text
+	IgdbCapaUrl   pgtype.Text
+	AnoLancamento pgtype.Int4
+	Posicao       int32
+	JogoZeradoID  pgtype.Int4
+	CreatedAt     pgtype.Timestamptz
 }
 
 type TokensRefreshAtivo struct {
