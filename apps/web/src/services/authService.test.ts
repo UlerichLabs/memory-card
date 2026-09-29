@@ -158,4 +158,20 @@ describe('authService', () => {
     expect(options.headers.get('Authorization')).toBe('Bearer access-token')
     expect(JSON.parse(options.body)).toEqual({ senha_atual: 'SenhaAtual@123', nova_senha: 'SenhaNova@123' })
   })
+
+  it('envia GET para /api/v1/me com Authorization e retorna dados do usuário', async () => {
+    const mockUser = { id: 1, nome: 'Lucas', email: 'lucas@example.com', idioma: 'pt-BR', created_at: '' }
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ data: mockUser }),
+    })
+    globalThis.fetch = mockFetch
+
+    const res = await authService.me('access-token')
+    expect(res).toEqual(mockUser)
+    const [url, options] = mockFetch.mock.calls[0]
+    expect(url).toContain('/api/v1/me')
+    expect(options.headers.get('Authorization')).toBe('Bearer access-token')
+  })
 })

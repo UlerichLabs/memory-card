@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -9,6 +9,7 @@ import { AUTH_API_ERROR_MESSAGES, VALIDATION_MESSAGES } from './authConstants'
 
 export function LoginForm() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { login } = useAuthStore()
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
@@ -28,7 +29,9 @@ export function LoginForm() {
     setIsLoading(true)
     try {
       await login({ email, senha })
-      navigate('/', { replace: true })
+      const from = (location.state as { from?: { pathname: string; search?: string } } | null)?.from
+      const destino = from ? `${from.pathname}${from.search || ''}` : '/'
+      navigate(destino, { replace: true })
     } catch (error: unknown) {
       setApiError(error instanceof AuthApiError && error.codigo !== 'fallback'
         ? AUTH_API_ERROR_MESSAGES[error.codigo] || AUTH_API_ERROR_MESSAGES.loginFallback
