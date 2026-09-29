@@ -19,17 +19,19 @@ import (
 )
 
 type mockListasService struct {
-	criarListaFn           func(ctx context.Context, input service.CriarListaInput) (*service.ListaDetalhada, error)
-	obterListaFn           func(ctx context.Context, id int64, usuarioID int32) (*service.ListaDetalhada, error)
-	listarListasFn         func(ctx context.Context, usuarioID int32) ([]*service.ListaResumo, error)
-	atualizarListaFn       func(ctx context.Context, input service.AtualizarListaInput) (*service.ListaDetalhada, error)
-	excluirListaFn         func(ctx context.Context, id int64, usuarioID int32) error
-	adicionarItemFn        func(ctx context.Context, input service.AdicionarItemInput) (*service.ListaItemDetalhe, error)
-	excluirItemFn          func(ctx context.Context, itemID int64, listaID int64, usuarioID int32) error
-	reordenarItensFn       func(ctx context.Context, listaID int64, usuarioID int32, itemIDs []int64) ([]*service.ListaItemDetalhe, error)
-	associarJogoZeradoFn   func(ctx context.Context, itemID int64, listaID int64, usuarioID int32, jogoZeradoID int32) (*service.ListaItemDetalhe, error)
+	criarListaFn            func(ctx context.Context, input service.CriarListaInput) (*service.ListaDetalhada, error)
+	obterListaFn            func(ctx context.Context, id int64, usuarioID int32) (*service.ListaDetalhada, error)
+	listarListasFn          func(ctx context.Context, usuarioID int32) ([]*service.ListaResumo, error)
+	atualizarListaFn        func(ctx context.Context, input service.AtualizarListaInput) (*service.ListaDetalhada, error)
+	excluirListaFn          func(ctx context.Context, id int64, usuarioID int32) error
+	adicionarItemFn         func(ctx context.Context, input service.AdicionarItemInput) (*service.ListaItemDetalhe, error)
+	excluirItemFn           func(ctx context.Context, itemID int64, listaID int64, usuarioID int32) error
+	reordenarItensFn        func(ctx context.Context, listaID int64, usuarioID int32, itemIDs []int64) ([]*service.ListaItemDetalhe, error)
+	associarJogoZeradoFn    func(ctx context.Context, itemID int64, listaID int64, usuarioID int32, jogoZeradoID int32) (*service.ListaItemDetalhe, error)
 	desassociarJogoZeradoFn func(ctx context.Context, itemID int64, listaID int64, usuarioID int32) (*service.ListaItemDetalhe, error)
-	sincronizarFranquiaFn  func(ctx context.Context, listaID int64, usuarioID int32) (*service.SincronizarResultado, error)
+	restaurarItemFn         func(ctx context.Context, itemID int64, listaID int64, usuarioID int32) (*service.ListaItemDetalhe, error)
+	sincronizarFranquiaFn   func(ctx context.Context, listaID int64, usuarioID int32) (*service.SincronizarResultado, error)
+	previaDesafioFranquiaFn func(ctx context.Context, franquiaID int64, usuarioID int32) (*service.PreviaDesafioResultado, error)
 }
 
 func (m *mockListasService) CriarLista(ctx context.Context, input service.CriarListaInput) (*service.ListaDetalhada, error) {
@@ -102,6 +104,20 @@ func (m *mockListasService) DesassociarJogoZerado(ctx context.Context, itemID in
 	return &service.ListaItemDetalhe{}, nil
 }
 
+func (m *mockListasService) RestaurarItem(ctx context.Context, itemID int64, listaID int64, usuarioID int32) (*service.ListaItemDetalhe, error) {
+	if m.restaurarItemFn != nil {
+		return m.restaurarItemFn(ctx, itemID, listaID, usuarioID)
+	}
+	return &service.ListaItemDetalhe{}, nil
+}
+
+func (m *mockListasService) PreviaDesafioFranquia(ctx context.Context, franquiaID int64, usuarioID int32) (*service.PreviaDesafioResultado, error) {
+	if m.previaDesafioFranquiaFn != nil {
+		return m.previaDesafioFranquiaFn(ctx, franquiaID, usuarioID)
+	}
+	return &service.PreviaDesafioResultado{}, nil
+}
+
 func (m *mockListasService) SincronizarFranquia(ctx context.Context, listaID int64, usuarioID int32) (*service.SincronizarResultado, error) {
 	if m.sincronizarFranquiaFn != nil {
 		return m.sincronizarFranquiaFn(ctx, listaID, usuarioID)
@@ -129,10 +145,12 @@ func setupListasTestRouter(t *testing.T, svc ListasServicer) (*gin.Engine, strin
 	privadas.DELETE("/listas/:id", handler.ExcluirLista)
 	privadas.POST("/listas/:id/itens", handler.AdicionarItem)
 	privadas.DELETE("/listas/:id/itens/:itemId", handler.ExcluirItem)
+	privadas.POST("/listas/:id/itens/:itemId/restaurar", handler.RestaurarItem)
 	privadas.PUT("/listas/:id/ordem", handler.ReordenarItens)
 	privadas.PUT("/listas/:id/itens/:itemId/zeramento", handler.AssociarJogoZerado)
 	privadas.DELETE("/listas/:id/itens/:itemId/zeramento", handler.DesassociarJogoZerado)
 	privadas.POST("/listas/:id/sincronizar", handler.SincronizarFranquia)
+	privadas.GET("/franquias/:igdbId/previa-desafio", handler.PreviaDesafioFranquia)
 
 	token := generateTestToken(t, secret, "42")
 	return router, token
@@ -172,10 +190,12 @@ func TestListasHandler_Autenticacao_401(t *testing.T) {
 		{"DELETE", "/api/v1/listas/1"},
 		{"POST", "/api/v1/listas/1/itens"},
 		{"DELETE", "/api/v1/listas/1/itens/1"},
+		{"POST", "/api/v1/listas/1/itens/1/restaurar"},
 		{"PUT", "/api/v1/listas/1/ordem"},
 		{"PUT", "/api/v1/listas/1/itens/1/zeramento"},
 		{"DELETE", "/api/v1/listas/1/itens/1/zeramento"},
 		{"POST", "/api/v1/listas/1/sincronizar"},
+		{"GET", "/api/v1/franquias/1/previa-desafio"},
 	}
 
 	for _, ep := range endpoints {
@@ -680,4 +700,178 @@ func TestListasHandler_Sincronizar_200_400(t *testing.T) {
 			t.Fatalf("esperava 400, obteve %d", w.Code)
 		}
 	})
+}
+
+func TestListasHandler_PreviaDesafioFranquia(t *testing.T) {
+	t.Run("id invalido retorna 400", func(t *testing.T) {
+		router, token := setupListasTestRouter(t, &mockListasService{})
+		req, _ := http.NewRequest("GET", "/api/v1/franquias/abc/previa-desafio", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("esperava 400, obteve %d", w.Code)
+		}
+	})
+
+	t.Run("franquia nao encontrada retorna 404", func(t *testing.T) {
+		svc := &mockListasService{
+			previaDesafioFranquiaFn: func(ctx context.Context, franquiaID int64, usuarioID int32) (*service.PreviaDesafioResultado, error) {
+				return nil, service.ErrListaFranquiaNaoEncontrada
+			},
+		}
+		router, token := setupListasTestRouter(t, svc)
+		req, _ := http.NewRequest("GET", "/api/v1/franquias/999/previa-desafio", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		if w.Code != http.StatusNotFound {
+			t.Fatalf("esperava 404, obteve %d", w.Code)
+		}
+	})
+
+	t.Run("franquia sem jogos retorna 400", func(t *testing.T) {
+		svc := &mockListasService{
+			previaDesafioFranquiaFn: func(ctx context.Context, franquiaID int64, usuarioID int32) (*service.PreviaDesafioResultado, error) {
+				return nil, service.ErrListaFranquiaSemJogos
+			},
+		}
+		router, token := setupListasTestRouter(t, svc)
+		req, _ := http.NewRequest("GET", "/api/v1/franquias/10/previa-desafio", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("esperava 400, obteve %d", w.Code)
+		}
+	})
+
+	t.Run("sucesso 200", func(t *testing.T) {
+		svc := &mockListasService{
+			previaDesafioFranquiaFn: func(ctx context.Context, franquiaID int64, usuarioID int32) (*service.PreviaDesafioResultado, error) {
+				return &service.PreviaDesafioResultado{
+					Franquia:       service.PreviaFranquiaInfo{IgdbID: franquiaID, Nome: "Zelda"},
+					Total:          1,
+					TotalSugeridos: 1,
+					Jogos: []*service.PreviaJogoItem{
+						{IgdbID: 1025, Nome: "The Legend of Zelda", Tipo: "principal", Sugerido: true},
+					},
+				}, nil
+			},
+		}
+		router, token := setupListasTestRouter(t, svc)
+		req, _ := http.NewRequest("GET", "/api/v1/franquias/596/previa-desafio", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("esperava 200, obteve %d", w.Code)
+		}
+		var body struct {
+			Data service.PreviaDesafioResultado `json:"data"`
+		}
+		if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+			t.Fatal(err)
+		}
+		if body.Data.TotalSugeridos != 1 || len(body.Data.Jogos) != 1 || body.Data.Jogos[0].Tipo != "principal" || !body.Data.Jogos[0].Sugerido {
+			t.Fatalf("resposta inesperada: %+v", body.Data)
+		}
+	})
+}
+
+func TestListasHandler_RestaurarItem(t *testing.T) {
+	t.Run("restauracao nao permitida retorna 400", func(t *testing.T) {
+		svc := &mockListasService{
+			restaurarItemFn: func(ctx context.Context, itemID int64, listaID int64, usuarioID int32) (*service.ListaItemDetalhe, error) {
+				return nil, service.ErrListaRestauracaoNaoPermitida
+			},
+		}
+		router, token := setupListasTestRouter(t, svc)
+		req, _ := http.NewRequest("POST", "/api/v1/listas/1/itens/2/restaurar", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("esperava 400, obteve %d", w.Code)
+		}
+	})
+
+	t.Run("item nao encontrado retorna 404", func(t *testing.T) {
+		svc := &mockListasService{
+			restaurarItemFn: func(ctx context.Context, itemID int64, listaID int64, usuarioID int32) (*service.ListaItemDetalhe, error) {
+				return nil, service.ErrListaItemNaoEncontrado
+			},
+		}
+		router, token := setupListasTestRouter(t, svc)
+		req, _ := http.NewRequest("POST", "/api/v1/listas/1/itens/99/restaurar", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		if w.Code != http.StatusNotFound {
+			t.Fatalf("esperava 404, obteve %d", w.Code)
+		}
+	})
+
+	t.Run("sucesso 200", func(t *testing.T) {
+		svc := &mockListasService{
+			restaurarItemFn: func(ctx context.Context, itemID int64, listaID int64, usuarioID int32) (*service.ListaItemDetalhe, error) {
+				return &service.ListaItemDetalhe{ID: itemID, Nome: "Item Restaurado", Ignorado: false}, nil
+			},
+		}
+		router, token := setupListasTestRouter(t, svc)
+		req, _ := http.NewRequest("POST", "/api/v1/listas/1/itens/2/restaurar", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("esperava 200, obteve %d", w.Code)
+		}
+	})
+}
+
+func TestListasHandler_ListarListas_SemDadosDuplicado(t *testing.T) {
+	svc := &mockListasService{
+		listarListasFn: func(ctx context.Context, usuarioID int32) ([]*service.ListaResumo, error) {
+			return []*service.ListaResumo{{ID: 1, Nome: "Minha Lista"}}, nil
+		},
+	}
+	router, token := setupListasTestRouter(t, svc)
+	req, _ := http.NewRequest("GET", "/api/v1/listas", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("esperava 200, obteve %d", w.Code)
+	}
+
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(w.Body.Bytes(), &raw); err != nil {
+		t.Fatalf("erro ao decodificar json: %v", err)
+	}
+	if _, ok := raw["data"]; !ok {
+		t.Fatalf("esperava chave data na resposta")
+	}
+	if _, ok := raw["dados"]; ok {
+		t.Fatalf("chave dados nao deve existir na resposta")
+	}
+}
+
+func TestListasHandler_CriarLista_FranquiaSemJogos_400(t *testing.T) {
+	svc := &mockListasService{
+		criarListaFn: func(ctx context.Context, input service.CriarListaInput) (*service.ListaDetalhada, error) {
+			return nil, service.ErrListaFranquiaSemJogos
+		},
+	}
+	router, token := setupListasTestRouter(t, svc)
+	body := `{"tipo":"desafio","nome":"Zelda","regra":{"tipo":"franquia","igdb_id":596,"igdb_ids_ignorados":[1,2]}}`
+	req, _ := http.NewRequest("POST", "/api/v1/listas", bytes.NewBufferString(body))
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("esperava 400, obteve %d", w.Code)
+	}
 }

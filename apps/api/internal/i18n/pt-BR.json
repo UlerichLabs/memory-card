@@ -63,5 +63,7 @@
   "listas.item_duplicado": "Este jogo já está na lista.",
   "listas.ordem_invalida": "Ordem dos itens inválida.",
   "listas.sincronizacao_nao_permitida": "Sincronização permitida apenas para desafios de franquia.",
-  "listas.id_invalido": "Identificador inválido."
+  "listas.id_invalido": "Identificador inválido.",
+  "listas.franquia_sem_jogos": "Nenhum jogo encontrado para esta franquia.",
+  "listas.restauracao_nao_permitida": "Restauração permitida apenas para desafios de franquia."
 }

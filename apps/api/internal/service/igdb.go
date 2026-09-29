@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 	"unicode"
 
 	"github.com/UlerichLabs/memory-card/apps/api/internal/igdbclient"
@@ -33,6 +34,7 @@ type IGDBClient interface {
 	SearchFranchises(context.Context, string) ([]igdbclient.Franchise, error)
 	FranchiseDetails(context.Context, int64) (*igdbclient.Franchise, error)
 	GamesByFranchise(context.Context, int64) ([]igdbclient.Game, error)
+	GamesByFranchiseParaDesafio(context.Context, int64) ([]igdbclient.Game, error)
 }
 
 type IGDBSnapshotRepository interface {
@@ -131,9 +133,7 @@ func isAllowedGameType(gt int) bool {
 		igdbclient.GameTypeStandaloneExpansion,
 		igdbclient.GameTypeRemake,
 		igdbclient.GameTypeRemaster,
-		igdbclient.GameTypeExpandedGame,
-		igdbclient.GameTypePort,
-		igdbclient.GameTypeFork:
+		igdbclient.GameTypeExpandedGame:
 		return true
 	default:
 		return false
@@ -196,6 +196,77 @@ func normalizeString(s string) string {
 		}
 	}
 	return strings.Join(strings.Fields(sb.String()), " ")
+}
+
+func normalizar(s string) string {
+	return strings.Join(normalizarPalavras(s), "")
+}
+
+func normalizarPalavras(s string) []string {
+	lower := strings.ToLower(s)
+	clean, _, err := transform.String(normTransformer, lower)
+	if err != nil {
+		clean = lower
+	}
+	clean = strings.TrimPrefix(strings.TrimSpace(clean), "the ")
+
+	var words strings.Builder
+	for _, r := range clean {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			words.WriteRune(r)
+		} else {
+			words.WriteRune(' ')
+		}
+	}
+	return strings.Fields(words.String())
+}
+
+func palavraPrincipal(nomeFranquia string) string {
+	stopwords := map[string]struct{}{
+		"the": {}, "of": {}, "a": {}, "an": {}, "and": {},
+		"de": {}, "da": {}, "do": {}, "dos": {}, "das": {}, "e": {},
+	}
+	principal := ""
+	for _, token := range normalizarPalavras(nomeFranquia) {
+		if len([]rune(token)) < 3 {
+			continue
+		}
+		if _, isStopword := stopwords[token]; isStopword {
+			continue
+		}
+		principal = token
+	}
+	return principal
+}
+
+func jogoSugerido(game igdbclient.Game, franquiaID int64, nomeFranquia string) bool {
+	if game.GameType == igdbclient.GameTypeExpandedGame {
+		return false
+	}
+	if game.Franchise != nil && *game.Franchise == franquiaID {
+		return true
+	}
+
+	nomeNormalizado := normalizar(nomeFranquia)
+	if nomeNormalizado != "" {
+		if strings.Contains(normalizar(game.Name), nomeNormalizado) {
+			return true
+		}
+		principal := palavraPrincipal(nomeFranquia)
+		for _, token := range normalizarPalavras(game.Name) {
+			if token == principal {
+				return true
+			}
+		}
+	}
+
+	for _, collection := range game.Collections {
+		if nomeNormalizado != "" && normalizar(collection.Name) == nomeNormalizado {
+			return true
+		}
+	}
+
+	return false
 }
 
 func calculateTier(name, normTerm string, termTokens []string) int {
@@ -318,6 +389,103 @@ func (svc *IGDBService) AtualizarJogosDaFranquia(ctx context.Context, id int64) 
 	return svc.atualizarSnapshot(ctx, fmt.Sprintf("franchise:%d", id), func() ([]igdbclient.Game, error) {
 		return svc.client.GamesByFranchise(ctx, id)
 	})
+}
+
+func (svc *IGDBService) JogosDaFranquiaParaDesafio(ctx context.Context, id int64) ([]igdbclient.Game, error) {
+	return svc.jogosSnapshot(ctx, fmt.Sprintf("franchise-desafio:%d", id), func() ([]igdbclient.Game, error) {
+		return svc.client.GamesByFranchiseParaDesafio(ctx, id)
+	})
+}
+
+func (svc *IGDBService) AtualizarJogosDaFranquiaParaDesafio(ctx context.Context, id int64) ([]igdbclient.Game, error) {
+	return svc.atualizarSnapshot(ctx, fmt.Sprintf("franchise-desafio:%d", id), func() ([]igdbclient.Game, error) {
+		return svc.client.GamesByFranchiseParaDesafio(ctx, id)
+	})
+}
+
+func FiltrarJogosDesafioFranquia(franquiaID int64, jogos []igdbclient.Game, agora time.Time) []igdbclient.Game {
+	return filtrarJogosDesafioFranquia(franquiaID, jogos, agora)
+}
+
+func filtrarJogosDesafioFranquia(franquiaID int64, jogos []igdbclient.Game, agora time.Time) []igdbclient.Game {
+	var filtrados []igdbclient.Game
+	agoraUnix := agora.Unix()
+
+	for _, g := range jogos {
+		switch g.GameType {
+		case igdbclient.GameTypeMainGame,
+			igdbclient.GameTypeStandaloneExpansion,
+			igdbclient.GameTypeRemake,
+			igdbclient.GameTypeRemaster,
+			igdbclient.GameTypeExpandedGame:
+		default:
+			continue
+		}
+
+		if g.VersionParent != nil {
+			continue
+		}
+
+		if g.FirstReleaseDate == nil || *g.FirstReleaseDate > agoraUnix {
+			continue
+		}
+
+		if g.Franchise != nil && *g.Franchise != franquiaID {
+			continue
+		}
+
+		if len(g.Franchises) > 0 {
+			pertence := false
+			for _, fid := range g.Franchises {
+				if fid == franquiaID {
+					pertence = true
+					break
+				}
+			}
+			if !pertence {
+				continue
+			}
+		}
+
+		filtrados = append(filtrados, g)
+	}
+
+	seen := make(map[int64]bool, len(filtrados))
+	unicos := make([]igdbclient.Game, 0, len(filtrados))
+	for _, g := range filtrados {
+		if !seen[g.ID] {
+			seen[g.ID] = true
+			unicos = append(unicos, g)
+		}
+	}
+
+	sort.SliceStable(unicos, func(i, j int) bool {
+		dateA := *unicos[i].FirstReleaseDate
+		dateB := *unicos[j].FirstReleaseDate
+		if dateA != dateB {
+			return dateA < dateB
+		}
+		return unicos[i].Name < unicos[j].Name
+	})
+
+	return unicos
+}
+
+func tipoJogo(gameType int) string {
+	switch gameType {
+	case igdbclient.GameTypeMainGame:
+		return "principal"
+	case igdbclient.GameTypeStandaloneExpansion:
+		return "expansao"
+	case igdbclient.GameTypeRemake:
+		return "remake"
+	case igdbclient.GameTypeRemaster:
+		return "remaster"
+	case igdbclient.GameTypeExpandedGame:
+		return "versao_expandida"
+	default:
+		return "outro"
+	}
 }
 
 func (svc *IGDBService) jogosSnapshot(ctx context.Context, key string, buscar func() ([]igdbclient.Game, error)) ([]igdbclient.Game, error) {

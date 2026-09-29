@@ -15,7 +15,7 @@ const associarJogoZeradoItem = `-- name: AssociarJogoZeradoItem :one
 UPDATE lista_itens
 SET jogo_zerado_id = $3
 WHERE id = $1 AND lista_id = $2
-RETURNING id, lista_id, igdb_id, nome, console, igdb_capa_url, ano_lancamento, posicao, jogo_zerado_id, created_at
+RETURNING id, lista_id, igdb_id, nome, console, igdb_capa_url, ano_lancamento, posicao, jogo_zerado_id, created_at, ignorado
 `
 
 type AssociarJogoZeradoItemParams struct {
@@ -38,6 +38,7 @@ func (q *Queries) AssociarJogoZeradoItem(ctx context.Context, arg AssociarJogoZe
 		&i.Posicao,
 		&i.JogoZeradoID,
 		&i.CreatedAt,
+		&i.Ignorado,
 	)
 	return i, err
 }
@@ -103,7 +104,7 @@ func (q *Queries) AtualizarPosicaoItem(ctx context.Context, arg AtualizarPosicao
 }
 
 const buscarItemPorID = `-- name: BuscarItemPorID :one
-SELECT i.id, i.lista_id, i.igdb_id, i.nome, i.console, i.igdb_capa_url, i.ano_lancamento, i.posicao, i.jogo_zerado_id, i.created_at
+SELECT i.id, i.lista_id, i.igdb_id, i.nome, i.console, i.igdb_capa_url, i.ano_lancamento, i.posicao, i.jogo_zerado_id, i.created_at, i.ignorado
 FROM lista_itens i
 JOIN listas l ON l.id = i.lista_id
 WHERE i.id = $1 AND l.usuario_id = $2
@@ -128,6 +129,7 @@ func (q *Queries) BuscarItemPorID(ctx context.Context, arg BuscarItemPorIDParams
 		&i.Posicao,
 		&i.JogoZeradoID,
 		&i.CreatedAt,
+		&i.Ignorado,
 	)
 	return i, err
 }
@@ -233,10 +235,10 @@ func (q *Queries) BuscarListaPorIDParaUpdate(ctx context.Context, arg BuscarList
 
 const criarItemLista = `-- name: CriarItemLista :one
 INSERT INTO lista_itens (
-    lista_id, igdb_id, nome, console, igdb_capa_url, ano_lancamento, posicao, jogo_zerado_id
+    lista_id, igdb_id, nome, console, igdb_capa_url, ano_lancamento, posicao, jogo_zerado_id, ignorado
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8
-) RETURNING id, lista_id, igdb_id, nome, console, igdb_capa_url, ano_lancamento, posicao, jogo_zerado_id, created_at
+    $1, $2, $3, $4, $5, $6, $7, $8, $9
+) RETURNING id, lista_id, igdb_id, nome, console, igdb_capa_url, ano_lancamento, posicao, jogo_zerado_id, created_at, ignorado
 `
 
 type CriarItemListaParams struct {
@@ -248,6 +250,7 @@ type CriarItemListaParams struct {
 	AnoLancamento pgtype.Int4
 	Posicao       int32
 	JogoZeradoID  pgtype.Int4
+	Ignorado      bool
 }
 
 func (q *Queries) CriarItemLista(ctx context.Context, arg CriarItemListaParams) (ListaIten, error) {
@@ -260,6 +263,7 @@ func (q *Queries) CriarItemLista(ctx context.Context, arg CriarItemListaParams) 
 		arg.AnoLancamento,
 		arg.Posicao,
 		arg.JogoZeradoID,
+		arg.Ignorado,
 	)
 	var i ListaIten
 	err := row.Scan(
@@ -273,6 +277,7 @@ func (q *Queries) CriarItemLista(ctx context.Context, arg CriarItemListaParams) 
 		&i.Posicao,
 		&i.JogoZeradoID,
 		&i.CreatedAt,
+		&i.Ignorado,
 	)
 	return i, err
 }
@@ -324,11 +329,43 @@ func (q *Queries) CriarLista(ctx context.Context, arg CriarListaParams) (Lista, 
 	return i, err
 }
 
+const definirIgnoradoItem = `-- name: DefinirIgnoradoItem :one
+UPDATE lista_itens
+SET ignorado = $3
+WHERE id = $1 AND lista_id = $2
+RETURNING id, lista_id, igdb_id, nome, console, igdb_capa_url, ano_lancamento, posicao, jogo_zerado_id, created_at, ignorado
+`
+
+type DefinirIgnoradoItemParams struct {
+	ID       int64
+	ListaID  int64
+	Ignorado bool
+}
+
+func (q *Queries) DefinirIgnoradoItem(ctx context.Context, arg DefinirIgnoradoItemParams) (ListaIten, error) {
+	row := q.db.QueryRow(ctx, definirIgnoradoItem, arg.ID, arg.ListaID, arg.Ignorado)
+	var i ListaIten
+	err := row.Scan(
+		&i.ID,
+		&i.ListaID,
+		&i.IgdbID,
+		&i.Nome,
+		&i.Console,
+		&i.IgdbCapaUrl,
+		&i.AnoLancamento,
+		&i.Posicao,
+		&i.JogoZeradoID,
+		&i.CreatedAt,
+		&i.Ignorado,
+	)
+	return i, err
+}
+
 const desassociarJogoZeradoItem = `-- name: DesassociarJogoZeradoItem :one
 UPDATE lista_itens
 SET jogo_zerado_id = NULL
 WHERE id = $1 AND lista_id = $2
-RETURNING id, lista_id, igdb_id, nome, console, igdb_capa_url, ano_lancamento, posicao, jogo_zerado_id, created_at
+RETURNING id, lista_id, igdb_id, nome, console, igdb_capa_url, ano_lancamento, posicao, jogo_zerado_id, created_at, ignorado
 `
 
 type DesassociarJogoZeradoItemParams struct {
@@ -350,6 +387,7 @@ func (q *Queries) DesassociarJogoZeradoItem(ctx context.Context, arg Desassociar
 		&i.Posicao,
 		&i.JogoZeradoID,
 		&i.CreatedAt,
+		&i.Ignorado,
 	)
 	return i, err
 }
@@ -391,7 +429,7 @@ func (q *Queries) ExcluirLista(ctx context.Context, arg ExcluirListaParams) (int
 }
 
 const listarItensPorLista = `-- name: ListarItensPorLista :many
-SELECT i.id, i.lista_id, i.igdb_id, i.nome, i.console, i.igdb_capa_url, i.ano_lancamento, i.posicao, i.jogo_zerado_id, i.created_at
+SELECT i.id, i.lista_id, i.igdb_id, i.nome, i.console, i.igdb_capa_url, i.ano_lancamento, i.posicao, i.jogo_zerado_id, i.created_at, i.ignorado
 FROM lista_itens i
 WHERE i.lista_id = $1
 ORDER BY i.posicao ASC, i.id ASC
@@ -417,6 +455,7 @@ func (q *Queries) ListarItensPorLista(ctx context.Context, listaID int64) ([]Lis
 			&i.Posicao,
 			&i.JogoZeradoID,
 			&i.CreatedAt,
+			&i.Ignorado,
 		); err != nil {
 			return nil, err
 		}
@@ -516,7 +555,7 @@ func (q *Queries) ListarListasPorUsuario(ctx context.Context, usuarioID int32) (
 }
 
 const listarTodosItensDoUsuario = `-- name: ListarTodosItensDoUsuario :many
-SELECT i.id, i.lista_id, i.igdb_id, i.nome, i.console, i.igdb_capa_url, i.ano_lancamento, i.posicao, i.jogo_zerado_id, i.created_at
+SELECT i.id, i.lista_id, i.igdb_id, i.nome, i.console, i.igdb_capa_url, i.ano_lancamento, i.posicao, i.jogo_zerado_id, i.created_at, i.ignorado
 FROM lista_itens i
 JOIN listas l ON l.id = i.lista_id
 WHERE l.usuario_id = $1
@@ -543,6 +582,7 @@ func (q *Queries) ListarTodosItensDoUsuario(ctx context.Context, usuarioID int32
 			&i.Posicao,
 			&i.JogoZeradoID,
 			&i.CreatedAt,
+			&i.Ignorado,
 		); err != nil {
 			return nil, err
 		}

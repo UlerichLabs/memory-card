@@ -31,6 +31,7 @@ type mockListasRepo struct {
 	reordenarItensFn            func(ctx context.Context, listaID int64, usuarioID int32, itemIDs []int64) ([]*repository.ListaItem, error)
 	associarJogoZeradoFn        func(ctx context.Context, itemID int64, listaID int64, usuarioID int32, jogoZeradoID int32) (*repository.ListaItem, error)
 	desassociarJogoZeradoFn     func(ctx context.Context, itemID int64, listaID int64, usuarioID int32) (*repository.ListaItem, error)
+	definirIgnoradoItemFn       func(ctx context.Context, itemID int64, listaID int64, usuarioID int32, ignorado bool) (*repository.ListaItem, error)
 	sincronizarFranquiaFn       func(ctx context.Context, listaID int64, usuarioID int32, novosItens []repository.CriarItemParams) (int, error)
 	listarJogosZeradosUsuarioFn func(ctx context.Context, usuarioID int32) ([]*repository.JogoZeradoResumo, error)
 	buscarJogoZeradoUsuarioFn   func(ctx context.Context, id int32, usuarioID int32) (*repository.JogoZeradoResumo, error)
@@ -139,6 +140,13 @@ func (m *mockListasRepo) DesassociarJogoZerado(ctx context.Context, itemID int64
 	return &repository.ListaItem{ID: itemID, ListaID: listaID, Nome: "Item", Posicao: 1, JogoZeradoID: nil, CreatedAt: time.Now()}, nil
 }
 
+func (m *mockListasRepo) DefinirIgnoradoItem(ctx context.Context, itemID int64, listaID int64, usuarioID int32, ignorado bool) (*repository.ListaItem, error) {
+	if m.definirIgnoradoItemFn != nil {
+		return m.definirIgnoradoItemFn(ctx, itemID, listaID, usuarioID, ignorado)
+	}
+	return &repository.ListaItem{ID: itemID, ListaID: listaID, Ignorado: ignorado, Posicao: 1, CreatedAt: time.Now()}, nil
+}
+
 func (m *mockListasRepo) SincronizarFranquia(ctx context.Context, listaID int64, usuarioID int32, novosItens []repository.CriarItemParams) (int, error) {
 	if m.sincronizarFranquiaFn != nil {
 		return m.sincronizarFranquiaFn(ctx, listaID, usuarioID, novosItens)
@@ -161,9 +169,11 @@ func (m *mockListasRepo) BuscarJogoZeradoUsuario(ctx context.Context, id int32, 
 }
 
 type mockListasIGDB struct {
-	obterFranquiaFn            func(ctx context.Context, id int64) (*igdbclient.Franchise, error)
-	jogosDaFranquiaFn          func(ctx context.Context, id int64) ([]igdbclient.Game, error)
-	atualizarJogosDaFranquiaFn func(ctx context.Context, id int64) ([]igdbclient.Game, error)
+	obterFranquiaFn                      func(ctx context.Context, id int64) (*igdbclient.Franchise, error)
+	jogosDaFranquiaFn                    func(ctx context.Context, id int64) ([]igdbclient.Game, error)
+	atualizarJogosDaFranquiaFn           func(ctx context.Context, id int64) ([]igdbclient.Game, error)
+	jogosDaFranquiaParaDesafioFn          func(ctx context.Context, id int64) ([]igdbclient.Game, error)
+	atualizarJogosDaFranquiaParaDesafioFn func(ctx context.Context, id int64) ([]igdbclient.Game, error)
 }
 
 func (m *mockListasIGDB) ObterFranquia(ctx context.Context, id int64) (*igdbclient.Franchise, error) {
@@ -181,6 +191,26 @@ func (m *mockListasIGDB) JogosDaFranquia(ctx context.Context, id int64) ([]igdbc
 }
 
 func (m *mockListasIGDB) AtualizarJogosDaFranquia(ctx context.Context, id int64) ([]igdbclient.Game, error) {
+	if m.atualizarJogosDaFranquiaFn != nil {
+		return m.atualizarJogosDaFranquiaFn(ctx, id)
+	}
+	return []igdbclient.Game{}, nil
+}
+
+func (m *mockListasIGDB) JogosDaFranquiaParaDesafio(ctx context.Context, id int64) ([]igdbclient.Game, error) {
+	if m.jogosDaFranquiaParaDesafioFn != nil {
+		return m.jogosDaFranquiaParaDesafioFn(ctx, id)
+	}
+	if m.jogosDaFranquiaFn != nil {
+		return m.jogosDaFranquiaFn(ctx, id)
+	}
+	return []igdbclient.Game{}, nil
+}
+
+func (m *mockListasIGDB) AtualizarJogosDaFranquiaParaDesafio(ctx context.Context, id int64) ([]igdbclient.Game, error) {
+	if m.atualizarJogosDaFranquiaParaDesafioFn != nil {
+		return m.atualizarJogosDaFranquiaParaDesafioFn(ctx, id)
+	}
 	if m.atualizarJogosDaFranquiaFn != nil {
 		return m.atualizarJogosDaFranquiaFn(ctx, id)
 	}
@@ -616,11 +646,12 @@ func TestListasService_SincronizarFranquia(t *testing.T) {
 				return 1, nil
 			},
 		}
+		relDate := time.Now().Add(-24 * time.Hour).Unix()
 		igdb := &mockListasIGDB{
 			atualizarJogosDaFranquiaFn: func(ctx context.Context, id int64) ([]igdbclient.Game, error) {
 				return []igdbclient.Game{
-					{ID: 101, Name: "Zelda 1"},
-					{ID: 102, Name: "Zelda 2"},
+					{ID: 101, Name: "Zelda 1", FirstReleaseDate: &relDate, GameType: igdbclient.GameTypeMainGame},
+					{ID: 102, Name: "Zelda 2", FirstReleaseDate: &relDate, GameType: igdbclient.GameTypeMainGame},
 				}, nil
 			},
 		}
@@ -725,10 +756,16 @@ func TestListasService_Progresso_Calculo(t *testing.T) {
 func TestListasService_PgxErrNoRows(t *testing.T) {
 	repo := &mockListasRepo{
 		buscarPorIDFn: func(ctx context.Context, id int64, usuarioID int32) (*repository.Lista, error) {
+			if id == 1 {
+				return &repository.Lista{ID: 1, UsuarioID: usuarioID, Tipo: "fila"}, nil
+			}
 			return nil, pgx.ErrNoRows
 		},
 		excluirFn: func(ctx context.Context, id int64, usuarioID int32) error {
 			return pgx.ErrNoRows
+		},
+		buscarItemPorIDFn: func(ctx context.Context, id int64, listaID int64, usuarioID int32) (*repository.ListaItem, error) {
+			return nil, pgx.ErrNoRows
 		},
 		excluirItemERecompactarFn: func(ctx context.Context, itemID int64, listaID int64, usuarioID int32) error {
 			return pgx.ErrNoRows
@@ -791,5 +828,293 @@ func TestListasService_Contagem_PreencheIgdbCapaURL(t *testing.T) {
 	}
 	if itens[0].IgdbCapaURL == nil || *itens[0].IgdbCapaURL != capa {
 		t.Fatalf("esperava igdb_capa_url %s, obteve %v", capa, itens[0].IgdbCapaURL)
+	}
+}
+
+func TestListasService_PreviaDesafioFranquia(t *testing.T) {
+	relDate := time.Now().Add(-24 * time.Hour).Unix()
+
+	t.Run("id invalido", func(t *testing.T) {
+		svc := NewListasService(&mockListasRepo{}, &mockListasIGDB{})
+		_, err := svc.PreviaDesafioFranquia(context.Background(), 0, 1)
+		if !errors.Is(err, ErrListaIDInvalido) {
+			t.Fatalf("esperava ErrListaIDInvalido, obteve %v", err)
+		}
+	})
+
+	t.Run("franquia nao encontrada", func(t *testing.T) {
+		igdb := &mockListasIGDB{
+			obterFranquiaFn: func(ctx context.Context, id int64) (*igdbclient.Franchise, error) {
+				return nil, ErrJogoIGDBNaoEncontrado
+			},
+		}
+		svc := NewListasService(&mockListasRepo{}, igdb)
+		_, err := svc.PreviaDesafioFranquia(context.Background(), 999, 1)
+		if !errors.Is(err, ErrListaFranquiaNaoEncontrada) {
+			t.Fatalf("esperava ErrListaFranquiaNaoEncontrada, obteve %v", err)
+		}
+	})
+
+	t.Run("franquia sem jogos", func(t *testing.T) {
+		igdb := &mockListasIGDB{
+			obterFranquiaFn: func(ctx context.Context, id int64) (*igdbclient.Franchise, error) {
+				return &igdbclient.Franchise{ID: id, Name: "Vazia"}, nil
+			},
+			jogosDaFranquiaParaDesafioFn: func(ctx context.Context, id int64) ([]igdbclient.Game, error) {
+				return []igdbclient.Game{}, nil
+			},
+		}
+		svc := NewListasService(&mockListasRepo{}, igdb)
+		_, err := svc.PreviaDesafioFranquia(context.Background(), 10, 1)
+		if !errors.Is(err, ErrListaFranquiaSemJogos) {
+			t.Fatalf("esperava ErrListaFranquiaSemJogos, obteve %v", err)
+		}
+	})
+
+	t.Run("sucesso com match de jogos zerados", func(t *testing.T) {
+		igdb := &mockListasIGDB{
+			obterFranquiaFn: func(ctx context.Context, id int64) (*igdbclient.Franchise, error) {
+				return &igdbclient.Franchise{ID: id, Name: "Zelda"}, nil
+			},
+			jogosDaFranquiaParaDesafioFn: func(ctx context.Context, id int64) ([]igdbclient.Game, error) {
+				return []igdbclient.Game{
+					{ID: 1025, Name: "The Legend of Zelda", GameType: igdbclient.GameTypeMainGame, FirstReleaseDate: &relDate},
+					{ID: 1026, Name: "Zelda II", GameType: igdbclient.GameTypeMainGame, FirstReleaseDate: &relDate},
+				}, nil
+			},
+		}
+		zeradoID := int32(1025)
+		repo := &mockListasRepo{
+			listarJogosZeradosUsuarioFn: func(ctx context.Context, usuarioID int32) ([]*repository.JogoZeradoResumo, error) {
+				return []*repository.JogoZeradoResumo{
+					{ID: 42, IgdbID: &zeradoID, Nome: "The Legend of Zelda"},
+				}, nil
+			},
+		}
+		svc := NewListasService(repo, igdb)
+		res, err := svc.PreviaDesafioFranquia(context.Background(), 596, 1)
+		if err != nil {
+			t.Fatalf("erro inesperado: %v", err)
+		}
+		if res.Total != 2 || len(res.Jogos) != 2 {
+			t.Fatalf("esperava 2 jogos, obteve %d", res.Total)
+		}
+		if !res.Jogos[0].JaZerado || res.Jogos[0].JogoZeradoID == nil || *res.Jogos[0].JogoZeradoID != 42 {
+			t.Fatalf("esperava jogo 0 como ja zerado com id 42, obteve %+v", res.Jogos[0])
+		}
+		if res.Jogos[1].JaZerado || res.Jogos[1].JogoZeradoID != nil {
+			t.Fatalf("esperava jogo 1 nao zerado, obteve %+v", res.Jogos[1])
+		}
+	})
+}
+
+func TestListasService_CriarLista_ItensIgnorados(t *testing.T) {
+	relDate := time.Now().Add(-24 * time.Hour).Unix()
+	igdb := &mockListasIGDB{
+		obterFranquiaFn: func(ctx context.Context, id int64) (*igdbclient.Franchise, error) {
+			return &igdbclient.Franchise{ID: id, Name: "Zelda"}, nil
+		},
+		jogosDaFranquiaParaDesafioFn: func(ctx context.Context, id int64) ([]igdbclient.Game, error) {
+			return []igdbclient.Game{
+				{ID: 101, Name: "Zelda 1", GameType: igdbclient.GameTypeMainGame, FirstReleaseDate: &relDate},
+				{ID: 102, Name: "Zelda 2", GameType: igdbclient.GameTypeMainGame, FirstReleaseDate: &relDate},
+			}, nil
+		},
+	}
+
+	t.Run("todos ignorados retorna franquia sem jogos", func(t *testing.T) {
+		svc := NewListasService(&mockListasRepo{}, igdb)
+		igdbID := int32(596)
+		_, err := svc.CriarLista(context.Background(), CriarListaInput{
+			UsuarioID: 1,
+			Tipo:      "desafio",
+			Nome:      "Zelda",
+			Regra: &CriarListaRegraInput{
+				Tipo:              "franquia",
+				IgdbID:            &igdbID,
+				IgdbIDsIgnorados: []int32{101, 102},
+			},
+		})
+		if !errors.Is(err, ErrListaFranquiaSemJogos) {
+			t.Fatalf("esperava ErrListaFranquiaSemJogos, obteve %v", err)
+		}
+	})
+
+	t.Run("meta maior que itens ativos retorna meta invalida", func(t *testing.T) {
+		svc := NewListasService(&mockListasRepo{}, igdb)
+		igdbID := int32(596)
+		meta := 2
+		_, err := svc.CriarLista(context.Background(), CriarListaInput{
+			UsuarioID: 1,
+			Tipo:      "desafio",
+			Nome:      "Zelda",
+			Regra: &CriarListaRegraInput{
+				Tipo:              "franquia",
+				IgdbID:            &igdbID,
+				IgdbIDsIgnorados: []int32{101},
+			},
+			Meta: &meta,
+		})
+		if !errors.Is(err, ErrListaMetaInvalida) {
+			t.Fatalf("esperava ErrListaMetaInvalida, obteve %v", err)
+		}
+	})
+
+	t.Run("persiste flag ignorado corretamente", func(t *testing.T) {
+		var capturedItens []repository.CriarItemParams
+		repo := &mockListasRepo{
+			criarComItensFn: func(ctx context.Context, params repository.CriarListaComItensParams) (*repository.Lista, []*repository.ListaItem, error) {
+				capturedItens = params.Itens
+				return &repository.Lista{ID: 1, UsuarioID: params.Lista.UsuarioID, Tipo: "desafio"}, nil, nil
+			},
+			buscarPorIDFn: func(ctx context.Context, id int64, usuarioID int32) (*repository.Lista, error) {
+				regra := "franquia"
+				return &repository.Lista{ID: id, UsuarioID: usuarioID, Tipo: "desafio", RegraTipo: &regra}, nil
+			},
+		}
+		svc := NewListasService(repo, igdb)
+		igdbID := int32(596)
+		_, err := svc.CriarLista(context.Background(), CriarListaInput{
+			UsuarioID: 1,
+			Tipo:      "desafio",
+			Nome:      "Zelda",
+			Regra: &CriarListaRegraInput{
+				Tipo:              "franquia",
+				IgdbID:            &igdbID,
+				IgdbIDsIgnorados: []int32{101},
+			},
+		})
+		if err != nil {
+			t.Fatalf("erro inesperado: %v", err)
+		}
+		if len(capturedItens) != 2 {
+			t.Fatalf("esperava 2 itens, obteve %d", len(capturedItens))
+		}
+		if !capturedItens[0].Ignorado || capturedItens[1].Ignorado {
+			t.Fatalf("esperava item 0 ignorado e item 1 ativo, obteve %+v", capturedItens)
+		}
+	})
+}
+
+func TestListasService_ExcluirItem_Franquia(t *testing.T) {
+	regra := "franquia"
+	igdbID := int32(596)
+	var chamadoDefinirIgnorado bool
+	var chamadoExcluirRecompactar bool
+
+	repo := &mockListasRepo{
+		buscarPorIDFn: func(ctx context.Context, id int64, usuarioID int32) (*repository.Lista, error) {
+			return &repository.Lista{ID: id, UsuarioID: usuarioID, Tipo: "desafio", RegraTipo: &regra, RegraIgdbID: &igdbID}, nil
+		},
+		buscarItemPorIDFn: func(ctx context.Context, id int64, listaID int64, usuarioID int32) (*repository.ListaItem, error) {
+			return &repository.ListaItem{ID: id, ListaID: listaID}, nil
+		},
+		definirIgnoradoItemFn: func(ctx context.Context, itemID int64, listaID int64, usuarioID int32, ignorado bool) (*repository.ListaItem, error) {
+			chamadoDefinirIgnorado = true
+			if !ignorado {
+				t.Fatalf("esperava ignorado=true")
+			}
+			return &repository.ListaItem{ID: itemID, ListaID: listaID, Ignorado: true}, nil
+		},
+		excluirItemERecompactarFn: func(ctx context.Context, itemID int64, listaID int64, usuarioID int32) error {
+			chamadoExcluirRecompactar = true
+			return nil
+		},
+	}
+
+	svc := NewListasService(repo, &mockListasIGDB{})
+	err := svc.ExcluirItem(context.Background(), 10, 1, 1)
+	if err != nil {
+		t.Fatalf("erro inesperado: %v", err)
+	}
+	if !chamadoDefinirIgnorado || chamadoExcluirRecompactar {
+		t.Fatalf("esperava chamar DefinirIgnoradoItem e nao ExcluirItemERecompactar")
+	}
+}
+
+func TestListasService_RestaurarItem(t *testing.T) {
+	t.Run("nao permitido para lista que nao e desafio de franquia", func(t *testing.T) {
+		repo := &mockListasRepo{
+			buscarPorIDFn: func(ctx context.Context, id int64, usuarioID int32) (*repository.Lista, error) {
+				return &repository.Lista{ID: id, UsuarioID: usuarioID, Tipo: "fila"}, nil
+			},
+		}
+		svc := NewListasService(repo, &mockListasIGDB{})
+		_, err := svc.RestaurarItem(context.Background(), 10, 1, 1)
+		if !errors.Is(err, ErrListaRestauracaoNaoPermitida) {
+			t.Fatalf("esperava ErrListaRestauracaoNaoPermitida, obteve %v", err)
+		}
+	})
+
+	t.Run("sucesso para desafio de franquia", func(t *testing.T) {
+		regra := "franquia"
+		igdbID := int32(596)
+		repo := &mockListasRepo{
+			buscarPorIDFn: func(ctx context.Context, id int64, usuarioID int32) (*repository.Lista, error) {
+				return &repository.Lista{ID: id, UsuarioID: usuarioID, Tipo: "desafio", RegraTipo: &regra, RegraIgdbID: &igdbID}, nil
+			},
+			buscarItemPorIDFn: func(ctx context.Context, id int64, listaID int64, usuarioID int32) (*repository.ListaItem, error) {
+				return &repository.ListaItem{ID: id, ListaID: listaID, Ignorado: true}, nil
+			},
+			definirIgnoradoItemFn: func(ctx context.Context, itemID int64, listaID int64, usuarioID int32, ignorado bool) (*repository.ListaItem, error) {
+				if ignorado {
+					t.Fatalf("esperava ignorado=false")
+				}
+				return &repository.ListaItem{ID: itemID, ListaID: listaID, Ignorado: false}, nil
+			},
+		}
+		svc := NewListasService(repo, &mockListasIGDB{})
+		item, err := svc.RestaurarItem(context.Background(), 10, 1, 1)
+		if err != nil {
+			t.Fatalf("erro inesperado: %v", err)
+		}
+		if item.Ignorado {
+			t.Fatalf("esperava item com Ignorado=false")
+		}
+	})
+}
+
+func TestListasService_CalcularLista_ItensIgnorados(t *testing.T) {
+	regra := "franquia"
+	val := "Zelda"
+	igdbID := int32(596)
+	lista := &repository.Lista{
+		ID:          1,
+		UsuarioID:   1,
+		Tipo:        "desafio",
+		RegraTipo:   &regra,
+		RegraValor:  &val,
+		RegraIgdbID: &igdbID,
+	}
+
+	exIgnorado := int32(101)
+	exAtivo := int32(102)
+	itens := []*repository.ListaItem{
+		{ID: 1, ListaID: 1, IgdbID: &exIgnorado, Nome: "Zelda Ignorado", Posicao: 1, Ignorado: true},
+		{ID: 2, ListaID: 1, IgdbID: &exAtivo, Nome: "Zelda Ativo", Posicao: 2, Ignorado: false},
+	}
+
+	jogos := []*repository.JogoZeradoResumo{
+		{ID: 10, IgdbID: &exIgnorado, Nome: "Zelda Ignorado", FinalizadoEm: time.Now()},
+		{ID: 20, IgdbID: &exAtivo, Nome: "Zelda Ativo", FinalizadoEm: time.Now()},
+	}
+
+	svc := NewListasService(&mockListasRepo{}, &mockListasIGDB{})
+	resumo, detalhes := svc.calcularLista(lista, jogos, itens)
+
+	if resumo.TotalItens != 1 {
+		t.Fatalf("esperava total_itens=1 (ativos), obteve %d", resumo.TotalItens)
+	}
+	if resumo.TotalIgnorados != 1 {
+		t.Fatalf("esperava total_ignorados=1, obteve %d", resumo.TotalIgnorados)
+	}
+	if resumo.Progresso == nil || resumo.Progresso.Feitos != 1 {
+		t.Fatalf("esperava progresso.feitos=1 (apenas ativo), obteve %+v", resumo.Progresso)
+	}
+	if len(detalhes) != 2 {
+		t.Fatalf("esperava 2 itens nos detalhes, obteve %d", len(detalhes))
+	}
+	if !detalhes[0].Ignorado || detalhes[1].Ignorado {
+		t.Fatalf("esperava detalhe 0 ignorado e detalhe 1 ativo")
 	}
 }

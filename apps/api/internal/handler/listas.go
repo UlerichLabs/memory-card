@@ -23,10 +23,12 @@ type ListasServicer interface {
 	ExcluirLista(ctx context.Context, id int64, usuarioID int32) error
 	AdicionarItem(ctx context.Context, input service.AdicionarItemInput) (*service.ListaItemDetalhe, error)
 	ExcluirItem(ctx context.Context, itemID int64, listaID int64, usuarioID int32) error
+	RestaurarItem(ctx context.Context, itemID int64, listaID int64, usuarioID int32) (*service.ListaItemDetalhe, error)
 	ReordenarItens(ctx context.Context, listaID int64, usuarioID int32, itemIDs []int64) ([]*service.ListaItemDetalhe, error)
 	AssociarJogoZerado(ctx context.Context, itemID int64, listaID int64, usuarioID int32, jogoZeradoID int32) (*service.ListaItemDetalhe, error)
 	DesassociarJogoZerado(ctx context.Context, itemID int64, listaID int64, usuarioID int32) (*service.ListaItemDetalhe, error)
 	SincronizarFranquia(ctx context.Context, listaID int64, usuarioID int32) (*service.SincronizarResultado, error)
+	PreviaDesafioFranquia(ctx context.Context, franquiaID int64, usuarioID int32) (*service.PreviaDesafioResultado, error)
 }
 
 type ListasHandler struct {
@@ -38,9 +40,10 @@ func NewListasHandler(service ListasServicer) *ListasHandler {
 }
 
 type CriarListaRegraRequest struct {
-	Tipo   string `json:"tipo"`
-	Valor  string `json:"valor"`
-	IgdbID *int32 `json:"igdb_id"`
+	Tipo              string  `json:"tipo"`
+	Valor             string  `json:"valor"`
+	IgdbID            *int32  `json:"igdb_id"`
+	IgdbIDsIgnorados []int32 `json:"igdb_ids_ignorados,omitempty"`
 }
 
 type CriarListaRequest struct {
@@ -143,8 +146,7 @@ func (h *ListasHandler) ListarListas(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"data":  listas,
-		"dados": listas,
+		"data": listas,
 	})
 }
 
@@ -169,9 +171,10 @@ func (h *ListasHandler) CriarLista(c *gin.Context) {
 	var regraInput *service.CriarListaRegraInput
 	if req.Regra != nil {
 		regraInput = &service.CriarListaRegraInput{
-			Tipo:   req.Regra.Tipo,
-			Valor:  req.Regra.Valor,
-			IgdbID: req.Regra.IgdbID,
+			Tipo:              req.Regra.Tipo,
+			Valor:             req.Regra.Valor,
+			IgdbID:            req.Regra.IgdbID,
+			IgdbIDsIgnorados: req.Regra.IgdbIDsIgnorados,
 		}
 	}
 
@@ -200,6 +203,8 @@ func (h *ListasHandler) CriarLista(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "listas.meta_invalida", "mensagem": i18n.T(lang, "listas.meta_invalida")}})
 		case errors.Is(err, service.ErrListaFranquiaNaoEncontrada):
 			c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"codigo": "listas.franquia_nao_encontrada", "mensagem": i18n.T(lang, "listas.franquia_nao_encontrada")}})
+		case errors.Is(err, service.ErrListaFranquiaSemJogos):
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "listas.franquia_sem_jogos", "mensagem": i18n.T(lang, "listas.franquia_sem_jogos")}})
 		case errors.Is(err, service.ErrIGDBRateLimit):
 			c.JSON(http.StatusTooManyRequests, gin.H{"error": gin.H{"codigo": "igdb.rate_limited", "mensagem": i18n.T(lang, "igdb.rate_limited")}})
 		case errors.Is(err, service.ErrIGDBIndisponivel):
@@ -574,4 +579,75 @@ func (h *ListasHandler) SincronizarFranquia(c *gin.Context) {
 		"data":        res,
 		"adicionados": res.Adicionados,
 	})
+}
+
+func (h *ListasHandler) RestaurarItem(c *gin.Context) {
+	usuarioID, ok := extrairUsuarioIDListas(c)
+	if !ok {
+		return
+	}
+
+	id, ok := parseListasID(c, "id")
+	if !ok {
+		return
+	}
+
+	itemID, ok := parseListasID(c, "itemId")
+	if !ok {
+		return
+	}
+
+	item, err := h.service.RestaurarItem(c.Request.Context(), itemID, id, usuarioID)
+	if err != nil {
+		lang := c.GetHeader("Accept-Language")
+		switch {
+		case errors.Is(err, service.ErrListaNaoEncontrada):
+			c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"codigo": "listas.nao_encontrada", "mensagem": i18n.T(lang, "listas.nao_encontrada")}})
+		case errors.Is(err, service.ErrListaRestauracaoNaoPermitida):
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "listas.restauracao_nao_permitida", "mensagem": i18n.T(lang, "listas.restauracao_nao_permitida")}})
+		case errors.Is(err, service.ErrListaItemNaoEncontrado):
+			c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"codigo": "listas.item_nao_encontrado", "mensagem": i18n.T(lang, "listas.item_nao_encontrado")}})
+		default:
+			slog.ErrorContext(c.Request.Context(), "falha ao restaurar item", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"codigo": "server.internal_error", "mensagem": i18n.T(lang, "server.internal_error")}})
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": item})
+}
+
+func (h *ListasHandler) PreviaDesafioFranquia(c *gin.Context) {
+	usuarioID, ok := extrairUsuarioIDListas(c)
+	if !ok {
+		return
+	}
+
+	igdbID, ok := parseListasID(c, "igdbId")
+	if !ok {
+		return
+	}
+
+	previa, err := h.service.PreviaDesafioFranquia(c.Request.Context(), igdbID, usuarioID)
+	if err != nil {
+		lang := c.GetHeader("Accept-Language")
+		switch {
+		case errors.Is(err, service.ErrListaIDInvalido):
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "listas.id_invalido", "mensagem": i18n.T(lang, "listas.id_invalido")}})
+		case errors.Is(err, service.ErrListaFranquiaNaoEncontrada):
+			c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"codigo": "listas.franquia_nao_encontrada", "mensagem": i18n.T(lang, "listas.franquia_nao_encontrada")}})
+		case errors.Is(err, service.ErrListaFranquiaSemJogos):
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "listas.franquia_sem_jogos", "mensagem": i18n.T(lang, "listas.franquia_sem_jogos")}})
+		case errors.Is(err, service.ErrIGDBRateLimit):
+			c.JSON(http.StatusTooManyRequests, gin.H{"error": gin.H{"codigo": "igdb.rate_limited", "mensagem": i18n.T(lang, "igdb.rate_limited")}})
+		case errors.Is(err, service.ErrIGDBIndisponivel):
+			c.JSON(http.StatusBadGateway, gin.H{"error": gin.H{"codigo": "igdb.unavailable", "mensagem": i18n.T(lang, "igdb.unavailable")}})
+		default:
+			slog.ErrorContext(c.Request.Context(), "falha ao obter previa de desafio da franquia", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"codigo": "server.internal_error", "mensagem": i18n.T(lang, "server.internal_error")}})
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": previa})
 }

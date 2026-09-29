@@ -37,6 +37,7 @@ type ListaItem struct {
 	AnoLancamento *int
 	Posicao       int
 	JogoZeradoID  *int32
+	Ignorado      bool
 	CreatedAt     time.Time
 }
 
@@ -71,6 +72,7 @@ type CriarItemParams struct {
 	AnoLancamento *int
 	Posicao       int
 	JogoZeradoID  *int32
+	Ignorado      bool
 }
 
 type CriarListaComItensParams struct {
@@ -102,6 +104,7 @@ type ListasRepository interface {
 	ReordenarItens(ctx context.Context, listaID int64, usuarioID int32, itemIDs []int64) ([]*ListaItem, error)
 	AssociarJogoZerado(ctx context.Context, itemID int64, listaID int64, usuarioID int32, jogoZeradoID int32) (*ListaItem, error)
 	DesassociarJogoZerado(ctx context.Context, itemID int64, listaID int64, usuarioID int32) (*ListaItem, error)
+	DefinirIgnoradoItem(ctx context.Context, itemID int64, listaID int64, usuarioID int32, ignorado bool) (*ListaItem, error)
 	SincronizarFranquia(ctx context.Context, listaID int64, usuarioID int32, novosItens []CriarItemParams) (int, error)
 
 	ListarJogosZeradosUsuario(ctx context.Context, usuarioID int32) ([]*JogoZeradoResumo, error)
@@ -191,9 +194,10 @@ func (r *SQLListasRepository) CriarComItens(ctx context.Context, params CriarLis
 	itensCriados := make([]*ListaItem, 0, len(params.Itens))
 	for _, it := range params.Itens {
 		itParam := db.CriarItemListaParams{
-			ListaID: rowLista.ID,
-			Nome:    it.Nome,
-			Posicao: int32(it.Posicao),
+			ListaID:  rowLista.ID,
+			Nome:     it.Nome,
+			Posicao:  int32(it.Posicao),
+			Ignorado: it.Ignorado,
 		}
 		if it.IgdbID != nil {
 			itParam.IgdbID = pgtype.Int4{Int32: *it.IgdbID, Valid: true}
@@ -301,9 +305,10 @@ func (r *SQLListasRepository) CriarItem(ctx context.Context, listaID int64, usua
 	}
 
 	itParam := db.CriarItemListaParams{
-		ListaID: listaID,
-		Nome:    params.Nome,
-		Posicao: maxPos + 1,
+		ListaID:  listaID,
+		Nome:     params.Nome,
+		Posicao:  maxPos + 1,
+		Ignorado: params.Ignorado,
 	}
 	if params.IgdbID != nil {
 		itParam.IgdbID = pgtype.Int4{Int32: *params.IgdbID, Valid: true}
@@ -552,6 +557,26 @@ func (r *SQLListasRepository) DesassociarJogoZerado(ctx context.Context, itemID 
 	return mapearListaItem(row), nil
 }
 
+func (r *SQLListasRepository) DefinirIgnoradoItem(ctx context.Context, itemID int64, listaID int64, usuarioID int32, ignorado bool) (*ListaItem, error) {
+	_, err := r.BuscarItemPorID(ctx, itemID, listaID, usuarioID)
+	if err != nil {
+		return nil, err
+	}
+
+	row, err := r.queries.DefinirIgnoradoItem(ctx, db.DefinirIgnoradoItemParams{
+		ID:       itemID,
+		ListaID:  listaID,
+		Ignorado: ignorado,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, pgx.ErrNoRows
+		}
+		return nil, fmt.Errorf("definir ignorado item: %w", err)
+	}
+	return mapearListaItem(row), nil
+}
+
 func (r *SQLListasRepository) SincronizarFranquia(ctx context.Context, listaID int64, usuarioID int32, novosItens []CriarItemParams) (int, error) {
 	if r.pool == nil {
 		return 0, errors.New("pool nao configurado")
@@ -602,9 +627,10 @@ func (r *SQLListasRepository) SincronizarFranquia(ctx context.Context, listaID i
 
 		maxPos++
 		itParam := db.CriarItemListaParams{
-			ListaID: listaID,
-			Nome:    it.Nome,
-			Posicao: maxPos,
+			ListaID:  listaID,
+			Nome:     it.Nome,
+			Posicao:  maxPos,
+			Ignorado: false,
 		}
 		if it.IgdbID != nil {
 			itParam.IgdbID = pgtype.Int4{Int32: *it.IgdbID, Valid: true}
@@ -730,6 +756,7 @@ func mapearListaItem(row db.ListaIten) *ListaItem {
 		ListaID:   row.ListaID,
 		Nome:      row.Nome,
 		Posicao:   int(row.Posicao),
+		Ignorado:  row.Ignorado,
 		CreatedAt: row.CreatedAt.Time,
 	}
 	if row.IgdbID.Valid {

@@ -315,17 +315,17 @@ func TestClientSearchGamesQuery(t *testing.T) {
 		`query games "search" {
 fields id, name, first_release_date, summary, cover.image_id, genres.name, game_type, total_rating_count, platforms.name;
 search "zelda";
-where game_type = (0, 4, 8, 9, 10, 11, 12);
+where game_type = (0, 4, 8, 9, 10);
 limit 50;
 };`,
 		`query games "exact" {
 fields id, name, first_release_date, summary, cover.image_id, genres.name, game_type, total_rating_count, platforms.name;
-where name = "zelda" & game_type = (0, 4, 8, 9, 10, 11, 12);
+where name = "zelda" & game_type = (0, 4, 8, 9, 10);
 limit 50;
 };`,
 		`query games "contains" {
 fields id, name, first_release_date, summary, cover.image_id, genres.name, game_type, total_rating_count, platforms.name;
-where name ~ *"zelda"* & game_type = (0, 4, 8, 9, 10, 11, 12);
+where name ~ *"zelda"* & game_type = (0, 4, 8, 9, 10);
 limit 50;
 };`,
 	}
