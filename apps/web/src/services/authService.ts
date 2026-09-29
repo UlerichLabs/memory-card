@@ -1,38 +1,14 @@
-export interface CadastroPayload {
-  nome: string
-  email: string
-  senha: string
-}
-
-export interface UsuarioDTO {
-  id: number
-  nome: string
-  email: string
-  idioma: string
-  created_at: string
-}
-
+export interface CadastroPayload { nome: string; email: string; senha: string }
+export interface UsuarioDTO { id: number; nome: string; email: string; idioma: string; created_at: string }
 export type LoginPayload = Pick<CadastroPayload, 'email' | 'senha'>
-export interface SolicitarResetPayload {
-  email: string
-}
-export interface RedefinirSenhaPayload {
-  token: string
-  senha: string
-}
-export interface TrocarSenhaPayload {
-  senha_atual: string
-  nova_senha: string
-}
-export interface SessaoDTO {
-  access_token: string
-  refresh_token: string
-  usuario: UsuarioDTO
-}
+export interface SolicitarResetPayload { email: string }
+export interface RedefinirSenhaPayload { token: string; senha: string }
+export interface TrocarSenhaPayload { senha_atual: string; nova_senha: string }
+export interface SessaoDTO { access_token: string; refresh_token: string; usuario: UsuarioDTO }
+
 export class AuthApiError extends Error {
   readonly codigo: string
   readonly status?: number
-
   constructor(codigo: string, message: string, status?: number) {
     super(message)
     this.name = 'AuthApiError'
@@ -46,8 +22,7 @@ const baseUrl = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '')
 async function request<T>(path: string, options: RequestInit): Promise<T> {
   const response = await fetch(`${baseUrl}/api/v1${path}`, options)
   if (!response.ok) {
-    let codigo = 'fallback'
-    let mensagem = ''
+    let codigo = 'fallback', mensagem = ''
     try {
       const data = await response.json()
       if (typeof data?.error?.codigo === 'string') {
@@ -73,18 +48,14 @@ function post<T>(path: string, payload: unknown): Promise<T> {
 }
 
 function get<T>(path: string): Promise<T> {
-  return request(path, {
-    method: 'GET',
-    headers: { Accept: 'application/json' },
-  })
+  return request(path, { method: 'GET', headers: { Accept: 'application/json' } })
 }
 
 export const authService = {
   cadastrar: (payload: CadastroPayload) => post<UsuarioDTO>('/auth/register', payload),
   login: (payload: LoginPayload) => post<SessaoDTO>('/auth/login', payload),
   solicitarReset: (payload: SolicitarResetPayload) => post<void>('/auth/solicitar-reset', payload),
-  validarTokenReset: (token: string) =>
-    get<void>(`/auth/validar-token-reset?token=${encodeURIComponent(token)}`),
+  validarTokenReset: (token: string) => get<void>(`/auth/validar-token-reset?token=${encodeURIComponent(token)}`),
   redefinirSenha: (payload: RedefinirSenhaPayload) => post<void>('/auth/redefinir-senha', payload),
   trocarSenha: (accessToken: string, payload: TrocarSenhaPayload) =>
     authService.authenticatedRequest<{ mensagem: string }>('/auth/trocar-senha', accessToken, {
@@ -100,6 +71,7 @@ export const authService = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refresh_token: refreshToken }),
     }),
+  me: (accessToken: string) => authService.authenticatedRequest<UsuarioDTO>('/me', accessToken),
   authenticatedRequest<T>(path: string, accessToken: string, options: RequestInit = {}) {
     const headers = new Headers(options.headers)
     headers.set('Authorization', `Bearer ${accessToken}`)

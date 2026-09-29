@@ -1,6 +1,7 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
 import { authService, type SessaoDTO } from '@/services/authService'
+import { resetApiState } from '@/lib/api'
 import { AuthProvider, useAuthStore } from './authStore'
 
 const sessao: SessaoDTO = {
@@ -16,18 +17,27 @@ async function autenticado() {
 }
 
 describe('authStore', () => {
-  afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals() })
+  beforeEach(() => {
+    localStorage.clear()
+    resetApiState()
+  })
+  afterEach(() => {
+    vi.restoreAllMocks()
+    vi.unstubAllGlobals()
+    localStorage.clear()
+    resetApiState()
+  })
   it('inicia sem sessão', () => {
     const { result } = renderHook(useAuthStore, { wrapper: AuthProvider })
     expect(result.current.sessao).toBeNull()
   })
-  it('salva tokens e usuário apenas em memória', async () => {
+  it('salva access token em memória e refresh token em storage', async () => {
     const local = vi.spyOn(Storage.prototype, 'setItem')
     const { result, unmount } = await autenticado()
     expect(result.current.sessao).toEqual(sessao)
-    expect(local).not.toHaveBeenCalled()
+    expect(local).toHaveBeenCalledWith('refresh_token', 'refresh')
+    expect(localStorage.getItem('access_token')).toBeNull()
     unmount()
-    expect(renderHook(useAuthStore, { wrapper: AuthProvider }).result.current.sessao).toBeNull()
   })
   it.each(['auth.session.expired', 'auth.session.unauthorized'])('limpa sessão após 401 %s', async (codigo) => {
     const { result } = await autenticado()
