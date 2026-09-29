@@ -63,18 +63,19 @@ const (
 )
 
 type Game struct {
-	ID               int64      `json:"id"`
-	Name             string     `json:"name"`
-	Cover            *Image     `json:"cover,omitempty"`
-	FirstReleaseDate *int64     `json:"first_release_date,omitempty"`
-	Platforms        []Platform `json:"platforms,omitempty"`
-	Genres           []Genre    `json:"genres,omitempty"`
-	Summary          string     `json:"summary,omitempty"`
-	GameType         int        `json:"game_type"`
-	TotalRatingCount *int       `json:"total_rating_count,omitempty"`
-	VersionParent    *int64     `json:"version_parent,omitempty"`
-	Franchise        *int64     `json:"franchise,omitempty"`
-	Franchises       []int64    `json:"franchises,omitempty"`
+	ID               int64        `json:"id"`
+	Name             string       `json:"name"`
+	Cover            *Image       `json:"cover,omitempty"`
+	FirstReleaseDate *int64       `json:"first_release_date,omitempty"`
+	Platforms        []Platform   `json:"platforms,omitempty"`
+	Genres           []Genre      `json:"genres,omitempty"`
+	Summary          string       `json:"summary,omitempty"`
+	GameType         int          `json:"game_type"`
+	TotalRatingCount *int         `json:"total_rating_count,omitempty"`
+	VersionParent    *int64       `json:"version_parent,omitempty"`
+	Franchise        *int64       `json:"franchise,omitempty"`
+	Franchises       []int64      `json:"franchises,omitempty"`
+	Collections      []Collection `json:"collections,omitempty"`
 }
 
 type Platform struct {
@@ -89,6 +90,10 @@ type Genre struct {
 
 type Franchise struct {
 	ID   int64  `json:"id"`
+	Name string `json:"name"`
+}
+
+type Collection struct {
 	Name string `json:"name"`
 }
 
@@ -140,7 +145,7 @@ func (c *Client) SearchGames(ctx context.Context, query string) ([]Game, error) 
 	}
 	escapedQuery := escapeApicalypse(query)
 	fields := "fields id, name, first_release_date, summary, cover.image_id, genres.name, game_type, total_rating_count, platforms.name;"
-	filter := "game_type = (0, 4, 8, 9, 10, 11, 12)"
+	filter := "game_type = (0, 4, 8, 9, 10)"
 	containsWhere := buildContainsWhere(query)
 	body := fmt.Sprintf("query games \"search\" {\n%s\nsearch \"%s\";\nwhere %s;\nlimit 50;\n};\nquery games \"exact\" {\n%s\nwhere name = \"%s\" & %s;\nlimit 50;\n};\nquery games \"contains\" {\n%s\nwhere %s & %s;\nlimit 50;\n};", fields, escapedQuery, filter, fields, escapedQuery, filter, fields, containsWhere, filter)
 	var queries []multiqueryResult
@@ -257,7 +262,7 @@ func (c *Client) GamesByFranchise(ctx context.Context, id int64) ([]Game, error)
 }
 
 func (c *Client) GamesByFranchiseParaDesafio(ctx context.Context, id int64) ([]Game, error) {
-	return c.games(ctx, fmt.Sprintf("fields id,name,cover.url,first_release_date,game_type,version_parent,franchise,franchises; where franchises = (%d); limit 500;", id))
+	return c.games(ctx, fmt.Sprintf("fields id,name,cover.url,first_release_date,game_type,version_parent,franchise,franchises,collections.name; where franchises = (%d); limit 500;", id))
 }
 
 func (c *Client) games(ctx context.Context, query string) ([]Game, error) {

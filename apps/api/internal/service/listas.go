@@ -118,20 +118,22 @@ type PreviaJogoItem struct {
 	IgdbCapaURL   *string `json:"igdb_capa_url"`
 	AnoLancamento *int    `json:"ano_lancamento"`
 	Tipo          string  `json:"tipo"`
+	Sugerido      bool    `json:"sugerido"`
 	JaZerado      bool    `json:"ja_zerado"`
 	JogoZeradoID  *int32  `json:"jogo_zerado_id"`
 }
 
 type PreviaDesafioResultado struct {
-	Franquia PreviaFranquiaInfo `json:"franquia"`
-	Total    int                `json:"total"`
-	Jogos    []*PreviaJogoItem  `json:"jogos"`
+	Franquia       PreviaFranquiaInfo `json:"franquia"`
+	Total          int                `json:"total"`
+	TotalSugeridos int                `json:"total_sugeridos"`
+	Jogos          []*PreviaJogoItem  `json:"jogos"`
 }
 
 type CriarListaRegraInput struct {
-	Tipo              string  `json:"tipo"`
-	Valor             string  `json:"valor"`
-	IgdbID            *int32  `json:"igdb_id"`
+	Tipo             string  `json:"tipo"`
+	Valor            string  `json:"valor"`
+	IgdbID           *int32  `json:"igdb_id"`
 	IgdbIDsIgnorados []int32 `json:"igdb_ids_ignorados,omitempty"`
 }
 
@@ -258,7 +260,7 @@ func (s *ListasService) CriarLista(ctx context.Context, input CriarListaInput) (
 			return nil, err
 		}
 
-		filtered := filtrarJogosDesafioFranquia(int64(*input.Regra.IgdbID), games)
+		filtered := filtrarJogosDesafioFranquia(int64(*input.Regra.IgdbID), games, time.Now())
 		if len(filtered) == 0 {
 			return nil, ErrListaFranquiaSemJogos
 		}
@@ -853,7 +855,7 @@ func (s *ListasService) SincronizarFranquia(ctx context.Context, listaID int64, 
 		return nil, err
 	}
 
-	filtered := filtrarJogosDesafioFranquia(int64(*lista.RegraIgdbID), games)
+	filtered := filtrarJogosDesafioFranquia(int64(*lista.RegraIgdbID), games, time.Now())
 
 	itensExistentes, err := s.repo.ListarItensPorLista(ctx, listaID, usuarioID)
 	if err != nil {
@@ -958,7 +960,7 @@ func (s *ListasService) PreviaDesafioFranquia(ctx context.Context, franquiaID in
 		return nil, err
 	}
 
-	filtered := filtrarJogosDesafioFranquia(franquiaID, games)
+	filtered := filtrarJogosDesafioFranquia(franquiaID, games, time.Now())
 	if len(filtered) == 0 {
 		return nil, ErrListaFranquiaSemJogos
 	}
@@ -994,6 +996,7 @@ func (s *ListasService) PreviaDesafioFranquia(ctx context.Context, franquiaID in
 
 	seenIDs := make(map[int32]bool, len(filtered))
 	previaItens := make([]*PreviaJogoItem, 0, len(filtered))
+	totalSugeridos := 0
 	for _, g := range filtered {
 		gid := int32(g.ID)
 		if seenIDs[gid] {
@@ -1022,12 +1025,18 @@ func (s *ListasService) PreviaDesafioFranquia(ctx context.Context, franquiaID in
 			jogoZeradoID = &zid
 		}
 
+		sugerido := jogoSugerido(g, franquiaID, franchise.Name)
+		if sugerido {
+			totalSugeridos++
+		}
+
 		previaItens = append(previaItens, &PreviaJogoItem{
 			IgdbID:        gid,
 			Nome:          g.Name,
 			IgdbCapaURL:   capaURL,
 			AnoLancamento: ano,
-			Tipo:          MapearTipoJogo(g.GameType),
+			Tipo:          tipoJogo(g.GameType),
+			Sugerido:      sugerido,
 			JaZerado:      jaZerado,
 			JogoZeradoID:  jogoZeradoID,
 		})
@@ -1038,8 +1047,9 @@ func (s *ListasService) PreviaDesafioFranquia(ctx context.Context, franquiaID in
 			IgdbID: franchise.ID,
 			Nome:   franchise.Name,
 		},
-		Total: len(previaItens),
-		Jogos: previaItens,
+		Total:          len(previaItens),
+		TotalSugeridos: totalSugeridos,
+		Jogos:          previaItens,
 	}, nil
 }
 

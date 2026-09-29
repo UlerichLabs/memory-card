@@ -133,9 +133,7 @@ func isAllowedGameType(gt int) bool {
 		igdbclient.GameTypeStandaloneExpansion,
 		igdbclient.GameTypeRemake,
 		igdbclient.GameTypeRemaster,
-		igdbclient.GameTypeExpandedGame,
-		igdbclient.GameTypePort,
-		igdbclient.GameTypeFork:
+		igdbclient.GameTypeExpandedGame:
 		return true
 	default:
 		return false
@@ -198,6 +196,42 @@ func normalizeString(s string) string {
 		}
 	}
 	return strings.Join(strings.Fields(sb.String()), " ")
+}
+
+func normalizar(s string) string {
+	lower := strings.ToLower(s)
+	clean, _, err := transform.String(normTransformer, lower)
+	if err != nil {
+		clean = lower
+	}
+	clean = strings.TrimPrefix(strings.TrimSpace(clean), "the ")
+
+	var normalized strings.Builder
+	for _, r := range clean {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			normalized.WriteRune(r)
+		}
+	}
+	return normalized.String()
+}
+
+func jogoSugerido(game igdbclient.Game, franquiaID int64, nomeFranquia string) bool {
+	if game.Franchise != nil && *game.Franchise == franquiaID {
+		return true
+	}
+
+	nomeNormalizado := normalizar(nomeFranquia)
+	if nomeNormalizado != "" && strings.Contains(normalizar(game.Name), nomeNormalizado) {
+		return true
+	}
+
+	for _, collection := range game.Collections {
+		if normalizar(collection.Name) == nomeNormalizado {
+			return true
+		}
+	}
+
+	return false
 }
 
 func calculateTier(name, normTerm string, termTokens []string) int {
@@ -334,27 +368,21 @@ func (svc *IGDBService) AtualizarJogosDaFranquiaParaDesafio(ctx context.Context,
 	})
 }
 
-func FiltrarJogosDesafioFranquia(franquiaID int64, jogos []igdbclient.Game, agora ...time.Time) []igdbclient.Game {
-	return filtrarJogosDesafioFranquia(franquiaID, jogos, agora...)
+func FiltrarJogosDesafioFranquia(franquiaID int64, jogos []igdbclient.Game, agora time.Time) []igdbclient.Game {
+	return filtrarJogosDesafioFranquia(franquiaID, jogos, agora)
 }
 
-func filtrarJogosDesafioFranquia(franquiaID int64, jogos []igdbclient.Game, agora ...time.Time) []igdbclient.Game {
+func filtrarJogosDesafioFranquia(franquiaID int64, jogos []igdbclient.Game, agora time.Time) []igdbclient.Game {
 	var filtrados []igdbclient.Game
-	refTime := time.Now()
-	if len(agora) > 0 {
-		refTime = agora[0]
-	}
-	agoraUnix := refTime.Unix()
+	agoraUnix := agora.Unix()
 
 	for _, g := range jogos {
 		switch g.GameType {
 		case igdbclient.GameTypeMainGame,
+			igdbclient.GameTypeStandaloneExpansion,
 			igdbclient.GameTypeRemake,
 			igdbclient.GameTypeRemaster,
-			igdbclient.GameTypeExpandedGame,
-			igdbclient.GameTypePort,
-			igdbclient.GameTypeFork,
-			igdbclient.GameTypeUpdate:
+			igdbclient.GameTypeExpandedGame:
 		default:
 			continue
 		}
@@ -408,22 +436,18 @@ func filtrarJogosDesafioFranquia(franquiaID int64, jogos []igdbclient.Game, agor
 	return unicos
 }
 
-func MapearTipoJogo(gameType int) string {
+func tipoJogo(gameType int) string {
 	switch gameType {
 	case igdbclient.GameTypeMainGame:
-		return "main_game"
+		return "principal"
+	case igdbclient.GameTypeStandaloneExpansion:
+		return "expansao"
 	case igdbclient.GameTypeRemake:
 		return "remake"
 	case igdbclient.GameTypeRemaster:
 		return "remaster"
 	case igdbclient.GameTypeExpandedGame:
-		return "expanded_game"
-	case igdbclient.GameTypePort:
-		return "port"
-	case igdbclient.GameTypeFork:
-		return "fork"
-	case igdbclient.GameTypeUpdate:
-		return "update"
+		return "versao_expandida"
 	default:
 		return "outro"
 	}

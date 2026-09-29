@@ -19,15 +19,15 @@ import (
 )
 
 type mockListasService struct {
-	criarListaFn           func(ctx context.Context, input service.CriarListaInput) (*service.ListaDetalhada, error)
-	obterListaFn           func(ctx context.Context, id int64, usuarioID int32) (*service.ListaDetalhada, error)
-	listarListasFn         func(ctx context.Context, usuarioID int32) ([]*service.ListaResumo, error)
-	atualizarListaFn       func(ctx context.Context, input service.AtualizarListaInput) (*service.ListaDetalhada, error)
-	excluirListaFn         func(ctx context.Context, id int64, usuarioID int32) error
-	adicionarItemFn        func(ctx context.Context, input service.AdicionarItemInput) (*service.ListaItemDetalhe, error)
-	excluirItemFn          func(ctx context.Context, itemID int64, listaID int64, usuarioID int32) error
-	reordenarItensFn       func(ctx context.Context, listaID int64, usuarioID int32, itemIDs []int64) ([]*service.ListaItemDetalhe, error)
-	associarJogoZeradoFn   func(ctx context.Context, itemID int64, listaID int64, usuarioID int32, jogoZeradoID int32) (*service.ListaItemDetalhe, error)
+	criarListaFn            func(ctx context.Context, input service.CriarListaInput) (*service.ListaDetalhada, error)
+	obterListaFn            func(ctx context.Context, id int64, usuarioID int32) (*service.ListaDetalhada, error)
+	listarListasFn          func(ctx context.Context, usuarioID int32) ([]*service.ListaResumo, error)
+	atualizarListaFn        func(ctx context.Context, input service.AtualizarListaInput) (*service.ListaDetalhada, error)
+	excluirListaFn          func(ctx context.Context, id int64, usuarioID int32) error
+	adicionarItemFn         func(ctx context.Context, input service.AdicionarItemInput) (*service.ListaItemDetalhe, error)
+	excluirItemFn           func(ctx context.Context, itemID int64, listaID int64, usuarioID int32) error
+	reordenarItensFn        func(ctx context.Context, listaID int64, usuarioID int32, itemIDs []int64) ([]*service.ListaItemDetalhe, error)
+	associarJogoZeradoFn    func(ctx context.Context, itemID int64, listaID int64, usuarioID int32, jogoZeradoID int32) (*service.ListaItemDetalhe, error)
 	desassociarJogoZeradoFn func(ctx context.Context, itemID int64, listaID int64, usuarioID int32) (*service.ListaItemDetalhe, error)
 	restaurarItemFn         func(ctx context.Context, itemID int64, listaID int64, usuarioID int32) (*service.ListaItemDetalhe, error)
 	sincronizarFranquiaFn   func(ctx context.Context, listaID int64, usuarioID int32) (*service.SincronizarResultado, error)
@@ -750,10 +750,11 @@ func TestListasHandler_PreviaDesafioFranquia(t *testing.T) {
 		svc := &mockListasService{
 			previaDesafioFranquiaFn: func(ctx context.Context, franquiaID int64, usuarioID int32) (*service.PreviaDesafioResultado, error) {
 				return &service.PreviaDesafioResultado{
-					Franquia: service.PreviaFranquiaInfo{IgdbID: franquiaID, Nome: "Zelda"},
-					Total:    1,
+					Franquia:       service.PreviaFranquiaInfo{IgdbID: franquiaID, Nome: "Zelda"},
+					Total:          1,
+					TotalSugeridos: 1,
 					Jogos: []*service.PreviaJogoItem{
-						{IgdbID: 1025, Nome: "The Legend of Zelda", Tipo: "main_game"},
+						{IgdbID: 1025, Nome: "The Legend of Zelda", Tipo: "principal", Sugerido: true},
 					},
 				}, nil
 			},
@@ -765,6 +766,15 @@ func TestListasHandler_PreviaDesafioFranquia(t *testing.T) {
 		router.ServeHTTP(w, req)
 		if w.Code != http.StatusOK {
 			t.Fatalf("esperava 200, obteve %d", w.Code)
+		}
+		var body struct {
+			Data service.PreviaDesafioResultado `json:"data"`
+		}
+		if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+			t.Fatal(err)
+		}
+		if body.Data.TotalSugeridos != 1 || len(body.Data.Jogos) != 1 || body.Data.Jogos[0].Tipo != "principal" || !body.Data.Jogos[0].Sugerido {
+			t.Fatalf("resposta inesperada: %+v", body.Data)
 		}
 	})
 }

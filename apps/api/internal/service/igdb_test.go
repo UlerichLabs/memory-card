@@ -162,8 +162,8 @@ func TestBuscarJogos_Filtros(t *testing.T) {
 		{"remake", igdbclient.GameTypeRemake, true},
 		{"remaster", igdbclient.GameTypeRemaster, true},
 		{"expanded game", igdbclient.GameTypeExpandedGame, true},
-		{"port", igdbclient.GameTypePort, true},
-		{"fork", igdbclient.GameTypeFork, true},
+		{"port", igdbclient.GameTypePort, false},
+		{"fork", igdbclient.GameTypeFork, false},
 		{"dlc", igdbclient.GameTypeDLC, false},
 		{"expansion", igdbclient.GameTypeExpansion, false},
 		{"bundle", igdbclient.GameTypeBundle, false},
@@ -241,8 +241,8 @@ func TestBuscarJogos_VersoesChronoTriggerDatas(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(games) != 4 {
-		t.Fatalf("esperava 4 versões para Chrono Trigger, obteve %d", len(games))
+	if len(games) != 2 {
+		t.Fatalf("esperava 2 versões para Chrono Trigger, obteve %d", len(games))
 	}
 	g := games[0]
 	if g.ID != 1802 {
@@ -284,15 +284,8 @@ func TestBuscarJogos_VersaoSemPai(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(games) != 1 {
-		t.Fatalf("esperava 1 jogo, obteve %d", len(games))
-	}
-	g := games[0]
-	if g.ID != 501 || g.Name != "Persona 3" {
-		t.Fatalf("dados incorretos: %+v", g)
-	}
-	if len(g.Platforms) != 1 {
-		t.Fatalf("esperava plataforma própria, obteve %d: %+v", len(g.Platforms), g.Platforms)
+	if len(games) != 0 {
+		t.Fatalf("esperava descartar port, obteve %d jogos", len(games))
 	}
 }
 
@@ -546,17 +539,14 @@ func TestBuscarJogos_VersoesMantemPlataformasProprias(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(games) != 3 {
+	if len(games) != 2 {
 		t.Fatalf("games=%+v, esperava versões separadas", games)
 	}
 	if len(games[0].Platforms) != 1 || games[0].Platforms[0].Name != "Super Nintendo" {
 		t.Fatalf("plataformas da primeira versão=%+v", games[0].Platforms)
 	}
-	if len(games[1].Platforms) != 1 || games[1].Platforms[0].Name != "PC" {
-		t.Fatalf("plataformas da segunda versão=%+v", games[1].Platforms)
-	}
-	if games[2].Name != "Chrono Trigger: Character Library" || len(games[2].Platforms) != 1 || games[2].Platforms[0].Name != "Satellaview" {
-		t.Fatalf("subtítulo=%+v", games[2])
+	if games[1].Name != "Chrono Trigger: Character Library" || len(games[1].Platforms) != 1 || games[1].Platforms[0].Name != "Satellaview" {
+		t.Fatalf("subtítulo=%+v", games[1])
 	}
 }
 
@@ -570,10 +560,10 @@ func TestBuscarJogos_VersoesChronoTrigger(t *testing.T) {
 	}
 	mock := &customSearchMock{searchFn: func(context.Context, string) ([]igdbclient.Game, error) { return games, nil }}
 	result, err := NewIGDBService(mock, &cacheMock{items: make(map[string]any)}).BuscarJogos(context.Background(), "Chrono Trigger")
-	if err != nil || len(result) != 4 {
+	if err != nil || len(result) != 2 {
 		t.Fatalf("result=%+v err=%v", result, err)
 	}
-	want := map[int64]string{1802: "Super Nintendo", 263446: "PlayStation", 20398: "Nintendo DS", 206320: "PC"}
+	want := map[int64]string{1802: "Super Nintendo", 263446: "PlayStation"}
 	for _, game := range result {
 		if len(game.Platforms) != 1 || game.Platforms[0].Name != want[game.ID] {
 			t.Fatalf("versão %d plataformas=%+v", game.ID, game.Platforms)
@@ -684,19 +674,19 @@ func TestFiltrarJogosDesafioFranquia(t *testing.T) {
 			shouldKeep: true,
 		},
 		{
-			name:       "port valido",
+			name:       "port descartado",
 			game:       igdbclient.Game{ID: 5, Name: "Zelda Port", GameType: igdbclient.GameTypePort, FirstReleaseDate: &pastDate, Franchise: &franchiseID},
-			shouldKeep: true,
+			shouldKeep: false,
 		},
 		{
-			name:       "fork valido",
+			name:       "fork descartado",
 			game:       igdbclient.Game{ID: 6, Name: "Zelda Fork", GameType: igdbclient.GameTypeFork, FirstReleaseDate: &pastDate, Franchise: &franchiseID},
-			shouldKeep: true,
+			shouldKeep: false,
 		},
 		{
-			name:       "update valido",
+			name:       "update descartado",
 			game:       igdbclient.Game{ID: 7, Name: "Zelda Update", GameType: igdbclient.GameTypeUpdate, FirstReleaseDate: &pastDate, Franchise: &franchiseID},
-			shouldKeep: true,
+			shouldKeep: false,
 		},
 		{
 			name:       "dlc descartado",
@@ -714,9 +704,9 @@ func TestFiltrarJogosDesafioFranquia(t *testing.T) {
 			shouldKeep: false,
 		},
 		{
-			name:       "standalone expansion descartada",
+			name:       "standalone expansion valida",
 			game:       igdbclient.Game{ID: 11, Name: "Zelda Standalone", GameType: igdbclient.GameTypeStandaloneExpansion, FirstReleaseDate: &pastDate, Franchise: &franchiseID},
-			shouldKeep: false,
+			shouldKeep: true,
 		},
 		{
 			name:       "mod descartado",
@@ -773,25 +763,45 @@ func TestFiltrarJogosDesafioFranquia(t *testing.T) {
 	}
 }
 
-func TestMapearTipoJogo(t *testing.T) {
+func TestJogoSugerido(t *testing.T) {
+	franquiaID := int64(596)
+	tests := []struct {
+		name      string
+		game      igdbclient.Game
+		franchise string
+		want      bool
+	}{
+		{name: "franchise igual", game: igdbclient.Game{Franchise: &franquiaID}, franchise: "The Legend of Zelda", want: true},
+		{name: "nome contem franquia normalizada", game: igdbclient.Game{Name: "The Legend of Zelda: Ocarina of Time"}, franchise: "Zélda", want: true},
+		{name: "collection igual", game: igdbclient.Game{Collections: []igdbclient.Collection{{Name: "Zélda"}}}, franchise: "Zélda", want: true},
+		{name: "convidado nao sugerido", game: igdbclient.Game{Name: "SoulCalibur II"}, franchise: "Zelda", want: false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := jogoSugerido(tc.game, franquiaID, tc.franchise); got != tc.want {
+				t.Fatalf("jogoSugerido() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestTipoJogo(t *testing.T) {
 	tests := []struct {
 		gameType int
 		want     string
 	}{
-		{igdbclient.GameTypeMainGame, "main_game"},
+		{igdbclient.GameTypeMainGame, "principal"},
+		{igdbclient.GameTypeStandaloneExpansion, "expansao"},
 		{igdbclient.GameTypeRemake, "remake"},
 		{igdbclient.GameTypeRemaster, "remaster"},
-		{igdbclient.GameTypeExpandedGame, "expanded_game"},
-		{igdbclient.GameTypePort, "port"},
-		{igdbclient.GameTypeFork, "fork"},
-		{igdbclient.GameTypeUpdate, "update"},
+		{igdbclient.GameTypeExpandedGame, "versao_expandida"},
 		{999, "outro"},
 	}
 
 	for _, tc := range tests {
-		got := MapearTipoJogo(tc.gameType)
+		got := tipoJogo(tc.gameType)
 		if got != tc.want {
-			t.Fatalf("MapearTipoJogo(%d) = %q, want %q", tc.gameType, got, tc.want)
+			t.Fatalf("tipoJogo(%d) = %q, want %q", tc.gameType, got, tc.want)
 		}
 	}
 }
