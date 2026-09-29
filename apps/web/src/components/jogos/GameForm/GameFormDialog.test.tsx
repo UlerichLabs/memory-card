@@ -27,6 +27,7 @@ function renderDialog(storeOverrides: Partial<JogosStore> = {}) {
     error: null,
     isModalOpen: true,
     jogoEmEdicao: null,
+    modalRegistroOpcoes: null,
     abrirModalRegistro: vi.fn(),
     abrirModalEdicao: vi.fn(),
     fecharModal: vi.fn(),
@@ -82,5 +83,20 @@ describe('GameFormDialog', () => {
     await user.click(btnCancelar)
 
     expect(store.fecharModal).toHaveBeenCalledTimes(1)
+  })
+
+  it('renderiza com dados pré-preenchidos quando modalRegistroOpcoes.valoresIniciais for fornecido', () => {
+    renderDialog({
+      isModalOpen: true,
+      jogoEmEdicao: null,
+      modalRegistroOpcoes: {
+        valoresIniciais: {
+          nome: 'Metroid Prime',
+          console: 'Nintendo GameCube',
+        },
+      },
+    })
+    expect(screen.getByRole('heading', { name: 'Registrar jogo' })).toBeInTheDocument()
+    expect(screen.getByLabelText(/Nome do jogo/i)).toHaveValue('Metroid Prime')
   })
 })

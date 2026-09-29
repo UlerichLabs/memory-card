@@ -10,6 +10,11 @@ import {
 } from '@/lib/services/jogosService'
 import { AuthContext } from '@/store/authStore'
 
+export interface ModalRegistroOpcoes {
+  valoresIniciais?: Partial<JogoZeradoDTO>
+  onSalvo?: (jogo: JogoZeradoDTO) => void | Promise<void>
+}
+
 export interface JogosStore {
   jogos: JogoZeradoDTO[]
   meta: ListagemMeta
@@ -18,7 +23,8 @@ export interface JogosStore {
   error: string | null
   isModalOpen: boolean
   jogoEmEdicao: JogoZeradoDTO | null
-  abrirModalRegistro: () => void
+  modalRegistroOpcoes: ModalRegistroOpcoes | null
+  abrirModalRegistro: (opcoes?: ModalRegistroOpcoes) => void
   abrirModalEdicao: (jogo: JogoZeradoDTO) => void
   fecharModal: () => void
   carregarJogos: (params?: ListarJogosParams, signal?: AbortSignal) => Promise<void>
@@ -63,6 +69,7 @@ export function JogosProvider({
   const [error, setError] = useState<string | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [jogoEmEdicao, setJogoEmEdicao] = useState<JogoZeradoDTO | null>(null)
+  const [modalRegistroOpcoes, setModalRegistroOpcoes] = useState<ModalRegistroOpcoes | null>(null)
   const ultimosParamsRef = useRef<ListarJogosParams | undefined>(undefined)
 
   const carregarJogos = async (params?: ListarJogosParams, signal?: AbortSignal) => {
@@ -104,11 +111,23 @@ export function JogosProvider({
   }
 
   const store: JogosStore = {
-    jogos, meta, filtros, isLoading, error, isModalOpen, jogoEmEdicao, setJogos,
+    jogos, meta, filtros, isLoading, error, isModalOpen, jogoEmEdicao, modalRegistroOpcoes, setJogos,
     limparErro: () => setError(null),
-    abrirModalRegistro: () => { setJogoEmEdicao(null); setIsModalOpen(true) },
-    abrirModalEdicao: (jogo) => { setJogoEmEdicao(jogo); setIsModalOpen(true) },
-    fecharModal: () => { setIsModalOpen(false); setJogoEmEdicao(null) },
+    abrirModalRegistro: (opcoes) => {
+      setJogoEmEdicao(null)
+      setModalRegistroOpcoes(opcoes ?? null)
+      setIsModalOpen(true)
+    },
+    abrirModalEdicao: (jogo) => {
+      setModalRegistroOpcoes(null)
+      setJogoEmEdicao(jogo)
+      setIsModalOpen(true)
+    },
+    fecharModal: () => {
+      setIsModalOpen(false)
+      setJogoEmEdicao(null)
+      setModalRegistroOpcoes(null)
+    },
     carregarJogos,
     carregarFiltros,
     limparBiblioteca: () => {

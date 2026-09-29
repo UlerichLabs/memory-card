@@ -10,16 +10,21 @@ import { useJogosStore } from '@/stores/jogosStore'
 import type { SalvarJogoPayload } from '@/lib/services/jogosService'
 
 export function GameFormDialog() {
-  const { isModalOpen, fecharModal, jogoEmEdicao, criarJogo, atualizarJogo } = useJogosStore()
+  const { isModalOpen, fecharModal, jogoEmEdicao, modalRegistroOpcoes, criarJogo, atualizarJogo } = useJogosStore()
 
   async function handleSubmit(payload: SalvarJogoPayload) {
     if (jogoEmEdicao) {
       await atualizarJogo(jogoEmEdicao.id, payload)
     } else {
-      await criarJogo(payload)
+      const criado = await criarJogo(payload)
+      if (modalRegistroOpcoes?.onSalvo) {
+        await modalRegistroOpcoes.onSalvo(criado)
+      }
     }
     fecharModal()
   }
+
+  const initialData = jogoEmEdicao ?? modalRegistroOpcoes?.valoresIniciais
 
   return (
     <Dialog open={isModalOpen} onOpenChange={(open) => !open && fecharModal()}>
@@ -36,8 +41,8 @@ export function GameFormDialog() {
         </DialogHeader>
 
         <GameForm
-          key={jogoEmEdicao ? `edit-${jogoEmEdicao.id}` : 'novo-jogo'}
-          initialData={jogoEmEdicao ?? undefined}
+          key={jogoEmEdicao ? `edit-${jogoEmEdicao.id}` : modalRegistroOpcoes?.valoresIniciais?.nome ?? 'novo-jogo'}
+          initialData={initialData}
           isEditing={!!jogoEmEdicao}
           onSubmit={handleSubmit}
           onCancel={fecharModal}
