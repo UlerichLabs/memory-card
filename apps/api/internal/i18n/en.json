@@ -66,5 +66,19 @@
   "listas.ordem_invalida": "Invalid item order.",
   "listas.id_invalido": "Invalid identifier.",
   "catalogo.parametro_invalido": "Invalid catalog parameter.",
-  "catalogo.paginacao_invalida": "Invalid catalog pagination."
+  "catalogo.paginacao_invalida": "Invalid catalog pagination.",
+  "abandonados.entrada_invalida": "Invalid input data.",
+  "abandonados.nome_obrigatorio": "Game name is required.",
+  "abandonados.nome_muito_longo": "Game name must be 200 characters or fewer.",
+  "abandonados.console_obrigatorio": "Console is required.",
+  "abandonados.console_muito_longo": "Console must be 100 characters or fewer.",
+  "abandonados.tempo_invalido": "Played time is invalid.",
+  "abandonados.motivo_muito_longo": "Reason must be 500 characters or fewer.",
+  "abandonados.data_invalida": "Invalid date format.",
+  "abandonados.data_futura": "Abandonment date cannot be in the future.",
+  "abandonados.id_invalido": "Invalid identifier.",
+  "abandonados.pagina_invalida": "Invalid page.",
+  "abandonados.por_pagina_invalida": "Invalid items per page.",
+  "abandonados.ordenar_invalido": "Invalid ordering.",
+  "abandonados.nao_encontrado": "Abandoned game not found."
 }
