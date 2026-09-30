@@ -1,6 +1,6 @@
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { GripVertical, Trophy, X } from 'lucide-react'
+import { GripVertical, Pause, Trophy, X } from 'lucide-react'
 import { formatarCapaIGDB } from '@/lib/utils'
 import { obterIniciaisJogo } from './listas.utils'
 import type { ListaItem } from '@/types/listas'
@@ -10,10 +10,11 @@ export interface FilaItemProps {
   posicaoExibicao: number
   isFirst: boolean
   onZerei: (item: ListaItem) => void
+  onAbandonei?: (item: ListaItem) => void
   onRemover: (itemId: number) => void
 }
 
-export function FilaItem({ item, posicaoExibicao, isFirst, onZerei, onRemover }: FilaItemProps) {
+export function FilaItem({ item, posicaoExibicao, isFirst, onZerei, onAbandonei, onRemover }: FilaItemProps) {
   const {
     attributes,
     listeners,
@@ -102,6 +103,36 @@ export function FilaItem({ item, posicaoExibicao, isFirst, onZerei, onRemover }:
       >
         <Trophy className="h-5 w-5" />
       </button>
+
+      {onAbandonei && (
+        <>
+          <button
+            type="button"
+            aria-label="Abandonei"
+            onClick={() => onAbandonei(item)}
+            className={
+              'hidden sm:flex h-9 items-center gap-1.5 rounded-lg border ' +
+              'border-[var(--lista-btn-abandonei-border)] bg-[var(--lista-btn-abandonei-bg)] ' +
+              'px-3 text-[13px] font-bold text-[var(--lista-btn-abandonei-text)] hover:opacity-90 shrink-0'
+            }
+          >
+            <Pause className="h-3.5 w-3.5 fill-current" />
+            <span>Abandonei</span>
+          </button>
+          <button
+            type="button"
+            aria-label="Abandonei"
+            onClick={() => onAbandonei(item)}
+            className={
+              'flex sm:hidden h-11 w-11 items-center justify-center rounded-lg border ' +
+              'border-[var(--lista-btn-abandonei-border)] bg-[var(--lista-btn-abandonei-bg)] ' +
+              'text-[var(--lista-btn-abandonei-text)] hover:opacity-90 shrink-0'
+            }
+          >
+            <Pause className="h-5 w-5 fill-current" />
+          </button>
+        </>
+      )}
 
       <button
         type="button"

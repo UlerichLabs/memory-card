@@ -44,6 +44,8 @@ export function GameFormDialog() {
           key={jogoEmEdicao ? `edit-${jogoEmEdicao.id}` : modalRegistroOpcoes?.valoresIniciais?.nome ?? 'novo-jogo'}
           initialData={initialData}
           isEditing={!!jogoEmEdicao}
+          aviso={modalRegistroOpcoes?.aviso}
+          textoSubmit={modalRegistroOpcoes?.textoSubmit}
           onSubmit={handleSubmit}
           onCancel={fecharModal}
         />
