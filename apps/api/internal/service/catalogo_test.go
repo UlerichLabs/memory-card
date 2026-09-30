@@ -10,17 +10,19 @@ import (
 )
 
 type catalogoClientMock struct {
-	games  []igdbclient.Game
-	where  string
-	sort   string
-	limit  int
-	offset int
+	games               []igdbclient.Game
+	franchiseGamesCalls int
+	where               string
+	sort                string
+	limit               int
+	offset              int
 }
 
 func (m *catalogoClientMock) FranchiseDetails(context.Context, int64) (*igdbclient.Franchise, error) {
 	return &igdbclient.Franchise{ID: 596, Name: "The Legend of Zelda"}, nil
 }
 func (m *catalogoClientMock) GamesByFranchiseParaDesafio(context.Context, int64) ([]igdbclient.Game, error) {
+	m.franchiseGamesCalls++
 	return m.games, nil
 }
 func (m *catalogoClientMock) CatalogGames(_ context.Context, where, sort string, limit, offset int) ([]igdbclient.Game, error) {
@@ -61,7 +63,8 @@ func TestCatalogoService_FranquiaFiltraSugereBuscaOrdenaEPagina(t *testing.T) {
 		{ID: 4, Name: "The Legend of Zelda: Breath of the Wild - Nintendo Switch 2 Edition", GameType: igdbclient.GameTypeExpandedGame, FirstReleaseDate: &past, TotalRatingCount: intPointer(40)},
 	}}
 	repo := &mockListasRepo{listarJogosZeradosUsuarioFn: func(context.Context, int32) ([]*repository.JogoZeradoResumo, error) { return nil, nil }}
-	svc := NewCatalogoService(client, &catalogoCacheMock{values: make(map[string]interface{})}, repo)
+	cache := &catalogoCacheMock{values: make(map[string]interface{})}
+	svc := NewCatalogoService(client, cache, repo)
 	result, err := svc.Jogos(context.Background(), 1, CatalogoFiltro{Origem: CatalogoFranquia, ID: 596, Ordenar: "populares", Pagina: 1, PorPagina: 3, Agora: time.Now()})
 	if err != nil {
 		t.Fatal(err)
@@ -74,6 +77,12 @@ func TestCatalogoService_FranquiaFiltraSugereBuscaOrdenaEPagina(t *testing.T) {
 	}
 	if result.Itens[0].Sugerido || result.Itens[1].Sugerido {
 		t.Fatalf("sugestões inesperadas: %+v", result.Itens)
+	}
+	if client.franchiseGamesCalls != 1 {
+		t.Fatalf("chamadas ao IGDB=%d, esperado 1", client.franchiseGamesCalls)
+	}
+	if _, found := cache.values[chaveSnapshotFranquiaDesafio(596)]; !found {
+		t.Fatalf("snapshot não gravado na chave v2: %+v", cache.values)
 	}
 
 	result, err = svc.Jogos(context.Background(), 1, CatalogoFiltro{Origem: CatalogoFranquia, ID: 596, Busca: "zelda", Ordenar: "nome", Pagina: 1, PorPagina: 60, Agora: time.Now()})

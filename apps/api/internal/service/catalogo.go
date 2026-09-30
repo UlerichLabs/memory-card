@@ -113,7 +113,7 @@ func (s *CatalogoService) jogosFranquia(ctx context.Context, usuarioID int32, fi
 		return nil, ErrListaFranquiaNaoEncontrada
 	}
 	var games []igdbclient.Game
-	key := "franchise-desafio:" + formatInt(filtro.ID)
+	key := chaveSnapshotFranquiaDesafio(filtro.ID)
 	found, err := s.cache.Buscar(ctx, key, &games)
 	if err != nil {
 		return nil, err
