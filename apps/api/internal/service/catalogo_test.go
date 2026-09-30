@@ -91,6 +91,41 @@ func TestCatalogoService_FranquiaFiltraSugereBuscaOrdenaEPagina(t *testing.T) {
 	}
 }
 
+func TestCatalogoService_FranquiaFiltraSomenteSugeridosAntesDaPagina(t *testing.T) {
+	past := time.Now().Add(-time.Hour).Unix()
+	franchiseID := int64(596)
+	client := &catalogoClientMock{games: []igdbclient.Game{
+		{ID: 1, Name: "Akumajou Dracula", GameType: igdbclient.GameTypeMainGame, FirstReleaseDate: &past, Franchises: []int64{franchiseID}, TotalRatingCount: intPointer(20)},
+		{ID: 2, Name: "Crossover", GameType: igdbclient.GameTypeMainGame, FirstReleaseDate: &past, Franchises: []int64{franchiseID, 999}, TotalRatingCount: intPointer(100)},
+		{ID: 3, Name: "Vampire Killer", GameType: igdbclient.GameTypeMainGame, FirstReleaseDate: &past, Franchises: []int64{franchiseID}, TotalRatingCount: intPointer(10)},
+	}}
+	repo := &mockListasRepo{listarJogosZeradosUsuarioFn: func(context.Context, int32) ([]*repository.JogoZeradoResumo, error) { return nil, nil }}
+	svc := NewCatalogoService(client, &catalogoCacheMock{values: make(map[string]interface{})}, repo)
+	result, err := svc.Jogos(context.Background(), 1, CatalogoFiltro{
+		Origem: CatalogoFranquia, ID: franchiseID, SomenteSugeridos: true, Ordenar: "populares", Pagina: 1,
+		PorPagina: 1, Agora: time.Now(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Meta.Total != 2 || result.Meta.TotalTodos == nil || *result.Meta.TotalTodos != 3 {
+		t.Fatalf("metadados inesperados: %+v", result.Meta)
+	}
+	if len(result.Itens) != 1 || result.Itens[0].Nome != "Akumajou Dracula" || !result.Itens[0].Sugerido {
+		t.Fatalf("itens sugeridos inesperados: %+v", result.Itens)
+	}
+}
+
+func TestCatalogoService_SomenteSugeridosInvalidoForaDeFranquia(t *testing.T) {
+	svc := NewCatalogoService(&catalogoClientMock{}, &catalogoCacheMock{values: make(map[string]interface{})}, &mockListasRepo{})
+	_, err := svc.Jogos(context.Background(), 1, CatalogoFiltro{
+		Origem: CatalogoPlataforma, ID: 19, SomenteSugeridos: true, Ordenar: "populares", Pagina: 1, PorPagina: 60,
+	})
+	if err != ErrCatalogoParametroInvalido {
+		t.Fatalf("erro=%v, esperado %v", err, ErrCatalogoParametroInvalido)
+	}
+}
+
 func TestCatalogoService_PlataformaMontaFiltroEGenerosTraduzem(t *testing.T) {
 	client := &catalogoClientMock{games: []igdbclient.Game{{ID: 10, Name: "Mario"}}}
 	repo := &mockListasRepo{}

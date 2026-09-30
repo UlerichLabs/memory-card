@@ -779,6 +779,9 @@ func TestJogoSugerido(t *testing.T) {
 		{name: "franquia diferente", game: igdbclient.Game{Name: "Super Smash Bros. Ultimate"}, franchise: "Super Mario", want: false},
 		{name: "collection igual", game: igdbclient.Game{Collections: []igdbclient.Collection{{Name: "The Legend of Zelda"}}}, franchise: "The Legend of Zelda", want: true},
 		{name: "convidado nao sugerido", game: igdbclient.Game{Name: "SoulCalibur II"}, franchise: "Zelda", want: false},
+		{name: "franquia unica sem palavra principal", game: igdbclient.Game{Franchises: []int64{franquiaID}, Name: "Akumajou Dracula"}, franchise: "Castlevania", want: true},
+		{name: "multiplas franquias sem palavra principal", game: igdbclient.Game{Franchises: []int64{franquiaID, 999}, Name: "Crossover"}, franchise: "Castlevania", want: false},
+		{name: "franquia unica expanded game", game: igdbclient.Game{Franchises: []int64{franquiaID}, GameType: igdbclient.GameTypeExpandedGame, Name: "Crossover"}, franchise: "Castlevania", want: false},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

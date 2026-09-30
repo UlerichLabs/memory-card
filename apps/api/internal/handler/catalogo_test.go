@@ -54,6 +54,14 @@ func TestCatalogoHandler_ValidaAutenticacaoEParametros(t *testing.T) {
 		t.Fatalf("esperava 400, obteve %d", response.Code)
 	}
 
+	request = httptest.NewRequest(http.MethodGet, "/api/v1/catalogo/jogos?origem=plataforma&id=19&somente_sugeridos=true", nil)
+	request.Header.Set("Authorization", "Bearer "+token)
+	response = httptest.NewRecorder()
+	router.ServeHTTP(response, request)
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("esperava 400 para somente_sugeridos fora de franquia, obteve %d", response.Code)
+	}
+
 	request = httptest.NewRequest(http.MethodGet, "/api/v1/igdb/generos", nil)
 	request.Header.Set("Authorization", "Bearer "+token)
 	response = httptest.NewRecorder()

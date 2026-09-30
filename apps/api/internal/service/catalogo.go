@@ -34,15 +34,16 @@ const (
 )
 
 type CatalogoFiltro struct {
-	Origem       CatalogoOrigem
-	ID           int64
-	GeneroID     *int64
-	PlataformaID *int64
-	Busca        string
-	Ordenar      string
-	Pagina       int
-	PorPagina    int
-	Agora        time.Time
+	Origem           CatalogoOrigem
+	ID               int64
+	GeneroID         *int64
+	PlataformaID     *int64
+	SomenteSugeridos bool
+	Busca            string
+	Ordenar          string
+	Pagina           int
+	PorPagina        int
+	Agora            time.Time
 }
 
 type CatalogoItem struct {
@@ -60,6 +61,7 @@ type CatalogoMeta struct {
 	PorPagina      int  `json:"por_pagina"`
 	Total          int  `json:"total"`
 	TotalSugeridos *int `json:"total_sugeridos"`
+	TotalTodos     *int `json:"total_todos"`
 }
 
 type CatalogoResultado struct {
@@ -128,31 +130,31 @@ func (s *CatalogoService) jogosFranquia(ctx context.Context, usuarioID int32, fi
 		}
 	}
 	games = filtrarJogosDesafioFranquia(filtro.ID, games, filtro.Agora)
-	sort.SliceStable(games, func(i, j int) bool {
-		if filtro.Ordenar == "lancamento" {
-			return releaseDate(games[i]) < releaseDate(games[j])
-		}
-		if filtro.Ordenar == "nome" {
-			return strings.ToLower(games[i].Name) < strings.ToLower(games[j].Name)
-		}
-		left, right := ratingCount(games[i]), ratingCount(games[j])
-		if left != right {
-			return left > right
-		}
-		return strings.ToLower(games[i].Name) < strings.ToLower(games[j].Name)
-	})
 	filtered := make([]igdbclient.Game, 0, len(games))
 	for _, game := range games {
 		if filtro.Busca == "" || strings.Contains(normalizeString(game.Name), normalizeString(filtro.Busca)) {
 			filtered = append(filtered, game)
 		}
 	}
+	totalTodos := len(filtered)
 	totalSugeridos := 0
 	for _, game := range filtered {
 		if jogoSugerido(game, filtro.ID, franquia.Name) {
 			totalSugeridos++
 		}
 	}
+	if filtro.SomenteSugeridos {
+		sugeridos := make([]igdbclient.Game, 0, totalSugeridos)
+		for _, game := range filtered {
+			if jogoSugerido(game, filtro.ID, franquia.Name) {
+				sugeridos = append(sugeridos, game)
+			}
+		}
+		filtered = sugeridos
+	}
+	sort.SliceStable(filtered, func(i, j int) bool {
+		return compararJogosCatalogo(filtered[i], filtered[j], filtro.Ordenar)
+	})
 	total := len(filtered)
 	start := (filtro.Pagina - 1) * filtro.PorPagina
 	if start > total {
@@ -162,7 +164,13 @@ func (s *CatalogoService) jogosFranquia(ctx context.Context, usuarioID int32, fi
 	if end > total {
 		end = total
 	}
-	meta := CatalogoMeta{Pagina: filtro.Pagina, PorPagina: filtro.PorPagina, Total: total, TotalSugeridos: &totalSugeridos}
+	meta := CatalogoMeta{
+		Pagina:         filtro.Pagina,
+		PorPagina:      filtro.PorPagina,
+		Total:          total,
+		TotalSugeridos: &totalSugeridos,
+		TotalTodos:     &totalTodos,
+	}
 	resultado, err := s.montarResultado(ctx, usuarioID, filtered[start:end], meta)
 	if err != nil {
 		return nil, err
@@ -237,6 +245,9 @@ func validarCatalogoFiltro(filtro CatalogoFiltro) error {
 	if filtro.Origem != CatalogoPlataforma && filtro.GeneroID != nil || filtro.Origem != CatalogoGenero && filtro.PlataformaID != nil {
 		return ErrCatalogoParametroInvalido
 	}
+	if filtro.SomenteSugeridos && filtro.Origem != CatalogoFranquia {
+		return ErrCatalogoParametroInvalido
+	}
 	if filtro.Ordenar != "populares" && filtro.Ordenar != "lancamento" && filtro.Ordenar != "nome" {
 		return ErrCatalogoParametroInvalido
 	}
@@ -291,6 +302,20 @@ func releaseDate(game igdbclient.Game) int64 {
 		return 1<<62 - 1
 	}
 	return *game.FirstReleaseDate
+}
+
+func compararJogosCatalogo(left, right igdbclient.Game, ordenar string) bool {
+	if ordenar == "lancamento" {
+		return releaseDate(left) < releaseDate(right)
+	}
+	if ordenar == "nome" {
+		return strings.ToLower(left.Name) < strings.ToLower(right.Name)
+	}
+	leftRating, rightRating := ratingCount(left), ratingCount(right)
+	if leftRating != rightRating {
+		return leftRating > rightRating
+	}
+	return strings.ToLower(left.Name) < strings.ToLower(right.Name)
 }
 
 func formatInt(value int64) string {
