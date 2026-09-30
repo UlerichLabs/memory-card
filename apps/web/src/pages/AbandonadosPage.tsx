@@ -1,26 +1,32 @@
 import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Plus } from 'lucide-react'
+import { X } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { useAbandonadosStore } from '@/stores/abandonadosStore'
+import { AbandonadosCabecalho } from '@/components/abandonados/AbandonadosCabecalho'
 import { AbandonadosControles } from '@/components/abandonados/AbandonadosControles'
 import { AbandonadosGrade } from '@/components/abandonados/AbandonadosGrade'
 import { AbandonadosVazio } from '@/components/abandonados/AbandonadosVazio'
 import { AbandonadosSkeleton } from '@/components/abandonados/AbandonadosSkeleton'
 import { BibliotecaPaginacao } from '@/components/jogos/BibliotecaPaginacao'
 import { ExcluirAbandonadoDialog } from '@/components/abandonados/ExcluirAbandonadoDialog'
-import type { OrdenarAbandonados } from '@/types/abandonados'
+import { useRetomarAbandonado } from '@/components/abandonados/useRetomarAbandonado'
+import { AbandonadosApiError } from '@/lib/services/abandonadosService'
+import { ERRO_JOGO_NAO_ENCONTRADO } from '@/components/abandonados/abandonados.constants'
+import type { JogoAbandonado, OrdenarAbandonados } from '@/types/abandonados'
 
 export function AbandonadosPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const {
-    jogos, meta, filtros, totalGeral, isLoading,
+    jogos, meta, filtros, totalGeral, isLoading, carregado, aviso, limparAviso,
     isExcluirModalOpen, jogoParaExcluir,
     abrirModalCriacao, abrirModalEdicao, abrirModalExcluir, fecharModalExcluir,
     carregarJogos, carregarFiltros, carregarTotal, excluirJogo,
   } = useAbandonadosStore()
 
+  const { retomarJogo } = useRetomarAbandonado()
   const [isExcluindo, setIsExcluindo] = useState(false)
+  const [erroExclusao, setErroExclusao] = useState<string | null>(null)
   const abortRef = useRef<AbortController | null>(null)
 
   const busca = searchParams.get('busca') ?? ''
@@ -77,12 +83,35 @@ export function AbandonadosPage() {
     atualizarFiltros({ pagina: novaPagina > 1 ? String(novaPagina) : null })
   }
 
+  function handleAbrirModalExcluir(jogo: JogoAbandonado) {
+    setErroExclusao(null)
+    abrirModalExcluir(jogo)
+  }
+
+  function handleFecharExcluir() {
+    setErroExclusao(null)
+    fecharModalExcluir()
+  }
+
   async function handleConfirmarExcluir() {
     if (!jogoParaExcluir) return
     setIsExcluindo(true)
+    setErroExclusao(null)
     try {
       await excluirJogo(jogoParaExcluir.id)
-      fecharModalExcluir()
+      handleFecharExcluir()
+    } catch (err) {
+      if (err instanceof AbandonadosApiError) {
+        if (err.status === 404 || err.codigo === 'abandonados.nao_encontrado') {
+          setErroExclusao(ERRO_JOGO_NAO_ENCONTRADO)
+        } else {
+          setErroExclusao(err.message || 'Não foi possível excluir o jogo. Tente novamente.')
+        }
+      } else if (err instanceof Error) {
+        setErroExclusao(err.message)
+      } else {
+        setErroExclusao('Não foi possível excluir o jogo. Tente novamente.')
+      }
     } finally {
       setIsExcluindo(false)
     }
@@ -95,37 +124,30 @@ export function AbandonadosPage() {
     <div className="flex min-h-screen flex-col bg-[var(--bg-primary)]">
       <Topbar />
       <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6 lg:px-8">
-        <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold tracking-tight text-[var(--text-primary)] sm:text-3xl">
-                Abandonados
-              </h1>
-              <span
-                className={
-                  'rounded-full border border-[var(--abandonado-border)] ' +
-                  'bg-[var(--abandonado-bg)] px-2.5 py-0.5 text-xs font-semibold text-[var(--abandonado-text)]'
-                }
-              >
-                {totalExibicao} {totalExibicao === 1 ? 'jogo' : 'jogos'}
-              </span>
-            </div>
-            <p className="mt-1 text-sm text-[var(--text-secondary)]">
-              Jogos que você começou e não terminou. Ficam fora das estatísticas, do Game do Ano e dos Games da Vida.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => abrirModalCriacao()}
+        <AbandonadosCabecalho
+          total={totalExibicao}
+          onAbandonar={() => abrirModalCriacao()}
+        />
+
+        {aviso && (
+          <div
+            role="status"
             className={
-              'inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-[var(--accent)] ' +
-              'px-4 text-xs font-bold text-[var(--accent-foreground)] transition hover:opacity-90'
+              'flex items-center justify-between gap-3 rounded-lg border border-[var(--border)] ' +
+              'bg-[var(--bg-surface)] px-4 py-3 text-sm text-[var(--text-primary)]'
             }
           >
-            <Plus className="h-4 w-4" aria-hidden="true" />
-            <span>Abandonar jogo</span>
-          </button>
-        </header>
+            <span>{aviso}</span>
+            <button
+              type="button"
+              onClick={limparAviso}
+              aria-label="Fechar aviso"
+              className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
+        )}
 
         <AbandonadosControles
           busca={busca}
@@ -138,7 +160,7 @@ export function AbandonadosPage() {
           onLimparFiltros={handleLimparFiltros}
         />
 
-        {isLoading ? (
+        {!carregado || isLoading ? (
           <AbandonadosSkeleton />
         ) : meta.total === 0 ? (
           <AbandonadosVazio
@@ -150,8 +172,9 @@ export function AbandonadosPage() {
           <div className="flex flex-col gap-6">
             <AbandonadosGrade
               jogos={jogos}
+              onRetomar={retomarJogo}
               onEditar={abrirModalEdicao}
-              onExcluir={abrirModalExcluir}
+              onExcluir={handleAbrirModalExcluir}
             />
             <BibliotecaPaginacao meta={meta} onMudarPagina={handleMudarPagina} />
           </div>
@@ -160,10 +183,11 @@ export function AbandonadosPage() {
 
       <ExcluirAbandonadoDialog
         open={isExcluirModalOpen}
-        onOpenChange={(open) => !open && fecharModalExcluir()}
+        onOpenChange={(open) => !open && handleFecharExcluir()}
         onConfirm={handleConfirmarExcluir}
         jogoNome={jogoParaExcluir?.nome}
         isLoading={isExcluindo}
+        error={erroExclusao}
       />
     </div>
   )

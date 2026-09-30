@@ -14,6 +14,7 @@ export interface ExcluirAbandonadoDialogProps {
   onConfirm: () => Promise<void> | void
   jogoNome?: string
   isLoading?: boolean
+  error?: string | null
 }
 
 export function ExcluirAbandonadoDialog({
@@ -22,6 +23,7 @@ export function ExcluirAbandonadoDialog({
   onConfirm,
   jogoNome,
   isLoading = false,
+  error = null,
 }: ExcluirAbandonadoDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -37,6 +39,17 @@ export function ExcluirAbandonadoDialog({
               : 'Esta ação não pode ser desfeita. O jogo será removido da sua lista de abandonados.'}
           </DialogDescription>
         </DialogHeader>
+        {error && (
+          <div
+            role="alert"
+            className={
+              'rounded-lg border border-[var(--danger)]/30 bg-[var(--danger)]/10 ' +
+              'px-3 py-2 text-xs text-[var(--danger)]'
+            }
+          >
+            {error}
+          </div>
+        )}
         <DialogFooter className="gap-2 sm:justify-end">
           <Button
             type="button"

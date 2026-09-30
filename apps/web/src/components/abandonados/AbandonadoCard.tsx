@@ -3,38 +3,18 @@ import type { JogoAbandonado } from '@/types/abandonados'
 import { formatarCapaIGDB } from '@/lib/utils'
 import { obterIniciaisJogo } from '@/components/listas/listas.utils'
 import { formatarDataBrasileira, formatarTempoAbandonado } from './abandonados.utils'
-import { useJogosStore } from '@/stores/jogosStore'
-import { useAbandonadosStore } from '@/stores/abandonadosStore'
-
 export interface AbandonadoCardProps {
   jogo: JogoAbandonado
+  onRetomar: (jogo: JogoAbandonado) => void
   onEditar: (jogo: JogoAbandonado) => void
   onExcluir: (jogo: JogoAbandonado) => void
 }
 
-export function AbandonadoCard({ jogo, onEditar, onExcluir }: AbandonadoCardProps) {
-  const { abrirModalRegistro } = useJogosStore()
-  const { excluirJogo } = useAbandonadosStore()
-
+export function AbandonadoCard({ jogo, onRetomar, onEditar, onExcluir }: AbandonadoCardProps) {
   const capaUrl = formatarCapaIGDB(jogo.igdb_capa_url ?? undefined, 't_cover_big')
   const iniciais = obterIniciaisJogo(jogo.nome)
   const tempoStr = formatarTempoAbandonado(jogo.tempo_jogado)
   const dataPt = formatarDataBrasileira(jogo.abandonado_em)
-
-  function handleRetomar() {
-    abrirModalRegistro({
-      valoresIniciais: {
-        nome: jogo.nome, console: jogo.console, igdb_id: jogo.igdb_id ?? undefined,
-        igdb_capa_url: jogo.igdb_capa_url ?? undefined, tempo_jogado: jogo.tempo_jogado,
-      },
-      aviso: `Retomando um jogo abandonado em ${dataPt}. Ao salvar o zeramento, ele sai da lista de Abandonados.`,
-      textoSubmit: 'Salvar zeramento',
-      onSalvo: async () => {
-        try { await excluirJogo(jogo.id) }
-        catch { alert('Jogo registrado, mas não foi possível remover da lista de abandonados.') }
-      },
-    })
-  }
 
   return (
     <article
@@ -108,7 +88,7 @@ export function AbandonadoCard({ jogo, onEditar, onExcluir }: AbandonadoCardProp
       <div className="mt-3 flex items-center gap-1.5 border-t border-[var(--border-subtle)] pt-2.5">
         <button
           type="button"
-          onClick={handleRetomar}
+          onClick={() => onRetomar(jogo)}
           aria-label={`Retomar ${jogo.nome}`}
           className={
             'flex min-h-[44px] flex-1 items-center justify-center rounded-lg border ' +

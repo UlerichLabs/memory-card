@@ -12,3 +12,11 @@ export const ABANDONADOS_CAMPO_ERRO_MENSAGENS: Record<string, { campo: string; m
 }
 
 export const ABANDONADOS_ERRO_GENERICO = 'Não foi possível salvar o registro. Tente novamente.'
+
+export const ERRO_FALHA_REMOCAO_FILA =
+  'Jogo abandonado, mas não foi possível removê-lo da fila. Tente novamente.'
+
+export const AVISO_FALHA_REMOCAO_RETOMAR =
+  'Zeramento registrado, mas não foi possível remover este jogo dos abandonados. Exclua-o manualmente.'
+
+export const ERRO_JOGO_NAO_ENCONTRADO = 'Jogo não encontrado.'

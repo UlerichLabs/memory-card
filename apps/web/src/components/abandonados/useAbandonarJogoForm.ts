@@ -57,10 +57,16 @@ export function useAbandonarJogoForm({ initialData, onSubmit }: UseAbandonarJogo
     try {
       await onSubmit(res.data)
     } catch (err) {
-      if (err instanceof AbandonadosApiError && err.status === 401) { window.location.assign('/login'); return }
-      const campo = err instanceof AbandonadosApiError ? ABANDONADOS_CAMPO_ERRO_MENSAGENS[err.codigo] : undefined
-      if (campo) setErrors({ [campo.campo]: campo.mensagem })
-      else setErrors({ form: ABANDONADOS_ERRO_GENERICO })
+      if (err instanceof AbandonadosApiError) {
+        if (err.status === 401) { window.location.assign('/login'); return }
+        const campo = ABANDONADOS_CAMPO_ERRO_MENSAGENS[err.codigo]
+        if (campo) setErrors({ [campo.campo]: campo.mensagem })
+        else setErrors({ form: err.message || ABANDONADOS_ERRO_GENERICO })
+      } else if (err instanceof Error) {
+        setErrors({ form: err.message || ABANDONADOS_ERRO_GENERICO })
+      } else {
+        setErrors({ form: ABANDONADOS_ERRO_GENERICO })
+      }
     } finally { setIsSubmitting(false) }
   }
 

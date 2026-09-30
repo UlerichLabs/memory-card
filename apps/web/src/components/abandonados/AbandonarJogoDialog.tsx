@@ -1,27 +1,54 @@
+import { useState } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useAbandonadosStore } from '@/stores/abandonadosStore'
 import { AbandonarJogoForm } from './AbandonarJogoForm'
+import { ERRO_FALHA_REMOCAO_FILA } from './abandonados.constants'
 import type { AbandonarJogoFormData } from './abandonarJogo.schema'
 
 export function AbandonarJogoDialog() {
   const { isModalOpen, fecharModal, jogoEmEdicao, modalOpcoes, criarJogo, atualizarJogo } = useAbandonadosStore()
+  const [jogoCriadoId, setJogoCriadoId] = useState<number | null>(null)
+  const [prevModalOpen, setPrevModalOpen] = useState(isModalOpen)
   const initialData = jogoEmEdicao ?? modalOpcoes?.valoresIniciais
   const origemFila = modalOpcoes?.origemFila
 
   const formKey = jogoEmEdicao ? `edit-${jogoEmEdicao.id}` : modalOpcoes?.valoresIniciais?.nome ?? 'novo-abandono'
 
+  if (prevModalOpen !== isModalOpen) {
+    setPrevModalOpen(isModalOpen)
+    if (!isModalOpen) {
+      setJogoCriadoId(null)
+    }
+  }
+
+  function handleFechar() {
+    setJogoCriadoId(null)
+    fecharModal()
+  }
+
   async function handleSalvar(data: AbandonarJogoFormData) {
     if (jogoEmEdicao) {
       await atualizarJogo(jogoEmEdicao.id, data)
     } else {
-      await criarJogo(data)
-      if (origemFila?.onSalvo) await origemFila.onSalvo()
+      let id = jogoCriadoId
+      if (!id) {
+        const criado = await criarJogo(data)
+        id = criado.id
+        setJogoCriadoId(id)
+      }
+      if (origemFila?.onSalvo) {
+        try {
+          await origemFila.onSalvo()
+        } catch {
+          throw new Error(ERRO_FALHA_REMOCAO_FILA)
+        }
+      }
     }
-    fecharModal()
+    handleFechar()
   }
 
   return (
-    <Dialog open={isModalOpen} onOpenChange={(open) => !open && fecharModal()}>
+    <Dialog open={isModalOpen} onOpenChange={(open) => !open && handleFechar()}>
       <DialogContent
         className={
           'flex !max-h-[calc(100vh-32px)] w-[min(700px,calc(100vw-32px))] flex-col gap-5 ' +
@@ -46,7 +73,7 @@ export function AbandonarJogoDialog() {
           origemFila={origemFila}
           isEditing={!!jogoEmEdicao}
           onSubmit={handleSalvar}
-          onCancel={fecharModal}
+          onCancel={handleFechar}
         />
       </DialogContent>
     </Dialog>

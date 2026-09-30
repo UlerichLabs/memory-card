@@ -3,11 +3,12 @@ import { AbandonadoCard } from './AbandonadoCard'
 
 export interface AbandonadosGradeProps {
   jogos: JogoAbandonado[]
+  onRetomar: (jogo: JogoAbandonado) => void
   onEditar: (jogo: JogoAbandonado) => void
   onExcluir: (jogo: JogoAbandonado) => void
 }
 
-export function AbandonadosGrade({ jogos, onEditar, onExcluir }: AbandonadosGradeProps) {
+export function AbandonadosGrade({ jogos, onRetomar, onEditar, onExcluir }: AbandonadosGradeProps) {
   return (
     <section
       aria-label="Jogos abandonados"
@@ -17,6 +18,7 @@ export function AbandonadosGrade({ jogos, onEditar, onExcluir }: AbandonadosGrad
         <AbandonadoCard
           key={jogo.id}
           jogo={jogo}
+          onRetomar={onRetomar}
           onEditar={onEditar}
           onExcluir={onExcluir}
         />

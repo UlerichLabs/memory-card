@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from '@/store/authStore'
@@ -8,7 +8,8 @@ import { AbandonadosProvider } from '@/stores/abandonadosStore'
 import { GameFormDialog } from '@/components/jogos/GameForm/GameFormDialog'
 import { AbandonarJogoDialog } from '@/components/abandonados/AbandonarJogoDialog'
 import { AbandonadosPage } from './AbandonadosPage'
-import { abandonadosService } from '@/lib/services/abandonadosService'
+import { abandonadosService, AbandonadosApiError } from '@/lib/services/abandonadosService'
+import { jogosService } from '@/lib/services/jogosService'
 import type { JogoAbandonado } from '@/types/abandonados'
 
 const abandonadoMock: JogoAbandonado = {
@@ -144,5 +145,93 @@ describe('AbandonadosPage', () => {
     expect(await screen.findByRole('heading', { name: 'Registrar jogo' })).toBeInTheDocument()
     expect(screen.getByText(/Retomando um jogo abandonado em 15\/01\/2026/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Salvar zeramento' })).toBeInTheDocument()
+  })
+
+  it('exibe erro inline no dialog de exclusão quando o backend falha e mantém o dialog aberto', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(abandonadosService, 'excluir').mockRejectedValue(
+      new AbandonadosApiError('abandonados.nao_encontrado', 'Não encontrado', 404)
+    )
+    renderAbandonados()
+
+    await screen.findByText('Chrono Trigger')
+    await user.click(screen.getByRole('button', { name: 'Excluir Chrono Trigger' }))
+
+    expect(await screen.findByRole('heading', { name: 'Excluir jogo abandonado' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Excluir jogo' }))
+
+    expect(await screen.findByText('Jogo não encontrado.')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Excluir jogo abandonado' })).toBeInTheDocument()
+  })
+
+  it('ao retomar jogo com sucesso, registra zeramento, exclui o jogo abandonado e recarrega a lista', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(abandonadosService, 'excluir').mockResolvedValue(undefined)
+    vi.spyOn(jogosService, 'criar').mockResolvedValue({
+      id: 99,
+      usuario_id: 1,
+      nome: 'Chrono Trigger',
+      console: 'SNES',
+      genero: 'RPG',
+      finalizado_em: '2026-09-30',
+      tempo_jogado: 36000,
+      nota: 10,
+      dificuldade: 'A',
+      destaque: false,
+    })
+
+    renderAbandonados()
+
+    await screen.findByText('Chrono Trigger')
+    await user.click(screen.getByRole('button', { name: 'Retomar Chrono Trigger' }))
+
+    await screen.findByRole('heading', { name: 'Registrar jogo' })
+    fireEvent.change(screen.getByLabelText(/Finalizado em/i), { target: { value: '13/03/2026' } })
+    await user.click(screen.getByRole('button', { name: '10' }))
+    await user.click(screen.getByRole('button', { name: 'Normal' }))
+    await user.click(screen.getByRole('button', { name: 'Salvar zeramento' }))
+
+    await waitFor(() => {
+      expect(abandonadosService.excluir).toHaveBeenCalledWith(1, undefined)
+      expect(abandonadosService.listar).toHaveBeenCalled()
+    })
+  })
+
+  it('ao retomar jogo, se excluir falhar exibe aviso inline e mantém o item na lista', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(abandonadosService, 'excluir').mockRejectedValue(new Error('Falha ao excluir'))
+    vi.spyOn(jogosService, 'criar').mockResolvedValue({
+      id: 99,
+      usuario_id: 1,
+      nome: 'Chrono Trigger',
+      console: 'SNES',
+      genero: 'RPG',
+      finalizado_em: '2026-09-30',
+      tempo_jogado: 36000,
+      nota: 10,
+      dificuldade: 'A',
+      destaque: false,
+    })
+
+    renderAbandonados()
+
+    await screen.findByText('Chrono Trigger')
+    await user.click(screen.getByRole('button', { name: 'Retomar Chrono Trigger' }))
+
+    await screen.findByRole('heading', { name: 'Registrar jogo' })
+    fireEvent.change(screen.getByLabelText(/Finalizado em/i), { target: { value: '13/03/2026' } })
+    await user.click(screen.getByRole('button', { name: '10' }))
+    await user.click(screen.getByRole('button', { name: 'Normal' }))
+    await user.click(screen.getByRole('button', { name: 'Salvar zeramento' }))
+
+    expect(await screen.findByText(
+      'Zeramento registrado, mas não foi possível remover este jogo dos abandonados. Exclua-o manualmente.'
+    )).toBeInTheDocument()
+    expect(screen.getByText('Chrono Trigger')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Fechar aviso' }))
+    expect(screen.queryByText(
+      'Zeramento registrado, mas não foi possível remover este jogo dos abandonados. Exclua-o manualmente.'
+    )).not.toBeInTheDocument()
   })
 })

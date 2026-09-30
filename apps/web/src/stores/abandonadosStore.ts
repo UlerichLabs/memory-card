@@ -25,7 +25,9 @@ export interface AbandonadosStore {
   filtros: OpcoesFiltrosAbandonados
   totalGeral: number
   isLoading: boolean
+  carregado: boolean
   error: string | null
+  aviso: string | null
   isModalOpen: boolean
   jogoEmEdicao: JogoAbandonado | null
   modalOpcoes: ModalAbandonadoOpcoes | null
@@ -43,6 +45,8 @@ export interface AbandonadosStore {
   atualizarJogo: (id: number, payload: SalvarAbandonadoPayload) => Promise<JogoAbandonado>
   excluirJogo: (id: number) => Promise<void>
   limparErro: () => void
+  definirAviso: (aviso: string | null) => void
+  limparAviso: () => void
 }
 
 export const AbandonadosContext = createContext<AbandonadosStore | null>(null)
@@ -58,7 +62,9 @@ export function AbandonadosProvider({ children, token }: { children: ReactNode; 
   const [filtros, setFiltros] = useState<OpcoesFiltrosAbandonados>(FILTROS_PADRAO)
   const [totalGeral, setTotalGeral] = useState(0)
   const [isLoading, setIsLoading] = useState(false)
+  const [carregado, setCarregado] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [aviso, setAviso] = useState<string | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [jogoEmEdicao, setJogoEmEdicao] = useState<JogoAbandonado | null>(null)
   const [modalOpcoes, setModalOpcoes] = useState<ModalAbandonadoOpcoes | null>(null)
@@ -82,7 +88,10 @@ export function AbandonadosProvider({ children, token }: { children: ReactNode; 
         throw err
       }
     } finally {
-      if (!signal?.aborted) setIsLoading(false)
+      if (!signal?.aborted) {
+        setIsLoading(false)
+        setCarregado(true)
+      }
     }
   }
 
@@ -109,9 +118,11 @@ export function AbandonadosProvider({ children, token }: { children: ReactNode; 
   }
 
   const store: AbandonadosStore = {
-    jogos, meta, filtros, totalGeral, isLoading, error,
+    jogos, meta, filtros, totalGeral, isLoading, carregado, error, aviso,
     isModalOpen, jogoEmEdicao, modalOpcoes, isExcluirModalOpen, jogoParaExcluir,
     limparErro: () => setError(null),
+    definirAviso: (novoAviso) => setAviso(novoAviso),
+    limparAviso: () => setAviso(null),
     abrirModalCriacao: (opcoes) => {
       setJogoEmEdicao(null); setModalOpcoes(opcoes ?? null); setIsModalOpen(true)
     },
