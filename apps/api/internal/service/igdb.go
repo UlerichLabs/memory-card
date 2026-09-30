@@ -247,6 +247,9 @@ func jogoSugerido(game igdbclient.Game, franquiaID int64, nomeFranquia string) b
 	if game.GameType == igdbclient.GameTypeExpandedGame {
 		return false
 	}
+	if len(game.Franchises) == 1 && game.Franchises[0] == franquiaID {
+		return true
+	}
 	if game.Franchise != nil && *game.Franchise == franquiaID {
 		return true
 	}

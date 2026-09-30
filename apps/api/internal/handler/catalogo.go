@@ -72,6 +72,16 @@ func parseCatalogoFiltro(c *gin.Context) (service.CatalogoFiltro, error) {
 		return service.CatalogoFiltro{}, service.ErrCatalogoPaginacaoInvalida
 	}
 	filtro := service.CatalogoFiltro{Origem: origem, ID: id, Busca: c.Query("busca"), Ordenar: ordenar, Pagina: pagina, PorPagina: porPagina, Agora: time.Now()}
+	if valor := c.Query("somente_sugeridos"); valor != "" {
+		somenteSugeridos, parseErr := strconv.ParseBool(valor)
+		if parseErr != nil {
+			return service.CatalogoFiltro{}, service.ErrCatalogoParametroInvalido
+		}
+		filtro.SomenteSugeridos = somenteSugeridos
+		if origem != service.CatalogoFranquia {
+			return service.CatalogoFiltro{}, service.ErrCatalogoParametroInvalido
+		}
+	}
 	if valor := c.Query("genero_id"); valor != "" {
 		generoID, parseErr := strconv.ParseInt(valor, 10, 64)
 		if parseErr != nil || generoID <= 0 {
