@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -25,6 +26,7 @@ type mockListasService struct {
 	atualizarListaFn        func(ctx context.Context, input service.AtualizarListaInput) (*service.ListaDetalhada, error)
 	excluirListaFn          func(ctx context.Context, id int64, usuarioID int32) error
 	adicionarItemFn         func(ctx context.Context, input service.AdicionarItemInput) (*service.ListaItemDetalhe, error)
+	adicionarItensLoteFn    func(ctx context.Context, input service.AdicionarItensLoteInput) (*service.AdicionarItensLoteResultado, error)
 	excluirItemFn           func(ctx context.Context, itemID int64, listaID int64, usuarioID int32) error
 	reordenarItensFn        func(ctx context.Context, listaID int64, usuarioID int32, itemIDs []int64) ([]*service.ListaItemDetalhe, error)
 	associarJogoZeradoFn    func(ctx context.Context, itemID int64, listaID int64, usuarioID int32, jogoZeradoID int32) (*service.ListaItemDetalhe, error)
@@ -76,7 +78,10 @@ func (m *mockListasService) AdicionarItem(ctx context.Context, input service.Adi
 	return &service.ListaItemDetalhe{}, nil
 }
 
-func (m *mockListasService) AdicionarItensLote(context.Context, service.AdicionarItensLoteInput) (*service.AdicionarItensLoteResultado, error) {
+func (m *mockListasService) AdicionarItensLote(ctx context.Context, input service.AdicionarItensLoteInput) (*service.AdicionarItensLoteResultado, error) {
+	if m.adicionarItensLoteFn != nil {
+		return m.adicionarItensLoteFn(ctx, input)
+	}
 	return &service.AdicionarItensLoteResultado{}, nil
 }
 
@@ -148,6 +153,7 @@ func setupListasTestRouter(t *testing.T, svc ListasServicer) (*gin.Engine, strin
 	privadas.PUT("/listas/:id", handler.AtualizarLista)
 	privadas.DELETE("/listas/:id", handler.ExcluirLista)
 	privadas.POST("/listas/:id/itens", handler.AdicionarItem)
+	privadas.POST("/listas/:id/itens/lote", handler.AdicionarItensLote)
 	privadas.DELETE("/listas/:id/itens/:itemId", handler.ExcluirItem)
 	privadas.POST("/listas/:id/itens/:itemId/restaurar", handler.RestaurarItem)
 	privadas.PUT("/listas/:id/ordem", handler.ReordenarItens)
@@ -541,6 +547,49 @@ func TestListasHandler_Itens_201_400_404_409_204(t *testing.T) {
 
 		if w.Code != http.StatusNoContent {
 			t.Fatalf("esperava 204, obteve %d", w.Code)
+		}
+	})
+}
+
+func TestListasHandler_AdicionarItensLote_201_Erros(t *testing.T) {
+	t.Run("adiciona e conta repetidos", func(t *testing.T) {
+		svc := &mockListasService{
+			adicionarItensLoteFn: func(ctx context.Context, input service.AdicionarItensLoteInput) (*service.AdicionarItensLoteResultado, error) {
+				if len(input.Itens) != 2 {
+					t.Fatalf("esperava 2 itens, obteve %d", len(input.Itens))
+				}
+				return &service.AdicionarItensLoteResultado{Adicionados: 2, JaExistentes: 1}, nil
+			},
+		}
+		router, token := setupListasTestRouter(t, svc)
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/listas/1/itens/lote", bytes.NewBufferString(
+			`{"itens":[{"igdb_id":1,"nome":"Um"},{"igdb_id":2,"nome":"Dois"}]}`,
+		))
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		router.ServeHTTP(response, req)
+		if response.Code != http.StatusCreated || !strings.Contains(response.Body.String(), `"adicionados":2`) {
+			t.Fatalf("resposta inesperada: %d %s", response.Code, response.Body.String())
+		}
+	})
+
+	t.Run("erro de validação", func(t *testing.T) {
+		svc := &mockListasService{
+			adicionarItensLoteFn: func(context.Context, service.AdicionarItensLoteInput) (*service.AdicionarItensLoteResultado, error) {
+				return nil, service.ErrListaRegraInvalida
+			},
+		}
+		router, token := setupListasTestRouter(t, svc)
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/listas/1/itens/lote", bytes.NewBufferString(
+			`{"itens":[{"igdb_id":0,"nome":"Inválido"}]}`,
+		))
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		router.ServeHTTP(response, req)
+		if response.Code != http.StatusBadRequest {
+			t.Fatalf("esperava 400, obteve %d", response.Code)
 		}
 	})
 }

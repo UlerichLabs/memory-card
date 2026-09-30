@@ -1005,6 +1005,23 @@ func TestIntegration_DesafioComItensELote(t *testing.T) {
 	if len(detalhe.Data.Itens) != 4 || detalhe.Data.Itens[0].AnoLancamento == nil || *detalhe.Data.Itens[0].AnoLancamento != 1975 {
 		t.Fatalf("ordem após lote inesperada: %+v", detalhe.Data.Itens)
 	}
+	var itemZeradoID int64
+	for _, item := range detalhe.Data.Itens {
+		if item.IgdbID != nil && *item.IgdbID == 7001 {
+			itemZeradoID = item.ID
+			break
+		}
+	}
+	if itemZeradoID == 0 {
+		t.Fatal("item zerado não encontrado")
+	}
+	req = httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/api/v1/listas/%d/itens/%d/zeramento", criada.Data.ID, itemZeradoID), nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	w = httptest.NewRecorder()
+	env.router.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("desvinculação do zeramento: %d %s", w.Code, w.Body.String())
+	}
 
 	itemID := detalhe.Data.Itens[len(detalhe.Data.Itens)-1].ID
 	req = httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/api/v1/listas/%d/itens/%d", criada.Data.ID, itemID), nil)
