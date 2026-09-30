@@ -3,7 +3,9 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { DesafioGrade } from "./DesafioGrade";
 import { ListasContext, type ListasStore } from "@/stores/listasStore";
+import { JogosContext, type JogosStore } from "@/stores/jogosStore";
 import type { ListaDetalhada } from "@/types/listas";
+import type { JogoZeradoDTO } from "@/lib/services/jogosService";
 
 const lista: ListaDetalhada = {
   id: 1,
@@ -81,12 +83,18 @@ function renderGrade(overrides: Partial<ListasStore> = {}, listaAtual = lista) {
     associarZeramento: vi.fn(),
     ...overrides,
   } as ListasStore;
+  const jogosStore = {
+    abrirModalRegistro: vi.fn(),
+  } as unknown as JogosStore;
   return {
     store,
+    jogosStore,
     ...render(
       <MemoryRouter>
         <ListasContext.Provider value={store}>
-          <DesafioGrade lista={listaAtual} />
+          <JogosContext.Provider value={jogosStore}>
+            <DesafioGrade lista={listaAtual} />
+          </JogosContext.Provider>
         </ListasContext.Provider>
       </MemoryRouter>,
     ),
@@ -118,5 +126,55 @@ describe("DesafioGrade", () => {
   it("não exibe adicionar jogos sem origem", () => {
     renderGrade({}, { ...lista, origem: null });
     expect(screen.queryByRole("button", { name: /Adicionar jogos/ })).not.toBeInTheDocument();
+  });
+
+  it("abre o registro e associa o zeramento no card pendente", async () => {
+    const { jogosStore, store } = renderGrade();
+    const botoesZerei = screen.getAllByRole("button", { name: "Zerei!" });
+    await botoesZerei[0].click();
+
+    expect(jogosStore.abrirModalRegistro).toHaveBeenCalledWith(
+      expect.objectContaining({
+        valoresIniciais: {
+          nome: "Zelda",
+          igdb_id: 10,
+          igdb_capa_url: undefined,
+          console: undefined,
+        },
+      }),
+    );
+
+    const opcoes = vi.mocked(jogosStore.abrirModalRegistro).mock.calls[0][0];
+    const jogo: JogoZeradoDTO = {
+      id: 99,
+      usuario_id: 1,
+      nome: "Zelda",
+      console: "SNES",
+      genero: "RPG",
+      finalizado_em: "2026-09-30",
+      tempo_jogado: 3600,
+      nota: 10,
+      dificuldade: "A",
+      destaque: false,
+    };
+
+    await opcoes?.onSalvo?.(jogo);
+    expect(store.associarZeramento).toHaveBeenCalledWith(1, 99);
+    expect(screen.queryAllByRole("button", { name: "Zerei!" })).toHaveLength(2);
+  });
+
+  it("mostra erro quando não consegue ligar o zeramento ao desafio", async () => {
+    const associarZeramento = vi.fn().mockRejectedValue(new Error("falha"));
+    const { jogosStore } = renderGrade({ associarZeramento });
+    await screen.getAllByRole("button", { name: "Zerei!" })[0].click();
+
+    const opcoes = vi.mocked(jogosStore.abrirModalRegistro).mock.calls[0][0];
+    await opcoes?.onSalvo?.({ id: 99 } as JogoZeradoDTO);
+
+    expect(
+      await screen.findByText(
+        "O jogo foi registrado, mas não foi possível ligar ao desafio. Tente de novo.",
+      ),
+    ).toBeInTheDocument();
   });
 });

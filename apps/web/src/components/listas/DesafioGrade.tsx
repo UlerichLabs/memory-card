@@ -3,6 +3,7 @@ import { Plus } from "lucide-react";
 import { useListasStore } from "@/stores/listasStore";
 import { EscolherJogosDialog } from "./EscolherJogosDialog";
 import { DesafioCard } from "./DesafioCard";
+import { useZereiItem } from "./useZereiItem";
 import type { FiltroAba, ListaDetalhada } from "@/types/listas";
 
 export interface DesafioGradeProps {
@@ -13,6 +14,7 @@ export function DesafioGrade({ lista }: DesafioGradeProps) {
   const { filtroAba, setFiltroAba, removerItem } = useListasStore();
   const [aberto, setAberto] = useState(false);
   const [mensagem, setMensagem] = useState<string | null>(null);
+  const handleZerei = useZereiItem(setMensagem);
   const itens = lista.itens ?? [];
   useEffect(() => {
     if (!mensagem) return;
@@ -88,6 +90,7 @@ export function DesafioGrade({ lista }: DesafioGradeProps) {
               key={item.id}
               item={item}
               onRemover={removerItem}
+              onZerei={handleZerei}
             />
           ))}
         </div>
