@@ -1,3 +1,4 @@
+import { useContext } from "react";
 import {
   DndContext,
   closestCenter,
@@ -15,10 +16,11 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { useListasStore } from "@/stores/listasStore";
+import { AbandonadosContext } from "@/stores/abandonadosStore";
 import { AdicionarJogoInput } from "./AdicionarJogoInput";
 import { FilaItem } from "./FilaItem";
 import { useZereiItem } from "./useZereiItem";
-import type { ListaDetalhada } from "@/types/listas";
+import type { ListaDetalhada, ListaItem } from "@/types/listas";
 
 export interface FilaListaProps {
   lista: ListaDetalhada;
@@ -31,7 +33,27 @@ export function FilaLista({ lista }: FilaListaProps) {
     removerItem,
     error,
   } = useListasStore();
+  const abandonados = useContext(AbandonadosContext);
   const handleZerei = useZereiItem();
+
+  const handleAbandonei = abandonados
+    ? (item: ListaItem) => {
+        abandonados.abrirModalCriacao({
+          origemFila: {
+            listaNome: lista.nome,
+            onSalvo: async () => {
+              await removerItem(item.id);
+            },
+          },
+          valoresIniciais: {
+            nome: item.nome,
+            console: item.console ?? "",
+            igdb_id: item.igdb_id,
+            igdb_capa_url: item.igdb_capa_url ?? "",
+          },
+        });
+      }
+    : undefined;
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -112,6 +134,7 @@ export function FilaLista({ lista }: FilaListaProps) {
                     posicaoExibicao={idx + 1}
                     isFirst={idx === 0}
                     onZerei={handleZerei}
+                    onAbandonei={handleAbandonei}
                     onRemover={removerItem}
                   />
                 ))}

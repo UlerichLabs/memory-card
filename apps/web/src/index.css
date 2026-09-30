@@ -241,6 +241,17 @@
     --lista-btn-zerei-bg: #2a2412;
     --lista-btn-zerei-border: #8a6d2c;
     --lista-btn-zerei-text: #f0be50;
+    --lista-btn-abandonei-bg: #26232f;
+    --lista-btn-abandonei-border: #4d446a;
+    --lista-btn-abandonei-text: #c4b8f0;
+
+    --abandonado-text: #c4b8f0;
+    --abandonado-bg: #26232f;
+    --abandonado-border: #3a3552;
+    --abandonado-cover: #211f2b;
+    --abandonado-banner-bg: #26232f;
+    --abandonado-banner-border: #4d446a;
+    --abandonado-banner-text: #c4b8f0;
     --lista-radio-fila-border: #6b8dff;
     --lista-radio-bg: #25262c;
     --lista-radio-border: #2f3037;

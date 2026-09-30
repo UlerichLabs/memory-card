@@ -20,6 +20,8 @@ export interface GameFormProps {
   onSubmit: (payload: SalvarJogoPayload) => Promise<void>
   onCancel?: () => void
   isEditing?: boolean
+  aviso?: string
+  textoSubmit?: string
 }
 
 function limitarLista(itens: string[], limite: number): string {
@@ -29,7 +31,14 @@ function limitarLista(itens: string[], limite: number): string {
   }, '')
 }
 
-export function GameForm({ initialData, onSubmit, onCancel, isEditing = false }: GameFormProps) {
+export function GameForm({
+  initialData,
+  onSubmit,
+  onCancel,
+  isEditing = false,
+  aviso,
+  textoSubmit,
+}: GameFormProps) {
   const auth = useContext(AuthContext)
   const token = auth?.sessao?.access_token
   const form = useGameForm({ initialData, onSubmit })
@@ -72,6 +81,16 @@ export function GameForm({ initialData, onSubmit, onCancel, isEditing = false }:
   return <form noValidate onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col gap-5 overflow-hidden">
     <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
       <div className="flex flex-col gap-5">
+        {aviso && (
+          <div
+            className={
+              'rounded-lg border border-[var(--abandonado-banner-border)] ' +
+              'bg-[var(--abandonado-banner-bg)] px-4 py-3 text-sm text-[var(--abandonado-banner-text)]'
+            }
+          >
+            {aviso}
+          </div>
+        )}
         {errors.form && <div className="text-sm text-[var(--danger)]">{errors.form}</div>}
         <GameFormAutocomplete nome={nome} onChangeNome={handleNomeChange} onSelectSugestao={handleSelect} error={errors.nome} />
         <div className="grid min-w-0 gap-8 md:grid-cols-[240px_minmax(0,1fr)]">
@@ -96,6 +115,11 @@ export function GameForm({ initialData, onSubmit, onCancel, isEditing = false }:
         </div>
       </div>
     </div>
-    <div className="flex shrink-0 justify-end gap-3 border-t border-[var(--border)] pt-4">{onCancel && <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>Cancelar</Button>}<Button type="submit" disabled={isSubmitting} className="bg-[var(--accent)] font-bold text-[var(--accent-foreground)]">{isSubmitting ? 'Salvando...' : isEditing ? 'Atualizar registro' : 'Salvar registro'}</Button></div>
+    <div className="flex shrink-0 justify-end gap-3 border-t border-[var(--border)] pt-4">
+      {onCancel && <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>Cancelar</Button>}
+      <Button type="submit" disabled={isSubmitting} className="bg-[var(--accent)] font-bold text-[var(--accent-foreground)]">
+        {isSubmitting ? 'Salvando...' : isEditing ? 'Atualizar registro' : (textoSubmit ?? 'Salvar registro')}
+      </Button>
+    </div>
   </form>
 }

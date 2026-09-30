@@ -12,6 +12,8 @@ import { AuthContext } from '@/store/authStore'
 
 export interface ModalRegistroOpcoes {
   valoresIniciais?: Partial<JogoZeradoDTO>
+  aviso?: string
+  textoSubmit?: string
   onSalvo?: (jogo: JogoZeradoDTO) => void | Promise<void>
 }
 
