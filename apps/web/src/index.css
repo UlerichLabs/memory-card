@@ -227,6 +227,10 @@
     --lista-pill-pendente-bg: rgba(20, 21, 25, 0.88);
     --lista-pill-pendente-border: #3a3c46;
     --lista-pill-pendente-text: #a3a5ae;
+    --lista-zerado-pill-bg: #16301b;
+    --lista-zerado-pill-border: #2f6b38;
+    --lista-zerado-pill-text: #7fe08a;
+    --lista-card-acao-bg: rgba(20, 21, 25, 0.88);
     --lista-input-bg: #25262c;
     --lista-input-border: #383942;
     --lista-row-bg: #25262c;

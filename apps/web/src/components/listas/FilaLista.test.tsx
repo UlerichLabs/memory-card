@@ -1,73 +1,75 @@
-import { describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-import { FilaLista } from './FilaLista'
-import { ListasContext, type ListasStore } from '@/stores/listasStore'
-import { JogosContext, type JogosStore } from '@/stores/jogosStore'
-import { ApiError } from '@/lib/api'
-import type { ListaDetalhada } from '@/types/listas'
-import type { JogoZeradoDTO } from '@/lib/services/jogosService'
+import { describe, expect, it, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { FilaLista } from "./FilaLista";
+import { ListasContext, type ListasStore } from "@/stores/listasStore";
+import { JogosContext, type JogosStore } from "@/stores/jogosStore";
+import { ApiError } from "@/lib/api";
+import type { ListaDetalhada } from "@/types/listas";
+import type { JogoZeradoDTO } from "@/lib/services/jogosService";
 
 const mockFilaLista: ListaDetalhada = {
   id: 1,
-  tipo: 'fila',
-  nome: 'Minha Fila',
+  tipo: "fila",
+  nome: "Minha Fila",
   descricao: null,
-  regra: null,
-  meta: null,
+  origem: null,
   total_itens: 3,
   itens_pendentes: 2,
   progresso: null,
-  created_at: '2026-09-01T00:00:00Z',
-  updated_at: '2026-09-01T00:00:00Z',
+  created_at: "2026-09-01T00:00:00Z",
+  updated_at: "2026-09-01T00:00:00Z",
   itens: [
     {
       id: 10,
       igdb_id: 100,
-      nome: 'Chrono Trigger',
-      console: 'SNES',
+      nome: "Chrono Trigger",
+      console: "SNES",
       igdb_capa_url: null,
       ano_lancamento: 1995,
       posicao: 1,
-      origem: 'item',
+      origem: "item",
       zerado: false,
       jogo_zerado: null,
     },
     {
       id: 11,
       igdb_id: 101,
-      nome: 'Final Fantasy VI',
-      console: 'SNES',
+      nome: "Final Fantasy VI",
+      console: "SNES",
       igdb_capa_url: null,
       ano_lancamento: 1994,
       posicao: 2,
-      origem: 'item',
+      origem: "item",
       zerado: false,
       jogo_zerado: null,
     },
     {
       id: 12,
       igdb_id: 102,
-      nome: 'Super Mario World',
-      console: 'SNES',
+      nome: "Super Mario World",
+      console: "SNES",
       igdb_capa_url: null,
       ano_lancamento: 1990,
       posicao: 3,
-      origem: 'item',
+      origem: "item",
       zerado: true,
-      jogo_zerado: { id: 80, nota: 10, finalizado_em: '2026-01-01T00:00:00Z' },
+      jogo_zerado: { id: 80, nota: 10, finalizado_em: "2026-01-01T00:00:00Z" },
     },
   ],
-}
+};
 
-function renderFilaLista(storeOverrides: Partial<ListasStore> = {}, jogosOverrides: Partial<JogosStore> = {}) {
+function renderFilaLista(
+  storeOverrides: Partial<ListasStore> = {},
+  jogosOverrides: Partial<JogosStore> = {},
+) {
   const store: ListasStore = {
     listas: [],
     listaAberta: mockFilaLista,
     isLoading: false,
     isLoadingDetalhe: false,
     error: null,
-    filtroAba: 'todos',
+    filtroAba: "todos",
     isNovaListaOpen: false,
     listaEmEdicao: null,
     isExcluirListaOpen: false,
@@ -85,12 +87,12 @@ function renderFilaLista(storeOverrides: Partial<ListasStore> = {}, jogosOverrid
     atualizarLista: vi.fn(),
     excluirLista: vi.fn(),
     adicionarItem: vi.fn(),
+    adicionarItensLote: vi.fn(),
     removerItem: vi.fn(),
     reordenarItens: vi.fn(),
     associarZeramento: vi.fn(),
-    sincronizarFranquia: vi.fn(),
     ...storeOverrides,
-  }
+  };
 
   const jogosStore: JogosStore = {
     jogos: [],
@@ -116,7 +118,7 @@ function renderFilaLista(storeOverrides: Partial<ListasStore> = {}, jogosOverrid
     setJogos: vi.fn(),
     limparErro: vi.fn(),
     ...jogosOverrides,
-  }
+  };
 
   return {
     ...render(
@@ -124,69 +126,75 @@ function renderFilaLista(storeOverrides: Partial<ListasStore> = {}, jogosOverrid
         <JogosContext.Provider value={jogosStore}>
           <FilaLista lista={mockFilaLista} />
         </JogosContext.Provider>
-      </ListasContext.Provider>
+      </ListasContext.Provider>,
     ),
     store,
     jogosStore,
-  }
+  };
 }
 
-describe('FilaLista', () => {
-  it('renderiza apenas itens pendentes em A jogar e marca o primeiro como Próximo', () => {
-    renderFilaLista()
-    expect(screen.getByText('Chrono Trigger')).toBeInTheDocument()
-    expect(screen.getByText('Final Fantasy VI')).toBeInTheDocument()
-    expect(screen.queryByText('Super Mario World')).not.toBeInTheDocument()
-    expect(screen.getByText('Próximo')).toBeInTheDocument()
-    expect(screen.getByText('2 jogos')).toBeInTheDocument()
-  })
+describe("FilaLista", () => {
+  it("renderiza apenas itens pendentes em A jogar e marca o primeiro como Próximo", () => {
+    renderFilaLista();
+    expect(screen.getByText("Chrono Trigger")).toBeInTheDocument();
+    expect(screen.getByText("Final Fantasy VI")).toBeInTheDocument();
+    expect(screen.queryByText("Super Mario World")).not.toBeInTheDocument();
+    expect(screen.getByText("Próximo")).toBeInTheDocument();
+    expect(screen.getByText("2 jogos")).toBeInTheDocument();
+  });
 
-  it('clicar em Zerei! abre modal de registro com valores iniciais e vincula no onSalvo', async () => {
-    const user = userEvent.setup()
-    const { store, jogosStore } = renderFilaLista()
+  it("clicar em Zerei! abre modal de registro com valores iniciais e vincula no onSalvo", async () => {
+    const user = userEvent.setup();
+    const { store, jogosStore } = renderFilaLista();
 
-    const botoesZerei = screen.getAllByRole('button', { name: 'Zerei!' })
-    await user.click(botoesZerei[0])
+    const botoesZerei = screen.getAllByRole("button", { name: "Zerei!" });
+    await user.click(botoesZerei[0]);
 
-    expect(jogosStore.abrirModalRegistro).toHaveBeenCalledTimes(1)
-    const callArg = vi.mocked(jogosStore.abrirModalRegistro).mock.calls[0][0]
+    expect(jogosStore.abrirModalRegistro).toHaveBeenCalledTimes(1);
+    const callArg = vi.mocked(jogosStore.abrirModalRegistro).mock.calls[0][0];
     expect(callArg?.valoresIniciais).toEqual({
-      nome: 'Chrono Trigger',
+      nome: "Chrono Trigger",
       igdb_id: 100,
       igdb_capa_url: undefined,
-      console: 'SNES',
-    })
+      console: "SNES",
+    });
 
     const jogoSalvo: JogoZeradoDTO = {
       id: 99,
       usuario_id: 1,
-      nome: 'Chrono Trigger',
-      console: 'SNES',
-      genero: 'RPG',
-      finalizado_em: '2026-09-29',
+      nome: "Chrono Trigger",
+      console: "SNES",
+      genero: "RPG",
+      finalizado_em: "2026-09-29",
       tempo_jogado: 3600,
       nota: 10,
-      dificuldade: 'A',
+      dificuldade: "A",
       destaque: false,
-    }
+    };
 
     if (callArg?.onSalvo) {
-      await callArg.onSalvo(jogoSalvo)
+      await callArg.onSalvo(jogoSalvo);
     }
 
-    expect(store.associarZeramento).toHaveBeenCalledWith(10, 99)
-  })
+    expect(store.associarZeramento).toHaveBeenCalledWith(10, 99);
+  });
 
-  it('exibe erro 409 inline abaixo do input de adicionar', async () => {
-    const user = userEvent.setup()
-    const adicionarItemMock = vi.fn().mockRejectedValue(
-      new ApiError('listas.item_duplicado', 'Jogo duplicado', 409)
-    )
-    renderFilaLista({ adicionarItem: adicionarItemMock })
+  it("exibe erro 409 inline abaixo do input de adicionar", async () => {
+    const user = userEvent.setup();
+    const adicionarItemMock = vi
+      .fn()
+      .mockRejectedValue(
+        new ApiError("listas.item_duplicado", "Jogo duplicado", 409),
+      );
+    renderFilaLista({ adicionarItem: adicionarItemMock });
 
-    const input = screen.getByRole('textbox', { name: /Adicionar jogo à fila/i })
-    await user.type(input, 'Chrono Trigger{Enter}')
+    const input = screen.getByRole("textbox", {
+      name: /Adicionar jogo à fila/i,
+    });
+    await user.type(input, "Chrono Trigger{Enter}");
 
-    expect(await screen.findByText('Esse jogo já está na lista.')).toBeInTheDocument()
-  })
-})
+    expect(
+      await screen.findByText("Esse jogo já está na lista."),
+    ).toBeInTheDocument();
+  });
+});
