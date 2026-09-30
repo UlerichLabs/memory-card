@@ -19,10 +19,19 @@ import (
 )
 
 type mockAbandonadosService struct {
-	criarFn         func(ctx context.Context, input service.SalvarJogoAbandonadoInput) (*repository.JogoAbandonado, error)
-	atualizarFn     func(ctx context.Context, input service.SalvarJogoAbandonadoInput) (*repository.JogoAbandonado, error)
-	excluirFn       func(ctx context.Context, id int32, usuarioID int32) error
-	listarFn        func(ctx context.Context, p service.ListarJogosAbandonadosInput) (*service.ResultadoListagemAbandonados, error)
+	criarFn func(
+		ctx context.Context,
+		input service.SalvarJogoAbandonadoInput,
+	) (*repository.JogoAbandonado, error)
+	atualizarFn func(
+		ctx context.Context,
+		input service.SalvarJogoAbandonadoInput,
+	) (*repository.JogoAbandonado, error)
+	excluirFn func(ctx context.Context, id int32, usuarioID int32) error
+	listarFn  func(
+		ctx context.Context,
+		p service.ListarJogosAbandonadosInput,
+	) (*service.ResultadoListagemAbandonados, error)
 	obterPorIDFn    func(ctx context.Context, id int32, usuarioID int32) (*repository.JogoAbandonado, error)
 	obterConsolesFn func(ctx context.Context, usuarioID int32) ([]string, error)
 	obterTotalFn    func(ctx context.Context, usuarioID int32) (int64, error)
@@ -305,7 +314,7 @@ func TestJogosAbandonadosHandler_Validacoes_400(t *testing.T) {
 			if input.Console == "ConsoleLongo" {
 				return nil, service.ErrAbandonadoConsoleMuitoLongo
 			}
-			if input.TempoJogadoHoras < 0 {
+			if input.TempoJogadoHoras < 0 || input.TempoJogadoHoras > 100000 {
 				return nil, service.ErrAbandonadoTempoInvalido
 			}
 			if input.Motivo != nil && *input.Motivo == "MotivoLongo" {
@@ -313,7 +322,16 @@ func TestJogosAbandonadosHandler_Validacoes_400(t *testing.T) {
 			}
 			return nil, service.ErrAbandonadoNomeObrigatorio
 		},
-		listarFn: func(ctx context.Context, p service.ListarJogosAbandonadosInput) (*service.ResultadoListagemAbandonados, error) {
+		atualizarFn: func(ctx context.Context, input service.SalvarJogoAbandonadoInput) (*repository.JogoAbandonado, error) {
+			if input.TempoJogadoHoras < 0 || input.TempoJogadoHoras > 100000 {
+				return nil, service.ErrAbandonadoTempoInvalido
+			}
+			return nil, service.ErrAbandonadoNomeObrigatorio
+		},
+		listarFn: func(
+			ctx context.Context,
+			p service.ListarJogosAbandonadosInput,
+		) (*service.ResultadoListagemAbandonados, error) {
 			if p.Ordenar == "invalido" {
 				return nil, service.ErrAbandonadoOrdenarInvalido
 			}
@@ -400,6 +418,20 @@ func TestJogosAbandonadosHandler_Validacoes_400(t *testing.T) {
 			body:       `{"nome":"Jogo","console":"NES","motivo":"MotivoLongo"}`,
 			esperaCode: "abandonados.motivo_muito_longo",
 		},
+		{
+			name:       "post_tempo_horas_overflow_regressao",
+			method:     http.MethodPost,
+			url:        "/api/v1/jogos-abandonados",
+			body:       `{"nome":"Jogo","console":"NES","tempo_jogado_horas":1300000}`,
+			esperaCode: "abandonados.tempo_invalido",
+		},
+		{
+			name:       "put_tempo_horas_overflow_regressao",
+			method:     http.MethodPut,
+			url:        "/api/v1/jogos-abandonados/1",
+			body:       `{"nome":"Jogo","console":"NES","tempo_jogado_horas":1300000}`,
+			esperaCode: "abandonados.tempo_invalido",
+		},
 	}
 
 	for _, tc := range tests {
@@ -429,6 +461,76 @@ func TestJogosAbandonadosHandler_Validacoes_400(t *testing.T) {
 				t.Fatal("mensagem de erro nao pode ser vazia")
 			}
 		})
+	}
+}
+
+func TestJogosAbandonadosHandler_TetoTempoJogado_400(t *testing.T) {
+	secret := uuid.NewString()
+	svc := &mockAbandonadosService{
+		criarFn: func(
+			ctx context.Context,
+			input service.SalvarJogoAbandonadoInput,
+		) (*repository.JogoAbandonado, error) {
+			if input.TempoJogadoHoras > 100000 {
+				return nil, service.ErrAbandonadoTempoInvalido
+			}
+			return &repository.JogoAbandonado{ID: 1}, nil
+		},
+		atualizarFn: func(
+			ctx context.Context,
+			input service.SalvarJogoAbandonadoInput,
+		) (*repository.JogoAbandonado, error) {
+			if input.TempoJogadoHoras > 100000 {
+				return nil, service.ErrAbandonadoTempoInvalido
+			}
+			return &repository.JogoAbandonado{ID: 1}, nil
+		},
+	}
+	router := setupAbandonadosTestRouter(svc, secret)
+	token := generateAbandonadosToken(t, secret, "42", "pt-BR")
+
+	body := []byte(`{"nome":"Jogo","console":"NES","tempo_jogado_horas":1300000}`)
+
+	reqPost := httptest.NewRequest(http.MethodPost, "/api/v1/jogos-abandonados", bytes.NewReader(body))
+	reqPost.Header.Set("Authorization", "Bearer "+token)
+	reqPost.Header.Set("Content-Type", "application/json")
+	wPost := httptest.NewRecorder()
+	router.ServeHTTP(wPost, reqPost)
+
+	if wPost.Code != http.StatusBadRequest {
+		t.Fatalf("esperava status 400 no POST, obteve %d", wPost.Code)
+	}
+	var respPost struct {
+		Error struct {
+			Codigo string `json:"codigo"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(wPost.Body.Bytes(), &respPost); err != nil {
+		t.Fatal(err)
+	}
+	if respPost.Error.Codigo != "abandonados.tempo_invalido" {
+		t.Fatalf("esperava abandonados.tempo_invalido no POST, obteve %s", respPost.Error.Codigo)
+	}
+
+	reqPut := httptest.NewRequest(http.MethodPut, "/api/v1/jogos-abandonados/1", bytes.NewReader(body))
+	reqPut.Header.Set("Authorization", "Bearer "+token)
+	reqPut.Header.Set("Content-Type", "application/json")
+	wPut := httptest.NewRecorder()
+	router.ServeHTTP(wPut, reqPut)
+
+	if wPut.Code != http.StatusBadRequest {
+		t.Fatalf("esperava status 400 no PUT, obteve %d", wPut.Code)
+	}
+	var respPut struct {
+		Error struct {
+			Codigo string `json:"codigo"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(wPut.Body.Bytes(), &respPut); err != nil {
+		t.Fatal(err)
+	}
+	if respPut.Error.Codigo != "abandonados.tempo_invalido" {
+		t.Fatalf("esperava abandonados.tempo_invalido no PUT, obteve %s", respPut.Error.Codigo)
 	}
 }
 
@@ -489,7 +591,10 @@ func TestJogosAbandonadosHandler_I18n_PtBr_E_En(t *testing.T) {
 func TestJogosAbandonadosHandler_ListarFiltrosTotal_Sucesso(t *testing.T) {
 	secret := uuid.NewString()
 	svc := &mockAbandonadosService{
-		listarFn: func(ctx context.Context, p service.ListarJogosAbandonadosInput) (*service.ResultadoListagemAbandonados, error) {
+		listarFn: func(
+			ctx context.Context,
+			p service.ListarJogosAbandonadosInput,
+		) (*service.ResultadoListagemAbandonados, error) {
 			return &service.ResultadoListagemAbandonados{
 				Jogos:        []*repository.JogoAbandonado{{ID: 1, Nome: "Jogo 1"}},
 				Total:        1,

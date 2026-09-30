@@ -32,6 +32,11 @@ var (
 	ErrAbandonadoEntradaInvalida    = errors.New("abandonados.entrada_invalida")
 )
 
+const (
+	maxHorasTempoJogado    = 100000
+	maxSegundosTempoJogado = 360000000
+)
+
 type SalvarJogoAbandonadoInput struct {
 	ID                  int32
 	UsuarioID           int32
@@ -68,7 +73,10 @@ type JogosAbandonadosRepository interface {
 	Criar(ctx context.Context, params repository.CriarJogoAbandonadoParams) (*repository.JogoAbandonado, error)
 	Atualizar(ctx context.Context, params repository.AtualizarJogoAbandonadoParams) (*repository.JogoAbandonado, error)
 	Excluir(ctx context.Context, id int32, usuarioID int32) error
-	Listar(ctx context.Context, params repository.ListarJogosAbandonadosParams) ([]*repository.JogoAbandonado, int64, error)
+	Listar(
+		ctx context.Context,
+		params repository.ListarJogosAbandonadosParams,
+	) ([]*repository.JogoAbandonado, int64, error)
 	ObterPorID(ctx context.Context, id int32, usuarioID int32) (*repository.JogoAbandonado, error)
 	ObterConsoles(ctx context.Context, usuarioID int32) ([]string, error)
 	ObterTotal(ctx context.Context, usuarioID int32) (int64, error)
@@ -106,24 +114,26 @@ func (s *JogosAbandonadosService) validarESintetizar(
 		return "", "", 0, nil, nil, time.Time{}, ErrAbandonadoConsoleMuitoLongo
 	}
 
-	if input.TempoJogadoHoras < 0 ||
+	if input.TempoJogadoHoras < 0 || input.TempoJogadoHoras > maxHorasTempoJogado ||
 		input.TempoJogadoMinutos < 0 || input.TempoJogadoMinutos > 59 ||
 		input.TempoJogadoSegundos < 0 || input.TempoJogadoSegundos > 59 {
 		return "", "", 0, nil, nil, time.Time{}, ErrAbandonadoTempoInvalido
 	}
 
-	if input.TempoJogado != nil && *input.TempoJogado < 0 {
+	if input.TempoJogado != nil && (*input.TempoJogado < 0 || *input.TempoJogado > maxSegundosTempoJogado) {
 		return "", "", 0, nil, nil, time.Time{}, ErrAbandonadoTempoInvalido
 	}
 
-	var tempoTotal int32
+	var tempoTotal int64
 	if input.TempoJogadoHoras > 0 || input.TempoJogadoMinutos > 0 || input.TempoJogadoSegundos > 0 {
-		tempoTotal = int32(input.TempoJogadoHoras*3600 + input.TempoJogadoMinutos*60 + input.TempoJogadoSegundos)
+		tempoTotal = int64(input.TempoJogadoHoras)*3600 +
+			int64(input.TempoJogadoMinutos)*60 +
+			int64(input.TempoJogadoSegundos)
 	} else if input.TempoJogado != nil {
-		tempoTotal = *input.TempoJogado
+		tempoTotal = int64(*input.TempoJogado)
 	}
 
-	if tempoTotal < 0 {
+	if tempoTotal < 0 || tempoTotal > maxSegundosTempoJogado {
 		return "", "", 0, nil, nil, time.Time{}, ErrAbandonadoTempoInvalido
 	}
 
@@ -161,7 +171,7 @@ func (s *JogosAbandonadosService) validarESintetizar(
 		return "", "", 0, nil, nil, time.Time{}, ErrAbandonadoDataFutura
 	}
 
-	return nome, console, tempoTotal, motivoFinal, capaFinal, abandonadoEm, nil
+	return nome, console, int32(tempoTotal), motivoFinal, capaFinal, abandonadoEm, nil
 }
 
 func (s *JogosAbandonadosService) CriarJogoAbandonado(

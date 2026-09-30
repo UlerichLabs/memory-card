@@ -14,10 +14,19 @@ import (
 )
 
 type mockAbandonadosRepo struct {
-	criarFn         func(ctx context.Context, params repository.CriarJogoAbandonadoParams) (*repository.JogoAbandonado, error)
-	atualizarFn     func(ctx context.Context, params repository.AtualizarJogoAbandonadoParams) (*repository.JogoAbandonado, error)
-	excluirFn       func(ctx context.Context, id int32, usuarioID int32) error
-	listarFn        func(ctx context.Context, params repository.ListarJogosAbandonadosParams) ([]*repository.JogoAbandonado, int64, error)
+	criarFn func(
+		ctx context.Context,
+		params repository.CriarJogoAbandonadoParams,
+	) (*repository.JogoAbandonado, error)
+	atualizarFn func(
+		ctx context.Context,
+		params repository.AtualizarJogoAbandonadoParams,
+	) (*repository.JogoAbandonado, error)
+	excluirFn func(ctx context.Context, id int32, usuarioID int32) error
+	listarFn  func(
+		ctx context.Context,
+		params repository.ListarJogosAbandonadosParams,
+	) ([]*repository.JogoAbandonado, int64, error)
 	obterPorIDFn    func(ctx context.Context, id int32, usuarioID int32) (*repository.JogoAbandonado, error)
 	obterConsolesFn func(ctx context.Context, usuarioID int32) ([]string, error)
 	obterTotalFn    func(ctx context.Context, usuarioID int32) (int64, error)
@@ -166,13 +175,23 @@ func TestJogosAbandonadosService_ConversaoTempo(t *testing.T) {
 			input:    SalvarJogoAbandonadoInput{},
 			esperado: 0,
 		},
+		{
+			name: "teto_horas_exato",
+			input: SalvarJogoAbandonadoInput{
+				TempoJogadoHoras: 100000,
+			},
+			esperado: 360000000,
+		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			var tempoRecebido int32
 			repo := &mockAbandonadosRepo{
-				criarFn: func(ctx context.Context, params repository.CriarJogoAbandonadoParams) (*repository.JogoAbandonado, error) {
+				criarFn: func(
+					ctx context.Context,
+					params repository.CriarJogoAbandonadoParams,
+				) (*repository.JogoAbandonado, error) {
 					tempoRecebido = params.TempoJogado
 					return &repository.JogoAbandonado{ID: 1}, nil
 				},
@@ -202,6 +221,7 @@ func TestJogosAbandonadosService_Validacoes(t *testing.T) {
 	dataFutura := agora.Add(24 * time.Hour)
 	dataZero := time.Time{}
 	tempoNegativo := int32(-1)
+	tempoSegundosExcedeTeto := int32(360000001)
 
 	tests := []struct {
 		name        string
@@ -263,6 +283,35 @@ func TestJogosAbandonadosService_Validacoes(t *testing.T) {
 			input:       SalvarJogoAbandonadoInput{Nome: "Jogo", Console: "SNES", AbandonadoEm: &dataZero},
 			errEsperado: ErrAbandonadoDataInvalida,
 		},
+		{
+			name:        "tempo_horas_acima_teto",
+			input:       SalvarJogoAbandonadoInput{Nome: "Jogo", Console: "SNES", TempoJogadoHoras: 100001},
+			errEsperado: ErrAbandonadoTempoInvalido,
+		},
+		{
+			name:        "tempo_horas_overflow_regressao",
+			input:       SalvarJogoAbandonadoInput{Nome: "Jogo", Console: "SNES", TempoJogadoHoras: 1300000},
+			errEsperado: ErrAbandonadoTempoInvalido,
+		},
+		{
+			name: "tempo_horas_teto_com_minutos_excede",
+			input: SalvarJogoAbandonadoInput{
+				Nome:               "Jogo",
+				Console:            "SNES",
+				TempoJogadoHoras:   100000,
+				TempoJogadoMinutos: 1,
+			},
+			errEsperado: ErrAbandonadoTempoInvalido,
+		},
+		{
+			name: "tempo_direto_acima_teto",
+			input: SalvarJogoAbandonadoInput{
+				Nome:        "Jogo",
+				Console:     "SNES",
+				TempoJogado: &tempoSegundosExcedeTeto,
+			},
+			errEsperado: ErrAbandonadoTempoInvalido,
+		},
 	}
 
 	for _, tc := range tests {
@@ -279,9 +328,76 @@ func TestJogosAbandonadosService_Validacoes(t *testing.T) {
 	}
 }
 
+func TestJogosAbandonadosService_TetoTempoJogado(t *testing.T) {
+	var tempoRecebido int32
+	repo := &mockAbandonadosRepo{
+		criarFn: func(
+			ctx context.Context,
+			params repository.CriarJogoAbandonadoParams,
+		) (*repository.JogoAbandonado, error) {
+			tempoRecebido = params.TempoJogado
+			return &repository.JogoAbandonado{ID: 1}, nil
+		},
+	}
+	svc := NewJogosAbandonadosService(repo)
+
+	jogo, err := svc.CriarJogoAbandonado(context.Background(), SalvarJogoAbandonadoInput{
+		Nome:             "Jogo",
+		Console:          "SNES",
+		TempoJogadoHoras: 100000,
+	})
+	if err != nil {
+		t.Fatalf("erro inesperado no teto exato: %v", err)
+	}
+	if jogo == nil || tempoRecebido != 360000000 {
+		t.Fatalf("esperava tempo 360000000, obteve %d", tempoRecebido)
+	}
+
+	_, err = svc.CriarJogoAbandonado(context.Background(), SalvarJogoAbandonadoInput{
+		Nome:             "Jogo",
+		Console:          "SNES",
+		TempoJogadoHoras: 100001,
+	})
+	if !errors.Is(err, ErrAbandonadoTempoInvalido) {
+		t.Fatalf("esperava ErrAbandonadoTempoInvalido para horas=100001, obteve %v", err)
+	}
+
+	_, err = svc.CriarJogoAbandonado(context.Background(), SalvarJogoAbandonadoInput{
+		Nome:             "Jogo",
+		Console:          "SNES",
+		TempoJogadoHoras: 1300000,
+	})
+	if !errors.Is(err, ErrAbandonadoTempoInvalido) {
+		t.Fatalf("esperava ErrAbandonadoTempoInvalido para horas=1300000, obteve %v", err)
+	}
+
+	_, err = svc.CriarJogoAbandonado(context.Background(), SalvarJogoAbandonadoInput{
+		Nome:               "Jogo",
+		Console:            "SNES",
+		TempoJogadoHoras:   100000,
+		TempoJogadoMinutos: 1,
+	})
+	if !errors.Is(err, ErrAbandonadoTempoInvalido) {
+		t.Fatalf("esperava ErrAbandonadoTempoInvalido para horas=100000 e minutos=1, obteve %v", err)
+	}
+
+	tempoSegundosExcede := int32(360000001)
+	_, err = svc.CriarJogoAbandonado(context.Background(), SalvarJogoAbandonadoInput{
+		Nome:        "Jogo",
+		Console:     "SNES",
+		TempoJogado: &tempoSegundosExcede,
+	})
+	if !errors.Is(err, ErrAbandonadoTempoInvalido) {
+		t.Fatalf("esperava ErrAbandonadoTempoInvalido para tempo_jogado=360000001, obteve %v", err)
+	}
+}
+
 func TestJogosAbandonadosService_Atualizar_Sucesso(t *testing.T) {
 	repo := &mockAbandonadosRepo{
-		atualizarFn: func(ctx context.Context, params repository.AtualizarJogoAbandonadoParams) (*repository.JogoAbandonado, error) {
+		atualizarFn: func(
+			ctx context.Context,
+			params repository.AtualizarJogoAbandonadoParams,
+		) (*repository.JogoAbandonado, error) {
 			if params.ID != 5 || params.UsuarioID != 2 {
 				t.Fatalf("parametros incorretos: ID=%d, UsuarioID=%d", params.ID, params.UsuarioID)
 			}
@@ -312,7 +428,10 @@ func TestJogosAbandonadosService_NaoEncontrado(t *testing.T) {
 		obterPorIDFn: func(ctx context.Context, id int32, usuarioID int32) (*repository.JogoAbandonado, error) {
 			return nil, pgx.ErrNoRows
 		},
-		atualizarFn: func(ctx context.Context, params repository.AtualizarJogoAbandonadoParams) (*repository.JogoAbandonado, error) {
+		atualizarFn: func(
+			ctx context.Context,
+			params repository.AtualizarJogoAbandonadoParams,
+		) (*repository.JogoAbandonado, error) {
 			return nil, pgx.ErrNoRows
 		},
 		excluirFn: func(ctx context.Context, id int32, usuarioID int32) error {
@@ -345,7 +464,10 @@ func TestJogosAbandonadosService_NaoEncontrado(t *testing.T) {
 func TestJogosAbandonadosService_Listar_Filtros_Ordenacao(t *testing.T) {
 	var paramsRecebidos repository.ListarJogosAbandonadosParams
 	repo := &mockAbandonadosRepo{
-		listarFn: func(ctx context.Context, params repository.ListarJogosAbandonadosParams) ([]*repository.JogoAbandonado, int64, error) {
+		listarFn: func(
+			ctx context.Context,
+			params repository.ListarJogosAbandonadosParams,
+		) ([]*repository.JogoAbandonado, int64, error) {
 			paramsRecebidos = params
 			return []*repository.JogoAbandonado{{ID: 1}, {ID: 2}}, 25, nil
 		},
