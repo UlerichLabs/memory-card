@@ -10,8 +10,7 @@ const mockResumo: ListaResumo = {
   tipo: 'fila',
   nome: 'Fila 1',
   descricao: null,
-  regra: null,
-  meta: null,
+  origem: null,
   total_itens: 2,
   itens_pendentes: 2,
   progresso: null,
@@ -217,26 +216,6 @@ describe('listasStore', () => {
     })
 
     expect(listasService.associarZeramento).toHaveBeenCalledWith(1, 10, 50, undefined)
-  })
-
-  it('sincronizarFranquia chama service e recarrega lista', async () => {
-    vi.spyOn(listasService, 'sincronizarFranquia').mockResolvedValue({
-      ...mockDetalhe,
-      adicionados: 2,
-    })
-    vi.spyOn(listasService, 'obterPorId').mockResolvedValue(mockDetalhe)
-    vi.spyOn(listasService, 'listar').mockResolvedValue([mockResumo])
-
-    const { result } = renderHook(() => useListasStore(), {
-      wrapper: ({ children }) => ListasProvider({ children, initialListaAberta: mockDetalhe }),
-    })
-
-    let resp
-    await act(async () => {
-      resp = await result.current.sincronizarFranquia()
-    })
-
-    expect(resp).toEqual({ ...mockDetalhe, adicionados: 2 })
   })
 
   it('controla abertura e fechamento de modais criar, editar e excluir', () => {

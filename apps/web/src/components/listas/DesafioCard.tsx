@@ -7,11 +7,10 @@ import type { ListaItem } from '@/types/listas'
 
 export interface DesafioCardProps {
   item: ListaItem
-  isManual?: boolean
-  onRemover?: (id: number) => void
+  onRemover: (id: number) => void
 }
 
-export function DesafioCard({ item, isManual = false, onRemover }: DesafioCardProps) {
+export function DesafioCard({ item, onRemover }: DesafioCardProps) {
   const { zerado, jogo_zerado, nome, console: consoleName, ano_lancamento, igdb_capa_url, origem } = item
   const capaUrl = formatarCapaIGDB(igdb_capa_url ?? undefined, 't_cover_big')
   const capaUrl2x = formatarCapaIGDB(igdb_capa_url ?? undefined, 't_cover_big_2x')
@@ -64,7 +63,7 @@ export function DesafioCard({ item, isManual = false, onRemover }: DesafioCardPr
               <Check className="h-3.5 w-3.5 stroke-[3]" />
             </div>
             {jogo_zerado && (
-              <div className="absolute right-1.5 top-1.5">
+              <div className="absolute bottom-1.5 right-1.5">
                 <NotaBadge nota={jogo_zerado.nota} tamanho="sm" />
               </div>
             )}
@@ -77,20 +76,18 @@ export function DesafioCard({ item, isManual = false, onRemover }: DesafioCardPr
           </span>
         )}
 
-        {isManual && onRemover && (
-          <button
+        <button
             type="button"
-            aria-label={`Remover ${nome}`}
+            aria-label="Tirar do desafio"
             onClick={(e) => {
               e.preventDefault()
               e.stopPropagation()
               onRemover(item.id)
             }}
-            className="absolute right-1.5 top-1.5 flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--lista-cover-bg)]/80 text-[var(--lista-text-muted)] opacity-0 transition-opacity hover:text-[var(--danger)] focus:opacity-100 group-hover:opacity-100"
+            className="absolute right-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full border border-[var(--lista-btn-icon-border)] bg-[var(--lista-card-acao-bg)] text-[var(--lista-text-muted)] opacity-0 transition-opacity hover:text-[var(--danger)] focus:opacity-100 group-hover:opacity-100 max-sm:opacity-100"
           >
             <X className="h-4 w-4" />
-          </button>
-        )}
+        </button>
       </div>
 
       <div className="flex flex-col gap-0.5">

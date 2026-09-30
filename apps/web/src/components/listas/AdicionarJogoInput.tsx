@@ -16,7 +16,7 @@ export interface AdicionarJogoInputProps {
 
 export function AdicionarJogoInput({
   onAdicionar,
-  placeholder = 'Adicionar jogo: busque no IGDB ou digite o nome…',
+  placeholder = 'Adicionar jogo: busque pelo nome…',
   ariaLabel = 'Adicionar jogo à fila',
 }: AdicionarJogoInputProps) {
   const token = useContext(AuthContext)?.sessao?.access_token
@@ -107,11 +107,11 @@ export function AdicionarJogoInput({
       {erro && <span className="text-xs text-[var(--danger)]">{erro}</span>}
 
       {isOpen && (
-        <ul role="listbox" aria-label="Sugestões do IGDB" className="custom-scrollbar absolute left-0 right-0 top-full z-50 mt-1 max-h-60 overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-1 shadow-2xl">
+        <ul role="listbox" aria-label="Sugestões de jogos" className="custom-scrollbar absolute left-0 right-0 top-full z-50 mt-1 max-h-60 overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-1 shadow-2xl">
           {isSearching ? (
-            <li className="py-3 text-center text-xs text-[var(--text-muted)]">Buscando no IGDB...</li>
+            <li className="py-3 text-center text-xs text-[var(--text-muted)]">Buscando...</li>
           ) : sugestoes.length === 0 ? (
-            <li className="py-3 text-center text-xs text-[var(--text-muted)]">Nenhum jogo encontrado no IGDB</li>
+            <li className="py-3 text-center text-xs text-[var(--text-muted)]">Nenhum jogo encontrado</li>
           ) : (
             sugestoes.map((sugestao) => {
               const capa = formatarCapaIGDB(sugestao.cover?.url)

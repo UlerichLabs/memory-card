@@ -9,14 +9,12 @@ export interface ListaCabecalhoProps {
 export function ListaCabecalho({ lista }: ListaCabecalhoProps) {
   const { abrirModalEditar, abrirModalExcluir } = useListasStore()
   const isDesafio = lista.tipo === 'desafio'
-  const regra = lista.regra
-  const temRegraChip = isDesafio && regra && regra.tipo !== 'manual'
+  const origem = lista.origem
+  const temRegraChip = isDesafio && origem
 
   let chipTexto = ''
   if (temRegraChip) {
-    if (regra.tipo === 'franquia') chipTexto = `Franquia: ${regra.valor ?? ''} (IGDB)`
-    else if (regra.tipo === 'plataforma') chipTexto = `Plataforma: ${regra.valor ?? ''} · meta de ${lista.meta ?? 0}`
-    else if (regra.tipo === 'genero') chipTexto = `Gênero: ${regra.valor ?? ''} · meta de ${lista.meta ?? 0}`
+    chipTexto = `${origem.tipo[0].toUpperCase()}${origem.tipo.slice(1)}: ${origem.nome}`
   }
 
   const actionButtons = (

@@ -1,6 +1,5 @@
 import { Trophy } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
-import { ROTULOS_METABOX } from './listas.constants'
 import { formatarFaltam } from './listas.utils'
 import type { ListaDetalhada } from '@/types/listas'
 
@@ -13,8 +12,6 @@ export function DesafioMetaBox({ lista }: DesafioMetaBoxProps) {
   if (!progresso) return null
 
   const { feitos, meta, percentual, concluido, concluido_em } = progresso
-  const regraTipo = lista.regra?.tipo ?? 'manual'
-  const rotulo = ROTULOS_METABOX[regraTipo] ?? 'jogos'
   const faltam = Math.max(0, meta - feitos)
 
   let dataConclusao = ''
@@ -46,7 +43,7 @@ export function DesafioMetaBox({ lista }: DesafioMetaBoxProps) {
           / {meta}
         </span>
         <span className="ml-2 text-[14px] text-[var(--lista-text-secondary)]">
-          {rotulo}
+          jogos zerados
         </span>
         <span className="ml-auto text-[22px] font-bold text-[var(--lista-text-light)]">
           {percentual}%

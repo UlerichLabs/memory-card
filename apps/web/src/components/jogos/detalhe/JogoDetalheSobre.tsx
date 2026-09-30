@@ -12,7 +12,7 @@ export function JogoDetalheSobre({ descricao }: JogoDetalheSobreProps) {
           Sobre o jogo
         </h2>
         <span className="text-[12px] text-[var(--detalhe-text-meta)]">
-          Fonte: IGDB
+          Fonte: catálogo de jogos
         </span>
       </div>
       <p className="text-[14px] leading-[1.6] text-[var(--detalhe-text-sobre)] whitespace-pre-line">

@@ -76,7 +76,7 @@ describe('JogoDetalhePage', () => {
     expect(screen.getByText(/Iniciado em 01\/01\/2026 · 10 dias/)).toBeInTheDocument()
     expect(screen.getByText('Um dos melhores jogos da minha vida.')).toBeInTheDocument()
     expect(screen.getByText('Link viaja no tempo para deter Ganondorf.')).toBeInTheDocument()
-    expect(screen.getByText('Fonte: IGDB')).toBeInTheDocument()
+    expect(screen.getByText('Fonte: catálogo de jogos')).toBeInTheDocument()
   })
 
   it('lida com campos opcionais ausentes (sem iniciado_em, sem tipo, sem review, sem descricao, sem destaque)', async () => {

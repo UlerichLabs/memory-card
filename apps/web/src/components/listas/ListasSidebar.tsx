@@ -1,5 +1,4 @@
 import { Trophy, List, Plus } from 'lucide-react'
-import { ROTULOS_REGRA } from './listas.constants'
 import { formatarSubFila } from './listas.utils'
 import type { ListaResumo } from '@/types/listas'
 
@@ -47,7 +46,7 @@ export function ListasSidebar({ listas, selectedId, onSelect, onNovaLista }: Lis
                 const ativo = desafio.id === selectedId
                 const progresso = desafio.progresso
                 const concluido = progresso?.concluido ?? false
-                const subTexto = desafio.regra?.tipo ? ROTULOS_REGRA[desafio.regra.tipo] : 'Desafio'
+                const subTexto = `${desafio.total_itens} ${desafio.total_itens === 1 ? 'jogo' : 'jogos'}${desafio.origem ? ` · ${desafio.origem.tipo[0].toUpperCase()}${desafio.origem.tipo.slice(1)}` : ''}`
                 const pct = progresso?.percentual ?? 0
 
                 return (

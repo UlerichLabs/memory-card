@@ -20,10 +20,7 @@ export function ordenarListas(listas: ListaResumo[]): ListaResumo[] {
 }
 
 export function formatarFaltam(faltam: number): string {
-  if (faltam === 1) {
-    return 'Falta 1 · o progresso conta sozinho quando você registra um zeramento que se encaixa'
-  }
-  return `Faltam ${faltam} · o progresso conta sozinho quando você registra um zeramento que se encaixa`
+  return `${faltam === 1 ? 'Falta 1' : `Faltam ${faltam}`} · zere e registre: o progresso atualiza sozinho`
 }
 
 export function formatarSubFila(pendentes: number): string {
@@ -36,9 +33,10 @@ export function mapearErroApiParaCampo(codigo: string): { campo: string; mensage
     'listas.nome_obrigatorio': 'nome',
     'listas.nome_invalido': 'nome',
     'listas.descricao_muito_longa': 'descricao',
-    'listas.meta_invalida': 'meta',
-    'listas.regra_invalida': 'regraValor',
-    'listas.franquia_nao_encontrada': 'regraValor',
+    'catalogo.parametro_invalido': 'form',
+    'catalogo.paginacao_invalida': 'form',
+    'listas.desafio_sem_jogos': 'form',
+    'listas.itens_demais': 'form',
   }
   const campo = campos[codigo] ?? 'form'
   return { campo, mensagem: LISTAS_ERROS[codigo] ?? LISTAS_ERRO_GENERICO }
@@ -47,4 +45,8 @@ export function mapearErroApiParaCampo(codigo: string): { campo: string; mensage
 export function versaoLabelIGDB(ano?: number | null, plataformas?: Array<{ name: string }>): string {
   const plat = plataformas?.map((p) => p.name).join(', ')
   return [ano, plat].filter(Boolean).join(' · ')
+}
+
+export function normalizarTexto(texto: string): string {
+  return texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase().trim()
 }

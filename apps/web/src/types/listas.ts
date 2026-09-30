@@ -1,11 +1,11 @@
 export type ListaTipo = 'fila' | 'desafio'
 
-export type RegraTipo = 'franquia' | 'plataforma' | 'genero' | 'manual'
+export type OrigemTipo = 'franquia' | 'plataforma' | 'genero'
 
-export interface ListaRegra {
-  tipo: RegraTipo
-  valor: string | null
+export interface ListaOrigem {
+  tipo: OrigemTipo
   igdb_id: number | null
+  nome: string
 }
 
 export interface ListaProgresso {
@@ -21,8 +21,7 @@ export interface ListaResumo {
   tipo: ListaTipo
   nome: string
   descricao: string | null
-  regra: ListaRegra | null
-  meta: number | null
+  origem: ListaOrigem | null
   total_itens: number
   itens_pendentes: number
   progresso: ListaProgresso | null
@@ -53,22 +52,51 @@ export interface ListaDetalhada extends ListaResumo {
   itens: ListaItem[]
 }
 
+export interface CatalogoItem {
+  igdb_id: number
+  nome: string
+  igdb_capa_url: string | null
+  ano_lancamento: number | null
+  sugerido: boolean
+  ja_zerado: boolean
+  jogo_zerado_id: number | null
+}
+
+export interface CatalogoMeta {
+  pagina: number
+  por_pagina: number
+  total: number
+  total_sugeridos: number | null
+}
+
+export interface CatalogoResposta {
+  itens: CatalogoItem[]
+  meta: CatalogoMeta
+}
+
+export interface OpcaoOrigem {
+  id: number
+  nome: string
+}
+
+export interface CriarListaItemPayload {
+  igdb_id: number
+  nome: string
+  igdb_capa_url?: string | null
+  ano_lancamento?: number | null
+}
+
 export interface CriarListaPayload {
   tipo: ListaTipo
   nome: string
   descricao?: string | null
-  regra?: {
-    tipo: RegraTipo
-    valor?: string | null
-    igdb_id?: number | null
-  } | null
-  meta?: number | null
+  origem?: ListaOrigem | null
+  itens?: CriarListaItemPayload[]
 }
 
 export interface AtualizarListaPayload {
   nome?: string
   descricao?: string | null
-  meta?: number | null
 }
 
 export interface AdicionarItemPayload {
@@ -79,8 +107,13 @@ export interface AdicionarItemPayload {
   ano_lancamento?: number | null
 }
 
-export interface SincronizarResposta extends ListaDetalhada {
+export interface AdicionarItensLoteResposta {
   adicionados: number
+  ja_existentes: number
+}
+
+export interface AdicionarItensLotePayload {
+  itens: CriarListaItemPayload[]
 }
 
 export interface IGDBFranquiaSugestao {
@@ -89,6 +122,8 @@ export interface IGDBFranquiaSugestao {
 }
 
 export type FiltroAba = 'todos' | 'zerados' | 'pendentes'
+
+export type OrdenarCatalogo = 'populares' | 'lancamento' | 'nome'
 
 export interface ListasStore {
   listas: ListaResumo[]
@@ -114,8 +149,19 @@ export interface ListasStore {
   atualizarLista: (id: number, payload: AtualizarListaPayload) => Promise<ListaDetalhada>
   excluirLista: (id: number) => Promise<void>
   adicionarItem: (payload: AdicionarItemPayload) => Promise<ListaItem>
+  adicionarItensLote: (itens: CriarListaItemPayload[]) => Promise<AdicionarItensLoteResposta>
   removerItem: (itemId: number) => Promise<void>
   reordenarItens: (itemIds: number[]) => Promise<void>
   associarZeramento: (itemId: number, jogoZeradoId: number) => Promise<void>
-  sincronizarFranquia: () => Promise<SincronizarResposta>
+}
+
+export interface FiltroCatalogo {
+  origem: OrigemTipo
+  id: number
+  genero_id?: number
+  plataforma_id?: number
+  busca?: string
+  ordenar?: OrdenarCatalogo
+  pagina?: number
+  por_pagina?: number
 }

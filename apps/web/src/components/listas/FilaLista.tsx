@@ -71,7 +71,7 @@ export function FilaLista({ lista }: FilaListaProps) {
     <div className="flex flex-col gap-6">
       <AdicionarJogoInput
         onAdicionar={adicionarItem}
-        placeholder="Adicionar jogo: busque no IGDB ou digite o nome…"
+        placeholder="Adicionar jogo: busque pelo nome…"
         ariaLabel="Adicionar jogo à fila"
       />
 

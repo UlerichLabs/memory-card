@@ -11,7 +11,8 @@ import type {
   CriarListaPayload,
   AtualizarListaPayload,
   AdicionarItemPayload,
-  SincronizarResposta,
+  AdicionarItensLoteResposta,
+  CriarListaItemPayload,
   FiltroAba,
   ListasStore,
 } from '@/types/listas'
@@ -156,10 +157,10 @@ export function ListasProvider({ children, token, initialListas = [], initialLis
     await recarregarAbertaEResumo(listaAberta.id)
   }, [listaAberta, effectiveToken, recarregarAbertaEResumo])
 
-  const sincronizarFranquia = useCallback(async (): Promise<SincronizarResposta> => {
+  const adicionarItensLote = useCallback(async (itens: CriarListaItemPayload[]): Promise<AdicionarItensLoteResposta> => {
     if (!listaAberta) throw new Error('Nenhuma lista aberta')
     setError(null)
-    const resp = await listasService.sincronizarFranquia(listaAberta.id, effectiveToken)
+    const resp = await listasService.adicionarItensLote(listaAberta.id, { itens }, effectiveToken)
     await recarregarAbertaEResumo(listaAberta.id)
     return resp
   }, [listaAberta, effectiveToken, recarregarAbertaEResumo])
@@ -191,7 +192,7 @@ export function ListasProvider({ children, token, initialListas = [], initialLis
     removerItem,
     reordenarItens,
     associarZeramento,
-    sincronizarFranquia,
+    adicionarItensLote,
   }
 
   return createElement(ListasContext.Provider, { value: store }, children)

@@ -13,8 +13,7 @@ const mockFilaLista: ListaDetalhada = {
   tipo: 'fila',
   nome: 'Minha Fila',
   descricao: null,
-  regra: null,
-  meta: null,
+  origem: null,
   total_itens: 3,
   itens_pendentes: 2,
   progresso: null,
@@ -85,10 +84,10 @@ function renderFilaLista(storeOverrides: Partial<ListasStore> = {}, jogosOverrid
     atualizarLista: vi.fn(),
     excluirLista: vi.fn(),
     adicionarItem: vi.fn(),
+    adicionarItensLote: vi.fn(),
     removerItem: vi.fn(),
     reordenarItens: vi.fn(),
     associarZeramento: vi.fn(),
-    sincronizarFranquia: vi.fn(),
     ...storeOverrides,
   }
 

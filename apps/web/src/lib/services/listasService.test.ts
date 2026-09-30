@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import * as apiModule from '@/lib/api'
 import { listasService } from './listasService'
-import type { CriarListaPayload, AtualizarListaPayload, AdicionarItemPayload } from '@/types/listas'
+import type { CriarListaPayload, AtualizarListaPayload, AdicionarItemPayload, FiltroCatalogo } from '@/types/listas'
 
 describe('listasService', () => {
   afterEach(() => {
@@ -29,7 +29,7 @@ describe('listasService', () => {
 
   it('atualizar chama PUT /listas/:id com payload', async () => {
     const spy = vi.spyOn(apiModule, 'apiRequest').mockResolvedValue({ id: 10 })
-    const payload: AtualizarListaPayload = { nome: 'Novo Nome', meta: 10 }
+    const payload: AtualizarListaPayload = { nome: 'Novo Nome' }
     await listasService.atualizar(10, payload, 'tok')
     expect(spy).toHaveBeenCalledWith('/listas/10', { method: 'PUT', body: JSON.stringify(payload) }, 'tok')
   })
@@ -45,6 +45,13 @@ describe('listasService', () => {
     const payload: AdicionarItemPayload = { nome: 'Chrono Trigger', igdb_id: 100 }
     await listasService.adicionarItem(7, payload, 'tok')
     expect(spy).toHaveBeenCalledWith('/listas/7/itens', { method: 'POST', body: JSON.stringify(payload) }, 'tok')
+  })
+
+  it('adicionarItensLote chama POST com os itens', async () => {
+    const spy = vi.spyOn(apiModule, 'apiRequest').mockResolvedValue({ adicionados: 2, ja_existentes: 1 })
+    const itens = [{ igdb_id: 1, nome: 'Zelda' }]
+    await listasService.adicionarItensLote(7, { itens }, 'tok')
+    expect(spy).toHaveBeenCalledWith('/listas/7/itens/lote', { method: 'POST', body: JSON.stringify({ itens }) }, 'tok')
   })
 
   it('removerItem chama DELETE /listas/:id/itens/:itemId', async () => {
@@ -65,24 +72,32 @@ describe('listasService', () => {
     expect(spy).toHaveBeenCalledWith('/listas/7/itens/20/zeramento', { method: 'PUT', body: JSON.stringify({ jogo_zerado_id: 99 }) }, 'tok')
   })
 
-  it('sincronizarFranquia chama POST /listas/:id/sincronizar', async () => {
-    const spy = vi.spyOn(apiModule, 'apiRequest').mockResolvedValue({ adicionados: 2 })
-    await listasService.sincronizarFranquia(7, 'tok')
-    expect(spy).toHaveBeenCalledWith('/listas/7/sincronizar', { method: 'POST' }, 'tok')
-  })
-
-  it('buscarFranquiasIGDB chama GET /igdb/franquias/busca', async () => {
+  it('buscarFranquias chama GET /igdb/franquias/busca', async () => {
     const spy = vi.spyOn(apiModule, 'apiRequest').mockResolvedValue([{ id: 1, name: 'Mario' }])
-    const res = await listasService.buscarFranquiasIGDB('Mario', 'tok')
+    const res = await listasService.buscarFranquias('Mario', 'tok')
     expect(spy).toHaveBeenCalledWith('/igdb/franquias/busca?q=Mario', { method: 'GET', signal: undefined }, 'tok')
     expect(res).toEqual([{ id: 1, name: 'Mario' }])
   })
 
-  it('buscarFranquiasIGDB retorna array vazio se sinal for abortado', async () => {
+  it('buscarFranquias retorna array vazio se sinal for abortado', async () => {
     const controller = new AbortController()
     controller.abort()
     vi.spyOn(apiModule, 'apiRequest').mockRejectedValue(new DOMException('aborted', 'AbortError'))
-    const res = await listasService.buscarFranquiasIGDB('Mario', 'tok', controller.signal)
+    const res = await listasService.buscarFranquias('Mario', 'tok', controller.signal)
     expect(res).toEqual([])
+  })
+
+  it('buscarCatalogo monta os filtros da origem', async () => {
+    const spy = vi.spyOn(apiModule, 'apiRequest').mockResolvedValue({ itens: [], meta: { pagina: 1 } })
+    const filtro: FiltroCatalogo = { origem: 'genero', id: 12, plataforma_id: 130, busca: 'Mario & Zelda', ordenar: 'nome', pagina: 2, por_pagina: 60 }
+    await listasService.buscarCatalogo(filtro, 'tok')
+    expect(spy).toHaveBeenCalledWith('/catalogo/jogos?origem=genero&id=12&plataforma_id=130&busca=Mario+%26+Zelda&ordenar=nome&pagina=2&por_pagina=60', { method: 'GET', signal: undefined }, 'tok')
+  })
+
+  it('lista plataformas e gêneros no formato do autocomplete', async () => {
+    const spy = vi.spyOn(apiModule, 'apiRequest')
+    spy.mockResolvedValueOnce([{ id: 130, name: 'Super Nintendo' }]).mockResolvedValueOnce([{ id: 12, nome: 'RPG' }])
+    await expect(listasService.listarPlataformas('tok')).resolves.toEqual([{ id: 130, nome: 'Super Nintendo' }])
+    await expect(listasService.listarGeneros('tok')).resolves.toEqual([{ id: 12, nome: 'RPG' }])
   })
 })
