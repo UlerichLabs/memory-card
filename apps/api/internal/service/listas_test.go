@@ -1110,7 +1110,64 @@ func TestListasService_CalcularLista_ItensIgnorados(t *testing.T) {
 	if len(detalhes) != 2 {
 		t.Fatalf("esperava 2 itens nos detalhes, obteve %d", len(detalhes))
 	}
-	if !detalhes[0].Ignorado || detalhes[1].Ignorado {
-		t.Fatalf("esperava detalhe 0 ignorado e detalhe 1 ativo")
+	if detalhes[0].Ignorado || !detalhes[1].Ignorado {
+		t.Fatalf("esperava detalhe ativo antes do ignorado")
+	}
+}
+
+func TestListasService_CalcularLista_OrdenaDesafioPorLancamento(t *testing.T) {
+	ano1986 := 1986
+	ano1997 := 1997
+	ano2010 := 2010
+	itens := []*repository.ListaItem{
+		{ID: 4, Nome: "Sem ano", Posicao: 1},
+		{ID: 3, Nome: "Lords of Shadow", Posicao: 2, AnoLancamento: &ano2010},
+		{ID: 2, Nome: "Castlevania", Posicao: 3, AnoLancamento: &ano1986},
+		{ID: 1, Nome: "Symphony of the Night", Posicao: 4, AnoLancamento: &ano1997},
+	}
+	lista := &repository.Lista{ID: 1, Tipo: "desafio", Nome: "Castlevania"}
+	svc := NewListasService(&mockListasRepo{}, &mockListasIGDB{})
+	_, detalhes := svc.calcularLista(lista, nil, itens)
+
+	ordemEsperada := []string{"Castlevania", "Symphony of the Night", "Lords of Shadow", "Sem ano"}
+	for index, nome := range ordemEsperada {
+		if detalhes[index].Nome != nome {
+			t.Fatalf("posição %d: nome=%q, esperado %q", index, detalhes[index].Nome, nome)
+		}
+	}
+}
+
+func TestListasService_CalcularLista_DesempataDesafioPorNomeEAId(t *testing.T) {
+	ano := 1990
+	itens := []*repository.ListaItem{
+		{ID: 3, Nome: "Zelda", Posicao: 1, AnoLancamento: &ano},
+		{ID: 2, Nome: "Água", Posicao: 2, AnoLancamento: &ano},
+		{ID: 1, Nome: "agua", Posicao: 3, AnoLancamento: &ano},
+	}
+	lista := &repository.Lista{ID: 1, Tipo: "desafio", Nome: "Teste"}
+	svc := NewListasService(&mockListasRepo{}, &mockListasIGDB{})
+	_, detalhes := svc.calcularLista(lista, nil, itens)
+
+	ordemEsperada := []int64{1, 2, 3}
+	for index, id := range ordemEsperada {
+		if detalhes[index].ID != id {
+			t.Fatalf("posição %d: id=%d, esperado %d", index, detalhes[index].ID, id)
+		}
+	}
+}
+
+func TestListasService_CalcularLista_MantemFilaPorPosicao(t *testing.T) {
+	ano1986 := 1986
+	ano2010 := 2010
+	itens := []*repository.ListaItem{
+		{ID: 1, Nome: "Mais novo", Posicao: 1, AnoLancamento: &ano2010},
+		{ID: 2, Nome: "Mais antigo", Posicao: 2, AnoLancamento: &ano1986},
+	}
+	lista := &repository.Lista{ID: 1, Tipo: "fila", Nome: "Fila"}
+	svc := NewListasService(&mockListasRepo{}, &mockListasIGDB{})
+	_, detalhes := svc.calcularLista(lista, nil, itens)
+
+	if detalhes[0].ID != 1 || detalhes[1].ID != 2 {
+		t.Fatalf("fila reordenada: ids=%d,%d", detalhes[0].ID, detalhes[1].ID)
 	}
 }
