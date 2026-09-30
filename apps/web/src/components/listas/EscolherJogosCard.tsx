@@ -7,10 +7,17 @@ interface EscolherJogosCardProps {
   item: CatalogoItem;
   marcado: boolean;
   jaNaLista: boolean;
+  mostrarRelacionado: boolean;
   onToggle: () => void;
 }
 
-export function EscolherJogosCard({ item, marcado, jaNaLista, onToggle }: EscolherJogosCardProps) {
+export function EscolherJogosCard({
+  item,
+  marcado,
+  jaNaLista,
+  mostrarRelacionado,
+  onToggle,
+}: EscolherJogosCardProps) {
   const capa = formatarCapaIGDB(item.igdb_capa_url ?? undefined, "t_cover_big");
   const capa2x = formatarCapaIGDB(item.igdb_capa_url ?? undefined, "t_cover_big_2x");
   return (
@@ -66,6 +73,15 @@ ${marcado ? "border-2 border-[var(--hall-ouro)]" : "border border-[var(--lista-c
             ].join(" ")}
           >
             Já na lista
+          </span>
+        )}
+        {mostrarRelacionado && !item.ja_zerado && !jaNaLista && (
+          <span
+            className="absolute bottom-1.5 left-1.5 rounded-full border
+              border-[var(--lista-btn-icon-border)] px-[7px] py-[2px] text-[10px]
+              font-bold text-[var(--lista-text-secondary)]"
+          >
+            Relacionado
           </span>
         )}
       </div>

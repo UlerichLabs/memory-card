@@ -26,6 +26,9 @@ function queryCatalogo(filtro: FiltroCatalogo): string {
   if (filtro.ordenar) params.set("ordenar", filtro.ordenar);
   if (filtro.pagina) params.set("pagina", String(filtro.pagina));
   if (filtro.por_pagina) params.set("por_pagina", String(filtro.por_pagina));
+  if (filtro.somente_sugeridos !== undefined) {
+    params.set("somente_sugeridos", String(filtro.somente_sugeridos));
+  }
   return params.toString();
 }
 

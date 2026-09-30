@@ -67,6 +67,7 @@ export interface CatalogoMeta {
   por_pagina: number;
   total: number;
   total_sugeridos: number | null;
+  total_todos: number | null;
 }
 
 export interface CatalogoResposta {
@@ -145,7 +146,10 @@ export interface ListasStore {
   fecharModalExcluir: () => void;
   carregarListas: (signal?: AbortSignal) => Promise<ListaResumo[]>;
   abrirLista: (id: number, signal?: AbortSignal) => Promise<ListaDetalhada>;
-  criarLista: (payload: CriarListaPayload) => Promise<ListaDetalhada>;
+  criarLista: (
+    payload: CriarListaPayload,
+    recarregar?: boolean,
+  ) => Promise<ListaDetalhada>;
   atualizarLista: (
     id: number,
     payload: AtualizarListaPayload,
@@ -169,4 +173,5 @@ export interface FiltroCatalogo {
   ordenar?: OrdenarCatalogo;
   pagina?: number;
   por_pagina?: number;
+  somente_sugeridos?: boolean;
 }

@@ -11,6 +11,7 @@ interface Props {
   revisando: boolean;
   total: number;
   porPagina: number;
+  mostrarRelacionados: boolean;
   onToggle: (item: CatalogoItem) => void;
   onDesmarcar: (id: number) => void;
   onRecarregar: () => void;
@@ -26,6 +27,7 @@ export function EscolherJogosGrade({
   revisando,
   total,
   porPagina,
+  mostrarRelacionados,
   onToggle,
   onDesmarcar,
   onRecarregar,
@@ -54,7 +56,10 @@ export function EscolherJogosGrade({
               key={item.igdb_id}
               className="flex items-center gap-3 rounded-lg border border-[var(--lista-card-border)] p-2"
             >
-              <span className="flex h-11 w-8 shrink-0 items-center justify-center overflow-hidden rounded bg-[var(--lista-cover-bg)]">
+              <span
+                className="flex h-11 w-8 shrink-0 items-center justify-center overflow-hidden
+                  rounded bg-[var(--lista-cover-bg)]"
+              >
                 {item.igdb_capa_url ? (
                   <img
                     src={formatarCapaIGDB(item.igdb_capa_url ?? undefined)}
@@ -108,6 +113,7 @@ export function EscolherJogosGrade({
               item={item}
               marcado={selecionados.has(item.igdb_id) || idsExistentes.has(item.igdb_id)}
               jaNaLista={idsExistentes.has(item.igdb_id)}
+              mostrarRelacionado={mostrarRelacionados && !item.ja_zerado}
               onToggle={() => onToggle(item)}
             />
           ))}
@@ -118,7 +124,8 @@ export function EscolherJogosGrade({
           type="button"
           onClick={onCarregarMais}
           disabled={carregando}
-          className="mx-auto mt-6 flex h-10 items-center rounded-lg border border-[var(--lista-btn-icon-border)] px-4 text-[13px] text-[var(--lista-text-light)]"
+          className="mx-auto mt-6 flex h-10 items-center rounded-lg border
+            border-[var(--lista-btn-icon-border)] px-4 text-[13px] text-[var(--lista-text-light)]"
         >
           {carregando ? "Carregando..." : `Carregar mais ${porPagina}`}
         </button>

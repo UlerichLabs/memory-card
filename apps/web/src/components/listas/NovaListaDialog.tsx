@@ -1,16 +1,23 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { List, Trophy, X, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { useListasStore } from "@/stores/listasStore";
 import { EscolherJogosDialog } from "./EscolherJogosDialog";
 import { OrigemAutocomplete } from "./OrigemAutocomplete";
-import { AJUDA_ORIGEM } from "./listas.constants";
+import { AJUDA_ORIGEM, ROTULOS_ORIGEM } from "./listas.constants";
 import { useNovaListaForm, type ConfiguracaoDesafio } from "./useNovaListaForm";
 
 export function NovaListaDialog() {
   const { isNovaListaOpen, fecharModalNovaLista, listaEmEdicao } = useListasStore();
   const [config, setConfig] = useState<ConfiguracaoDesafio | null>(null);
-  const form = useNovaListaForm(fecharModalNovaLista, setConfig);
+  const fecharTudo = () => {
+    setConfig(null);
+    fecharModalNovaLista();
+  };
+  const form = useNovaListaForm(fecharTudo, setConfig);
+  useEffect(() => {
+    if (!isNovaListaOpen) setConfig(null);
+  }, [isNovaListaOpen]);
   const titulo = form.isEdicao
     ? form.tipo === "desafio"
       ? "Editar desafio"
@@ -22,7 +29,7 @@ export function NovaListaDialog() {
     <>
       <Dialog
         open={isNovaListaOpen && !config}
-        onOpenChange={(open) => !open && fecharModalNovaLista()}
+        onOpenChange={(open) => !open && fecharTudo()}
       >
         <DialogContent
           showCloseButton={false}
@@ -40,7 +47,7 @@ export function NovaListaDialog() {
             <button
               type="button"
               aria-label="Fechar"
-              onClick={fecharModalNovaLista}
+              onClick={fecharTudo}
               className={["flex h-10 w-10 shrink-0 items-center justify-center",
   "rounded-lg text-[var(--lista-text-muted)]", "hover:bg-[var(--bg-surface-alt)]"].join(" ")}
             >
@@ -150,7 +157,7 @@ ${form.isEdicao ? "opacity-60" : ""}`}
   "border-[var(--lista-pill-desafio-border)] bg-[var(--lista-pill-desafio-bg)] text-[var(--hall-ouro)]" :
   "border-transparent text-[var(--lista-text-secondary)]"}`}
                       >
-                        {tipo[0].toUpperCase() + tipo.slice(1)}
+                        {ROTULOS_ORIGEM[tipo]}
                       </button>
                     ))}
                   </div>
@@ -207,7 +214,7 @@ ${form.isEdicao ? "opacity-60" : ""}`}
               <div className="flex items-center gap-3">
                 <button
                   type="button"
-                  onClick={fecharModalNovaLista}
+                  onClick={fecharTudo}
                   className="h-11 rounded-[10px] border border-[var(--lista-btn-icon-border)] px-[18px]
                     text-[14px] font-medium"
                 >
@@ -230,10 +237,10 @@ ${form.tipo === "desafio" && !form.isEdicao ? "bg-[var(--hall-ouro)] text-[var(-
       </Dialog>
       {config && (
         <EscolherJogosDialog
-          open={Boolean(config)}
+          open={isNovaListaOpen && Boolean(config)}
           modo="criar"
           config={config}
-          onClose={fecharModalNovaLista}
+          onClose={fecharTudo}
           onBack={voltar}
         />
       )}

@@ -71,7 +71,7 @@ describe("NovaListaDialog", () => {
     expect(screen.getByText(/todos os jogos da franquia/)).toBeInTheDocument();
     await user.click(screen.getByRole("radio", { name: "Plataforma" }));
     expect(screen.getByText(/jogos da plataforma/)).toBeInTheDocument();
-    await user.click(screen.getByRole("radio", { name: "Genero" }));
+    await user.click(screen.getByRole("radio", { name: "Gênero" }));
     expect(screen.getByText(/jogos do gênero/)).toBeInTheDocument();
   });
   it("mostra erro de nome obrigatório por campo", async () => {

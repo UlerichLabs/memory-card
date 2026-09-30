@@ -18,7 +18,9 @@ export function useCatalogoJogos({ origem, token }: UseCatalogoJogosOptions) {
     por_pagina: 60,
     total: 0,
     total_sugeridos: null as number | null,
+    total_todos: null as number | null,
   });
+  const [somenteSugeridos, setSomenteSugeridos] = useState(origem.tipo === "franquia");
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
   const filtros = useCatalogoFiltros();
@@ -38,6 +40,8 @@ export function useCatalogoJogos({ origem, token }: UseCatalogoJogosOptions) {
           pagina: page,
           generoId: filtros.generoId,
           plataformaId: filtros.plataformaId,
+          somenteSugeridos:
+            origem.tipo === "franquia" ? somenteSugeridos : undefined,
         });
         const resposta = await listasService.buscarCatalogo(filtro, token, atual.signal);
         if (!atual.signal.aborted) {
@@ -64,8 +68,8 @@ export function useCatalogoJogos({ origem, token }: UseCatalogoJogosOptions) {
       filtros.generoId,
       filtros.ordenar,
       filtros.plataformaId,
-      origem.igdb_id,
-      origem.tipo,
+      origem,
+      somenteSugeridos,
       token,
     ],
   );
@@ -82,6 +86,8 @@ export function useCatalogoJogos({ origem, token }: UseCatalogoJogosOptions) {
     carregando,
     erro,
     ...filtros,
+    somenteSugeridos: origem.tipo === "franquia" ? somenteSugeridos : undefined,
+    setSomenteSugeridos,
     carregar,
   };
 }
