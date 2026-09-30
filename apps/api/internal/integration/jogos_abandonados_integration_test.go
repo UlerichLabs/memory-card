@@ -691,4 +691,316 @@ func TestIntegration_JogosAbandonados(t *testing.T) {
 			t.Fatalf("GET /jogos/game-do-ano mudou apos criar abandonados!\nAntes: %s\nDepois: %s", gameDoAnoAntes, gameDoAnoDepois)
 		}
 	})
+
+	t.Run("6_SoftDelete_Mantem_Linha_No_Banco", func(t *testing.T) {
+		usuarioID := criarUsuarioAbandonados(t, env.pool)
+		token := gerarTokenAbandonados(t, env.secret, usuarioID)
+
+		bodyCriar := []byte(`{
+			"nome": "Castlevania: Symphony of the Night",
+			"console": "PS1",
+			"tempo_jogado_horas": 5,
+			"tempo_jogado_minutos": 0,
+			"tempo_jogado_segundos": 0,
+			"motivo": "Perdi o save"
+		}`)
+		reqCriar := httptest.NewRequest(http.MethodPost, "/api/v1/jogos-abandonados", bytes.NewReader(bodyCriar))
+		reqCriar.Header.Set("Authorization", "Bearer "+token)
+		reqCriar.Header.Set("Content-Type", "application/json")
+		wCriar := httptest.NewRecorder()
+		env.router.ServeHTTP(wCriar, reqCriar)
+
+		if wCriar.Code != http.StatusCreated {
+			t.Fatalf("status criacao=%d, body=%s", wCriar.Code, wCriar.Body.String())
+		}
+		var respCriar struct {
+			Data repository.JogoAbandonado `json:"data"`
+		}
+		_ = json.Unmarshal(wCriar.Body.Bytes(), &respCriar)
+		jogoID := respCriar.Data.ID
+		if jogoID <= 0 {
+			t.Fatalf("id invalido apos criacao: %d", jogoID)
+		}
+
+		reqDel := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/api/v1/jogos-abandonados/%d", jogoID), nil)
+		reqDel.Header.Set("Authorization", "Bearer "+token)
+		wDel := httptest.NewRecorder()
+		env.router.ServeHTTP(wDel, reqDel)
+		if wDel.Code != http.StatusNoContent {
+			t.Fatalf("status delete=%d, body=%s", wDel.Code, wDel.Body.String())
+		}
+
+		var (
+			dbID      int32
+			deletedAt sql.NullTime
+		)
+		err := env.pool.QueryRow(context.Background(),
+			"SELECT id, deleted_at FROM jogos_abandonados WHERE id = $1",
+			jogoID,
+		).Scan(&dbID, &deletedAt)
+		if err != nil {
+			t.Fatalf("falha ao consultar jogo abandonado no banco apos delete: %v", err)
+		}
+		if dbID != jogoID {
+			t.Fatalf("id no banco (%d) diferente do esperado (%d)", dbID, jogoID)
+		}
+		if !deletedAt.Valid || deletedAt.Time.IsZero() {
+			t.Fatalf("esperava deleted_at preenchido no banco, obteve: %+v", deletedAt)
+		}
+	})
+
+	t.Run("7_Excluido_Some_De_Listagem_Total_Filtros", func(t *testing.T) {
+		usuarioID := criarUsuarioAbandonados(t, env.pool)
+		token := gerarTokenAbandonados(t, env.secret, usuarioID)
+
+		bodyJogo1 := []byte(`{"nome":"Final Fantasy VII","console":"PlayStation"}`)
+		req1 := httptest.NewRequest(http.MethodPost, "/api/v1/jogos-abandonados", bytes.NewReader(bodyJogo1))
+		req1.Header.Set("Authorization", "Bearer "+token)
+		req1.Header.Set("Content-Type", "application/json")
+		w1 := httptest.NewRecorder()
+		env.router.ServeHTTP(w1, req1)
+		if w1.Code != http.StatusCreated {
+			t.Fatalf("falha ao criar jogo 1: %s", w1.Body.String())
+		}
+		var resp1 struct {
+			Data repository.JogoAbandonado `json:"data"`
+		}
+		_ = json.Unmarshal(w1.Body.Bytes(), &resp1)
+		jogoID1 := resp1.Data.ID
+
+		bodyJogo2 := []byte(`{"nome":"Halo Combat Evolved","console":"Xbox"}`)
+		req2 := httptest.NewRequest(http.MethodPost, "/api/v1/jogos-abandonados", bytes.NewReader(bodyJogo2))
+		req2.Header.Set("Authorization", "Bearer "+token)
+		req2.Header.Set("Content-Type", "application/json")
+		w2 := httptest.NewRecorder()
+		env.router.ServeHTTP(w2, req2)
+		if w2.Code != http.StatusCreated {
+			t.Fatalf("falha ao criar jogo 2: %s", w2.Body.String())
+		}
+		var resp2 struct {
+			Data repository.JogoAbandonado `json:"data"`
+		}
+		_ = json.Unmarshal(w2.Body.Bytes(), &resp2)
+		jogoID2 := resp2.Data.ID
+
+		reqDel := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/api/v1/jogos-abandonados/%d", jogoID2), nil)
+		reqDel.Header.Set("Authorization", "Bearer "+token)
+		wDel := httptest.NewRecorder()
+		env.router.ServeHTTP(wDel, reqDel)
+		if wDel.Code != http.StatusNoContent {
+			t.Fatalf("status delete=%d, body=%s", wDel.Code, wDel.Body.String())
+		}
+
+		reqListar := httptest.NewRequest(http.MethodGet, "/api/v1/jogos-abandonados", nil)
+		reqListar.Header.Set("Authorization", "Bearer "+token)
+		wListar := httptest.NewRecorder()
+		env.router.ServeHTTP(wListar, reqListar)
+		if wListar.Code != http.StatusOK {
+			t.Fatalf("status listar=%d, body=%s", wListar.Code, wListar.Body.String())
+		}
+		var respListar struct {
+			Data []repository.JogoAbandonado `json:"data"`
+			Meta struct {
+				Total int64 `json:"total"`
+			} `json:"meta"`
+		}
+		_ = json.Unmarshal(wListar.Body.Bytes(), &respListar)
+		if respListar.Meta.Total != 1 || len(respListar.Data) != 1 {
+			t.Fatalf("esperava total 1 na listagem, obteve meta=%d, len=%d", respListar.Meta.Total, len(respListar.Data))
+		}
+		if respListar.Data[0].ID != jogoID1 {
+			t.Fatalf("esperava apenas jogo 1 (%d) na listagem, obteve id=%d", jogoID1, respListar.Data[0].ID)
+		}
+
+		reqTotal := httptest.NewRequest(http.MethodGet, "/api/v1/jogos-abandonados/total", nil)
+		reqTotal.Header.Set("Authorization", "Bearer "+token)
+		wTotal := httptest.NewRecorder()
+		env.router.ServeHTTP(wTotal, reqTotal)
+		if wTotal.Code != http.StatusOK {
+			t.Fatalf("status total=%d, body=%s", wTotal.Code, wTotal.Body.String())
+		}
+		var respTotal struct {
+			Data struct {
+				Total int64 `json:"total"`
+			} `json:"data"`
+		}
+		_ = json.Unmarshal(wTotal.Body.Bytes(), &respTotal)
+		if respTotal.Data.Total != 1 {
+			t.Fatalf("esperava total 1, obteve %d", respTotal.Data.Total)
+		}
+
+		reqFiltros := httptest.NewRequest(http.MethodGet, "/api/v1/jogos-abandonados/filtros", nil)
+		reqFiltros.Header.Set("Authorization", "Bearer "+token)
+		wFiltros := httptest.NewRecorder()
+		env.router.ServeHTTP(wFiltros, reqFiltros)
+		if wFiltros.Code != http.StatusOK {
+			t.Fatalf("status filtros=%d, body=%s", wFiltros.Code, wFiltros.Body.String())
+		}
+		var respFiltros struct {
+			Data struct {
+				Consoles []string `json:"consoles"`
+			} `json:"data"`
+		}
+		_ = json.Unmarshal(wFiltros.Body.Bytes(), &respFiltros)
+		if len(respFiltros.Data.Consoles) != 1 || respFiltros.Data.Consoles[0] != "PlayStation" {
+			t.Fatalf("esperava filtros apenas com PlayStation, obteve %+v", respFiltros.Data.Consoles)
+		}
+	})
+
+	t.Run("8_Excluido_Retorna_404", func(t *testing.T) {
+		usuarioID := criarUsuarioAbandonados(t, env.pool)
+		token := gerarTokenAbandonados(t, env.secret, usuarioID)
+
+		bodyCriar := []byte(`{"nome":"Silent Hill 2","console":"PS2"}`)
+		reqCriar := httptest.NewRequest(http.MethodPost, "/api/v1/jogos-abandonados", bytes.NewReader(bodyCriar))
+		reqCriar.Header.Set("Authorization", "Bearer "+token)
+		reqCriar.Header.Set("Content-Type", "application/json")
+		wCriar := httptest.NewRecorder()
+		env.router.ServeHTTP(wCriar, reqCriar)
+		if wCriar.Code != http.StatusCreated {
+			t.Fatalf("status criacao=%d, body=%s", wCriar.Code, wCriar.Body.String())
+		}
+		var respCriar struct {
+			Data repository.JogoAbandonado `json:"data"`
+		}
+		_ = json.Unmarshal(wCriar.Body.Bytes(), &respCriar)
+		jogoID := respCriar.Data.ID
+
+		reqDel := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/api/v1/jogos-abandonados/%d", jogoID), nil)
+		reqDel.Header.Set("Authorization", "Bearer "+token)
+		wDel := httptest.NewRecorder()
+		env.router.ServeHTTP(wDel, reqDel)
+		if wDel.Code != http.StatusNoContent {
+			t.Fatalf("status delete=%d, body=%s", wDel.Code, wDel.Body.String())
+		}
+
+		type erroPayload struct {
+			Error struct {
+				Codigo   string `json:"codigo"`
+				Mensagem string `json:"mensagem"`
+			} `json:"error"`
+		}
+
+		reqGet := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/v1/jogos-abandonados/%d", jogoID), nil)
+		reqGet.Header.Set("Authorization", "Bearer "+token)
+		wGet := httptest.NewRecorder()
+		env.router.ServeHTTP(wGet, reqGet)
+		if wGet.Code != http.StatusNotFound {
+			t.Fatalf("esperava 404 em GET de excluido, obteve %d", wGet.Code)
+		}
+		var errGet erroPayload
+		_ = json.Unmarshal(wGet.Body.Bytes(), &errGet)
+		if errGet.Error.Codigo != "abandonados.nao_encontrado" {
+			t.Fatalf("codigo erro GET inesperado: %s", errGet.Error.Codigo)
+		}
+
+		bodyPut := []byte(`{"nome":"Silent Hill 2 Director's Cut","console":"PS2"}`)
+		reqPut := httptest.NewRequest(
+			http.MethodPut,
+			fmt.Sprintf("/api/v1/jogos-abandonados/%d", jogoID),
+			bytes.NewReader(bodyPut),
+		)
+		reqPut.Header.Set("Authorization", "Bearer "+token)
+		reqPut.Header.Set("Content-Type", "application/json")
+		wPut := httptest.NewRecorder()
+		env.router.ServeHTTP(wPut, reqPut)
+		if wPut.Code != http.StatusNotFound {
+			t.Fatalf("esperava 404 em PUT de excluido, obteve %d", wPut.Code)
+		}
+		var errPut erroPayload
+		_ = json.Unmarshal(wPut.Body.Bytes(), &errPut)
+		if errPut.Error.Codigo != "abandonados.nao_encontrado" {
+			t.Fatalf("codigo erro PUT inesperado: %s", errPut.Error.Codigo)
+		}
+
+		reqDel2 := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/api/v1/jogos-abandonados/%d", jogoID), nil)
+		reqDel2.Header.Set("Authorization", "Bearer "+token)
+		wDel2 := httptest.NewRecorder()
+		env.router.ServeHTTP(wDel2, reqDel2)
+		if wDel2.Code != http.StatusNotFound {
+			t.Fatalf("esperava 404 em segundo DELETE de excluido, obteve %d", wDel2.Code)
+		}
+		var errDel2 erroPayload
+		_ = json.Unmarshal(wDel2.Body.Bytes(), &errDel2)
+		if errDel2.Error.Codigo != "abandonados.nao_encontrado" {
+			t.Fatalf("codigo erro DELETE inesperado: %s", errDel2.Error.Codigo)
+		}
+	})
+
+	t.Run("9_Excluir_Abandonado_Nao_Afeta_Zerados", func(t *testing.T) {
+		usuarioID := criarUsuarioAbandonados(t, env.pool)
+		token := gerarTokenAbandonados(t, env.secret, usuarioID)
+
+		bodyJogoZerado := []byte(`{
+			"nome": "Super Mario World",
+			"console": "SNES",
+			"finalizado_em": "2026-05-01T10:00:00Z",
+			"tempo_jogado": 7200,
+			"nota": 10,
+			"dificuldade": "A"
+		}`)
+		reqJogo := httptest.NewRequest(http.MethodPost, "/api/v1/jogos", bytes.NewReader(bodyJogoZerado))
+		reqJogo.Header.Set("Authorization", "Bearer "+token)
+		reqJogo.Header.Set("Content-Type", "application/json")
+		wJogo := httptest.NewRecorder()
+		env.router.ServeHTTP(wJogo, reqJogo)
+		if wJogo.Code != http.StatusCreated {
+			t.Fatalf("falha ao criar jogo zerado: %s", wJogo.Body.String())
+		}
+
+		bodyAbandonado := []byte(`{
+			"nome": "Donkey Kong Country",
+			"console": "SNES",
+			"tempo_jogado": 1800
+		}`)
+		reqAb := httptest.NewRequest(http.MethodPost, "/api/v1/jogos-abandonados", bytes.NewReader(bodyAbandonado))
+		reqAb.Header.Set("Authorization", "Bearer "+token)
+		reqAb.Header.Set("Content-Type", "application/json")
+		wAb := httptest.NewRecorder()
+		env.router.ServeHTTP(wAb, reqAb)
+		if wAb.Code != http.StatusCreated {
+			t.Fatalf("falha ao criar abandonado: %s", wAb.Body.String())
+		}
+		var respAb struct {
+			Data repository.JogoAbandonado `json:"data"`
+		}
+		_ = json.Unmarshal(wAb.Body.Bytes(), &respAb)
+		abandonadoID := respAb.Data.ID
+
+		fazerChamada := func(url string) string {
+			req := httptest.NewRequest(http.MethodGet, url, nil)
+			req.Header.Set("Authorization", "Bearer "+token)
+			w := httptest.NewRecorder()
+			env.router.ServeHTTP(w, req)
+			if w.Code != http.StatusOK {
+				t.Fatalf("falha em GET %s (%d): %s", url, w.Code, w.Body.String())
+			}
+			return w.Body.String()
+		}
+
+		jogosAntes := fazerChamada("/api/v1/jogos")
+		gameDoAnoAntes := fazerChamada("/api/v1/jogos/game-do-ano")
+
+		reqDel := httptest.NewRequest(
+			http.MethodDelete,
+			fmt.Sprintf("/api/v1/jogos-abandonados/%d", abandonadoID),
+			nil,
+		)
+		reqDel.Header.Set("Authorization", "Bearer "+token)
+		wDel := httptest.NewRecorder()
+		env.router.ServeHTTP(wDel, reqDel)
+		if wDel.Code != http.StatusNoContent {
+			t.Fatalf("status delete abandonado=%d, body=%s", wDel.Code, wDel.Body.String())
+		}
+
+		jogosDepois := fazerChamada("/api/v1/jogos")
+		gameDoAnoDepois := fazerChamada("/api/v1/jogos/game-do-ano")
+
+		if jogosAntes != jogosDepois {
+			t.Fatalf("GET /jogos mudou apos excluir abandonado!\nAntes: %s\nDepois: %s", jogosAntes, jogosDepois)
+		}
+		if gameDoAnoAntes != gameDoAnoDepois {
+			t.Fatalf("GET /jogos/game-do-ano mudou apos excluir abandonado!\nAntes: %s\nDepois: %s", gameDoAnoAntes, gameDoAnoDepois)
+		}
+	})
 }
