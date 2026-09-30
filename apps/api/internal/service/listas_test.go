@@ -28,6 +28,7 @@ type mockListasRepo struct {
 	listarItensPorListaFn       func(ctx context.Context, listaID int64, usuarioID int32) ([]*repository.ListaItem, error)
 	listarTodosItensDoUsuarioFn func(ctx context.Context, usuarioID int32) ([]*repository.ListaItem, error)
 	excluirItemERecompactarFn   func(ctx context.Context, itemID int64, listaID int64, usuarioID int32) error
+	adicionarItensLoteFn        func(ctx context.Context, listaID int64, usuarioID int32, itens []repository.CriarItemParams) (repository.AdicionarItensLoteResultado, error)
 	reordenarItensFn            func(ctx context.Context, listaID int64, usuarioID int32, itemIDs []int64) ([]*repository.ListaItem, error)
 	associarJogoZeradoFn        func(ctx context.Context, itemID int64, listaID int64, usuarioID int32, jogoZeradoID int32) (*repository.ListaItem, error)
 	desassociarJogoZeradoFn     func(ctx context.Context, itemID int64, listaID int64, usuarioID int32) (*repository.ListaItem, error)
@@ -87,7 +88,10 @@ func (m *mockListasRepo) CriarItem(ctx context.Context, listaID int64, usuarioID
 	return &repository.ListaItem{ID: 10, ListaID: listaID, IgdbID: params.IgdbID, Nome: params.Nome, Posicao: 1, CreatedAt: time.Now()}, nil
 }
 
-func (m *mockListasRepo) AdicionarItensLote(context.Context, int64, int32, []repository.CriarItemParams) (repository.AdicionarItensLoteResultado, error) {
+func (m *mockListasRepo) AdicionarItensLote(ctx context.Context, listaID int64, usuarioID int32, itens []repository.CriarItemParams) (repository.AdicionarItensLoteResultado, error) {
+	if m.adicionarItensLoteFn != nil {
+		return m.adicionarItensLoteFn(ctx, listaID, usuarioID, itens)
+	}
 	return repository.AdicionarItensLoteResultado{}, nil
 }
 
@@ -998,6 +1002,114 @@ func TestListasService_CriarLista_ItensIgnorados(t *testing.T) {
 			t.Fatalf("esperava item 0 ignorado e item 1 ativo, obteve %+v", capturedItens)
 		}
 	})
+}
+
+func TestListasService_CriarListaComJogos_ValidaERemoveDuplicados(t *testing.T) {
+	var capturados []repository.CriarItemParams
+	repo := &mockListasRepo{
+		criarComItensFn: func(ctx context.Context, params repository.CriarListaComItensParams) (*repository.Lista, []*repository.ListaItem, error) {
+			capturados = params.Itens
+			return &repository.Lista{ID: 1, UsuarioID: params.Lista.UsuarioID, Tipo: params.Lista.Tipo, Nome: params.Lista.Nome}, nil, nil
+		},
+	}
+	servico := NewListasService(repo, &mockListasIGDB{})
+
+	origem := &CriarListaOrigemInput{Tipo: "franquia", IgdbID: 596, Nome: "Zelda"}
+	_, err := servico.CriarLista(context.Background(), CriarListaInput{
+		UsuarioID: 1,
+		Tipo:      "desafio",
+		Nome:      "Zelda",
+		Origem:    origem,
+		Itens: []CriarListaItemInput{
+			{IgdbID: 10, Nome: "Primeiro"},
+			{IgdbID: 10, Nome: "Duplicado"},
+			{IgdbID: 11, Nome: "Segundo"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("erro inesperado: %v", err)
+	}
+	if len(capturados) != 2 || capturados[0].Posicao != 1 || capturados[1].Posicao != 2 {
+		t.Fatalf("itens persistidos inesperados: %+v", capturados)
+	}
+}
+
+func TestListasService_CriarListaComJogos_ValidaLimites(t *testing.T) {
+	origem := &CriarListaOrigemInput{Tipo: "franquia", IgdbID: 596, Nome: "Zelda"}
+	testes := []struct {
+		nome  string
+		input CriarListaInput
+		erro  error
+	}{
+		{
+			nome:  "sem itens",
+			input: CriarListaInput{UsuarioID: 1, Tipo: "desafio", Nome: "Zelda", Origem: origem},
+			erro:  ErrListaDesafioSemJogos,
+		},
+		{
+			nome: "mais de mil itens",
+			input: func() CriarListaInput {
+				itens := make([]CriarListaItemInput, 1001)
+				for index := range itens {
+					itens[index] = CriarListaItemInput{IgdbID: int32(index + 1), Nome: "Jogo"}
+				}
+				return CriarListaInput{UsuarioID: 1, Tipo: "desafio", Nome: "Zelda", Origem: origem, Itens: itens}
+			}(),
+			erro: ErrListaItensDemais,
+		},
+		{
+			nome: "meta proibida",
+			input: CriarListaInput{
+				UsuarioID: 1,
+				Tipo:      "desafio",
+				Nome:      "Zelda",
+				Origem:    origem,
+				Meta:      func() *int { valor := 1; return &valor }(),
+			},
+			erro: ErrListaCampoNaoPermitido,
+		},
+		{
+			nome:  "regra proibida",
+			input: CriarListaInput{UsuarioID: 1, Tipo: "desafio", Nome: "Zelda", Origem: origem, Regra: &CriarListaRegraInput{Tipo: "manual"}},
+			erro:  ErrListaCampoNaoPermitido,
+		},
+	}
+
+	for _, teste := range testes {
+		t.Run(teste.nome, func(t *testing.T) {
+			servico := NewListasService(&mockListasRepo{}, &mockListasIGDB{})
+			_, err := servico.CriarLista(context.Background(), teste.input)
+			if !errors.Is(err, teste.erro) {
+				t.Fatalf("erro=%v, esperado=%v", err, teste.erro)
+			}
+		})
+	}
+}
+
+func TestListasService_AdicionarItensLote_DeduplicaEConta(t *testing.T) {
+	var capturados []repository.CriarItemParams
+	repo := &mockListasRepo{
+		adicionarItensLoteFn: func(ctx context.Context, listaID int64, usuarioID int32, itens []repository.CriarItemParams) (repository.AdicionarItensLoteResultado, error) {
+			capturados = itens
+			return repository.AdicionarItensLoteResultado{Adicionados: 1, JaExistentes: 1}, nil
+		},
+	}
+	servico := NewListasService(repo, &mockListasIGDB{})
+	resultado, err := servico.AdicionarItensLote(context.Background(), AdicionarItensLoteInput{
+		ListaID:   1,
+		UsuarioID: 2,
+		Itens: []CriarListaItemInput{
+			{IgdbID: 10, Nome: "Um"},
+			{IgdbID: 10, Nome: "Um repetido"},
+			{IgdbID: 11, Nome: "Dois"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("erro inesperado: %v", err)
+	}
+	if resultado.Adicionados != 1 || resultado.JaExistentes != 2 || len(capturados) != 2 {
+		t.Fatalf("resultado inesperado: %+v itens=%+v", resultado, capturados)
+	}
 }
 
 func TestListasService_ExcluirItem_Desafio(t *testing.T) {

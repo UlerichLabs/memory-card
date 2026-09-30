@@ -108,4 +108,45 @@ describe("EscolherJogosDialog", () => {
     expect(screen.getByText("Origem inválida.")).toBeInTheDocument();
     expect(screen.queryByText("Marcar visíveis")).not.toBeInTheDocument();
   });
+
+  it("cria o desafio com origem e itens selecionados", async () => {
+    const user = userEvent.setup();
+    const criarLista = vi.fn().mockResolvedValue({ id: 9 });
+    const onClose = vi.fn();
+    renderDialog({ criarLista }, { onClose });
+    await user.click(screen.getByRole("button", { name: "Criar desafio" }));
+
+    expect(criarLista).toHaveBeenCalledWith(
+      {
+        tipo: "desafio",
+        nome: "Desafio",
+        descricao: null,
+        origem,
+        itens: [{ igdb_id: 1, nome: "Ocarina", ano_lancamento: 1998 }],
+      },
+      false,
+    );
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it("adiciona itens em lote e informa a quantidade adicionada", async () => {
+    const user = userEvent.setup();
+    const adicionarItensLote = vi.fn().mockResolvedValue({ adicionados: 1 });
+    const onAdded = vi.fn();
+    renderDialog(
+      { adicionarItensLote },
+      {
+        modo: "adicionar",
+        config: undefined,
+        lista: { origem, nome: "Atual", itens: [], id: 1 } as never,
+        onAdded,
+      },
+    );
+    await user.click(screen.getByRole("button", { name: "Adicionar 1 jogos" }));
+
+    expect(adicionarItensLote).toHaveBeenCalledWith([
+      { igdb_id: 1, nome: "Ocarina", ano_lancamento: 1998 },
+    ]);
+    expect(onAdded).toHaveBeenCalledWith(1);
+  });
 });

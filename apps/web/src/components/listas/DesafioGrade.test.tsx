@@ -128,6 +128,22 @@ describe("DesafioGrade", () => {
     expect(screen.queryByRole("button", { name: /Adicionar jogos/ })).not.toBeInTheDocument();
   });
 
+  it("filtra a grade pela aba selecionada", async () => {
+    const setFiltroAba = vi.fn();
+    renderGrade({ setFiltroAba });
+    await screen.getByRole("tab", { name: /Pendentes · 1/ }).click();
+    expect(setFiltroAba).toHaveBeenCalledWith("pendentes");
+  });
+
+  it("não exibe Zerei! em card já zerado", () => {
+    const listaConcluida = {
+      ...lista,
+      itens: lista.itens.map((item) => ({ ...item, zerado: true })),
+    };
+    renderGrade({}, listaConcluida);
+    expect(screen.queryByRole("button", { name: "Zerei!" })).not.toBeInTheDocument();
+  });
+
   it("abre o registro e associa o zeramento no card pendente", async () => {
     const { jogosStore, store } = renderGrade();
     const botoesZerei = screen.getAllByRole("button", { name: "Zerei!" });
