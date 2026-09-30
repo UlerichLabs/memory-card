@@ -6,6 +6,7 @@ import { jogosService } from '@/lib/services/jogosService'
 import { AuthContext } from '@/store/authStore'
 import { ApiError } from '@/lib/api'
 import { mapearErroApiParaCampo } from './listas.utils'
+import { LISTAS_ERRO_GENERICO } from './listas.constants'
 import { novaListaSchema } from './novaLista.schema'
 import type { ListaTipo, RegraTipo, IGDBFranquiaSugestao } from '@/types/listas'
 
@@ -45,6 +46,10 @@ export function useNovaListaForm(onClose: () => void) {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault(); setErrors({})
+    if (meta && !/^\d+$/.test(meta)) {
+      setErrors({ meta: 'A meta deve ser um número inteiro positivo.' })
+      return
+    }
     const metaNum = meta ? parseInt(meta, 10) : undefined
     const parsed = novaListaSchema.safeParse({ tipo, nome, descricao: descricao || undefined, regraTipo: tipo === 'desafio' ? regraTipo : undefined, regraValor: tipo === 'desafio' ? regraValor : undefined, igdbId: tipo === 'desafio' ? igdbId : undefined, meta: metaNum })
     if (!parsed.success) {
@@ -63,7 +68,7 @@ export function useNovaListaForm(onClose: () => void) {
         onClose(); navigate(`/listas/${criada.id}`)
       }
     } catch (err: unknown) {
-      const { campo, mensagem } = err instanceof ApiError ? mapearErroApiParaCampo(err.codigo) : { campo: 'form', mensagem: 'Erro ao salvar a lista.' }
+      const { campo, mensagem } = err instanceof ApiError ? mapearErroApiParaCampo(err.codigo) : { campo: 'form', mensagem: LISTAS_ERRO_GENERICO }
       setErrors((p) => ({ ...p, [campo]: mensagem }))
     } finally {
       setIsSubmitting(false)

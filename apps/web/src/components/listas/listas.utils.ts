@@ -1,4 +1,5 @@
 import type { ListaResumo } from '@/types/listas'
+import { LISTAS_ERROS, LISTAS_ERRO_GENERICO } from './listas.constants'
 
 export function obterIniciaisJogo(nome: string): string {
   const limpo = nome.trim().replace(/^the\s+/i, '').trim()
@@ -31,10 +32,16 @@ export function formatarSubFila(pendentes: number): string {
 }
 
 export function mapearErroApiParaCampo(codigo: string): { campo: string; mensagem: string } {
-  if (codigo.includes('nome')) return { campo: 'nome', mensagem: 'Nome inválido.' }
-  if (codigo.includes('meta')) return { campo: 'meta', mensagem: 'Meta inválida.' }
-  if (codigo.includes('regra') || codigo.includes('franquia')) return { campo: 'regraValor', mensagem: 'Regra inválida.' }
-  return { campo: 'form', mensagem: 'Erro ao salvar a lista.' }
+  const campos: Record<string, string> = {
+    'listas.nome_obrigatorio': 'nome',
+    'listas.nome_invalido': 'nome',
+    'listas.descricao_muito_longa': 'descricao',
+    'listas.meta_invalida': 'meta',
+    'listas.regra_invalida': 'regraValor',
+    'listas.franquia_nao_encontrada': 'regraValor',
+  }
+  const campo = campos[codigo] ?? 'form'
+  return { campo, mensagem: LISTAS_ERROS[codigo] ?? LISTAS_ERRO_GENERICO }
 }
 
 export function versaoLabelIGDB(ano?: number | null, plataformas?: Array<{ name: string }>): string {
