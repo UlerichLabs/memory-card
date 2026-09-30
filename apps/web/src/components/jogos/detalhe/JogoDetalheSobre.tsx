@@ -1,9 +1,9 @@
 export interface JogoDetalheSobreProps {
-  descricao?: string | null
+  descricao?: string | null;
 }
 
 export function JogoDetalheSobre({ descricao }: JogoDetalheSobreProps) {
-  if (!descricao || !descricao.trim()) return null
+  if (!descricao || !descricao.trim()) return null;
 
   return (
     <div className="flex flex-col gap-2.5">
@@ -19,5 +19,5 @@ export function JogoDetalheSobre({ descricao }: JogoDetalheSobreProps) {
         {descricao}
       </p>
     </div>
-  )
+  );
 }

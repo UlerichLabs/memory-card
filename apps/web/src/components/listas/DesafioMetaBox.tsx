@@ -1,25 +1,25 @@
-import { Trophy } from 'lucide-react'
-import { format, parseISO } from 'date-fns'
-import { formatarFaltam } from './listas.utils'
-import type { ListaDetalhada } from '@/types/listas'
+import { Trophy } from "lucide-react";
+import { format, parseISO } from "date-fns";
+import { formatarFaltam } from "./listas.utils";
+import type { ListaDetalhada } from "@/types/listas";
 
 export interface DesafioMetaBoxProps {
-  lista: ListaDetalhada
+  lista: ListaDetalhada;
 }
 
 export function DesafioMetaBox({ lista }: DesafioMetaBoxProps) {
-  const progresso = lista.progresso
-  if (!progresso) return null
+  const progresso = lista.progresso;
+  if (!progresso) return null;
 
-  const { feitos, meta, percentual, concluido, concluido_em } = progresso
-  const faltam = Math.max(0, meta - feitos)
+  const { feitos, meta, percentual, concluido, concluido_em } = progresso;
+  const faltam = Math.max(0, meta - feitos);
 
-  let dataConclusao = ''
+  let dataConclusao = "";
   if (concluido && concluido_em) {
     try {
-      dataConclusao = format(parseISO(concluido_em), 'dd/MM/yyyy')
+      dataConclusao = format(parseISO(concluido_em), "dd/MM/yyyy");
     } catch {
-      dataConclusao = concluido_em.slice(0, 10)
+      dataConclusao = concluido_em.slice(0, 10);
     }
   }
 
@@ -27,14 +27,16 @@ export function DesafioMetaBox({ lista }: DesafioMetaBoxProps) {
     <div
       className={`flex flex-col gap-3.5 rounded-[14px] p-5 sm:p-[20px_22px] transition-colors ${
         concluido
-          ? 'border border-[var(--lista-metabox-concluido-border)] bg-[var(--lista-metabox-concluido-bg)]'
-          : 'border border-[var(--lista-metabox-border)] bg-[var(--lista-metabox-bg)]'
+          ? "border border-[var(--lista-metabox-concluido-border)] bg-[var(--lista-metabox-concluido-bg)]"
+          : "border border-[var(--lista-metabox-border)] bg-[var(--lista-metabox-bg)]"
       }`}
     >
       <div className="flex flex-wrap items-baseline gap-2.5">
         <span
           className={`text-[36px] sm:text-[44px] font-extrabold tracking-[-0.02em] leading-none tabular-nums ${
-            concluido ? 'text-[var(--hall-ouro)]' : 'text-[var(--lista-text-bright)]'
+            concluido
+              ? "text-[var(--hall-ouro)]"
+              : "text-[var(--lista-text-bright)]"
           }`}
         >
           {feitos}
@@ -60,7 +62,9 @@ export function DesafioMetaBox({ lista }: DesafioMetaBoxProps) {
         <div
           style={{ width: `${Math.min(100, Math.max(0, percentual))}%` }}
           className={`h-full transition-all duration-300 ${
-            concluido ? 'bg-[var(--hall-ouro)]' : 'bg-[var(--lista-progress-fill)]'
+            concluido
+              ? "bg-[var(--hall-ouro)]"
+              : "bg-[var(--lista-progress-fill)]"
           }`}
         />
       </div>
@@ -68,7 +72,10 @@ export function DesafioMetaBox({ lista }: DesafioMetaBoxProps) {
       <div className="flex items-center gap-2">
         {concluido ? (
           <>
-            <Trophy className="h-[18px] w-[18px] text-[var(--hall-ouro)] shrink-0" aria-hidden="true" />
+            <Trophy
+              className="h-[18px] w-[18px] text-[var(--hall-ouro)] shrink-0"
+              aria-hidden="true"
+            />
             <span className="text-[14px] font-bold text-[var(--hall-ouro)]">
               Desafio concluído em {dataConclusao} — conquista desbloqueada
             </span>
@@ -80,5 +87,5 @@ export function DesafioMetaBox({ lista }: DesafioMetaBoxProps) {
         )}
       </div>
     </div>
-  )
+  );
 }

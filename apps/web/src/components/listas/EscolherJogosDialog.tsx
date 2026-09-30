@@ -1,37 +1,142 @@
-import { useState } from 'react'
-import { ChevronLeft, Loader2, X } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
-import { ApiError } from '@/lib/api'
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
-import { useListasStore } from '@/stores/listasStore'
-import { resolverMensagemErro, ROTULOS_ORIGEM } from './listas.constants'
-import { EscolherJogosFiltros } from './EscolherJogosFiltros'
-import { EscolherJogosCard } from './EscolherJogosCard'
-import { useEscolherJogos, type EscolherJogosConfig } from './useEscolherJogos'
-import type { ListaDetalhada, ListaOrigem } from '@/types/listas'
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { useListasStore } from "@/stores/listasStore";
+import { EscolherJogosBarra } from "./EscolherJogosBarra";
+import { EscolherJogosCabecalho } from "./EscolherJogosCabecalho";
+import { EscolherJogosGrade } from "./EscolherJogosGrade";
+import { EscolherJogosRodape } from "./EscolherJogosRodape";
+import { useEscolherJogos } from "./useEscolherJogos";
+import { useEnviarSelecao } from "./useEnviarSelecao";
+import { OrigemInvalida } from "./OrigemInvalida";
+import type { ConteudoEscolhaProps, EscolherJogosDialogProps } from "./EscolherJogosDialog.types";
 
-interface EscolherJogosDialogProps { open: boolean; modo: 'criar' | 'adicionar'; config?: EscolherJogosConfig; lista?: ListaDetalhada; onClose: () => void; onBack?: () => void; onAdded?: (quantidade: number) => void }
-
-export function EscolherJogosDialog({ open, modo, config, lista, onClose, onBack, onAdded }: EscolherJogosDialogProps) {
-  const navigate = useNavigate(); const { criarLista, adicionarItensLote } = useListasStore(); const origem = config?.origem ?? lista?.origem
-  const [revisando, setRevisando] = useState(false); const [marcando, setMarcando] = useState(false); const [enviando, setEnviando] = useState(false)
-  if (!origem) return null
-  return <EscolherJogosDialogContent open={open} modo={modo} config={config} lista={lista} origem={origem} revisando={revisando} setRevisando={setRevisando} marcando={marcando} setMarcando={setMarcando} enviando={enviando} setEnviando={setEnviando} onClose={onClose} onBack={onBack} onAdded={onAdded} criarLista={criarLista} adicionarItensLote={adicionarItensLote} navigate={navigate} />
+export function EscolherJogosDialog({
+  open,
+  modo,
+  config,
+  lista,
+  onClose,
+  onBack,
+  onAdded,
+}: EscolherJogosDialogProps) {
+  const navigate = useNavigate();
+  const store = useListasStore();
+  const origem = config?.origem ?? lista?.origem;
+  if (!origem) return null;
+  if (origem.igdb_id === null) return <OrigemInvalida open={open} onClose={onClose} />;
+  return (
+    <ConteudoEscolha
+      origem={origem}
+      modo={modo}
+      config={config}
+      lista={lista}
+      open={open}
+      onClose={onClose}
+      onBack={onBack}
+      onAdded={onAdded}
+      navigate={navigate}
+      store={store}
+    />
+  );
 }
 
-interface ContentProps extends EscolherJogosDialogProps { origem: ListaOrigem; revisando: boolean; setRevisando: (valor: boolean) => void; marcando: boolean; setMarcando: (valor: boolean) => void; enviando: boolean; setEnviando: (valor: boolean) => void; criarLista: ReturnType<typeof useListasStore>['criarLista']; adicionarItensLote: ReturnType<typeof useListasStore>['adicionarItensLote']; navigate: ReturnType<typeof useNavigate> }
-
-function EscolherJogosDialogContent({ open, modo, config, lista, origem, revisando, setRevisando, marcando, setMarcando, enviando, setEnviando, onClose, onBack, onAdded, criarLista, adicionarItensLote, navigate }: ContentProps) {
-  const jogo = useEscolherJogos({ origem, existentes: lista?.itens, modo }); const [erroEnvio, setErroEnvio] = useState<string | null>(null)
-  const selecionados = jogo.payload; const totalMeta = modo === 'criar' ? selecionados.length : (lista?.itens.length ?? 0) + selecionados.length
-  const removerSelecionado = (id: number) => { const item = jogo.itens.find((catalogo) => catalogo.igdb_id === id); if (item) jogo.alternar(item) }
-  const marcarVisiveis = () => jogo.itens.forEach((item) => { if (!jogo.idsExistentes.has(item.igdb_id) && !jogo.selecionados.has(item.igdb_id)) jogo.alternar(item) })
-  const enviar = async () => { setEnviando(true); setErroEnvio(null); try { if (modo === 'criar' && config) { const criada = await criarLista({ tipo: 'desafio', nome: config.nome, descricao: config.descricao, origem: config.origem, itens: selecionados }); onClose(); navigate(`/listas/${criada.id}`) } else if (modo === 'adicionar') { const resposta = await adicionarItensLote(selecionados); onAdded?.(resposta.adicionados); onClose() } } catch (erro: unknown) { setErroEnvio(erro instanceof ApiError ? resolverMensagemErro(erro.codigo) : 'Não foi possível salvar. Tente novamente.') } finally { setEnviando(false) } }
-  const titulo = `${ROTULOS_ORIGEM[origem.tipo]} · ${origem.nome}`
-  return <Dialog open={open} onOpenChange={(aberto) => !aberto && onClose()}><DialogContent showCloseButton={false} className="flex h-auto max-h-[calc(100dvh-48px)] w-[1040px] max-w-[calc(100vw-32px)] flex-col gap-0 overflow-hidden rounded-[16px] border border-[var(--modal-border)] bg-[var(--modal-bg)] p-0 text-[var(--text-primary)] max-md:h-dvh max-md:w-screen max-md:max-w-none max-md:rounded-none sm:max-w-none">
-    <div className="shrink-0 border-b border-[var(--lista-card-border)] p-[24px_28px_16px]"><div className="flex items-start justify-between"><div><DialogTitle className="text-[20px] font-bold">Escolher jogos</DialogTitle><div className="mt-2 flex flex-wrap items-center gap-2"><span className="rounded-full border border-[var(--lista-pill-desafio-border)] bg-[var(--lista-pill-desafio-bg)] px-[9px] py-[2px] text-[12px] font-semibold text-[var(--hall-ouro)]">{titulo}</span><span className="text-[13px] text-[var(--lista-text-secondary)]">{config?.nome ?? lista?.nome} · marque os jogos que entram no desafio</span></div></div><button type="button" aria-label="Fechar" onClick={onClose} className="flex h-10 w-10 items-center justify-center rounded-lg text-[var(--lista-text-muted)] hover:bg-[var(--bg-surface-alt)]"><X className="h-[18px] w-[18px]" /></button></div><div className="mt-4"><EscolherJogosFiltros origem={origem.tipo} busca={jogo.busca} generoId={jogo.generoId} plataformaId={jogo.plataformaId} ordenar={jogo.ordenar} token={jogo.token} onBusca={jogo.setBusca} onGenero={jogo.setGeneroId} onPlataforma={jogo.setPlataformaId} onOrdenar={jogo.setOrdenar} /></div></div>
-    <div className="flex shrink-0 items-center justify-between gap-3 p-[12px_28px] text-[13px] text-[var(--lista-text-muted)]"><span className="tabular-nums">Mostrando {jogo.itens.length} de {jogo.meta.total} jogos</span><div className="flex flex-wrap justify-end gap-2"><button type="button" onClick={() => { setMarcando(true); jogo.marcarSugeridos().finally(() => setMarcando(false)) }} disabled={marcando || !jogo.meta.total_sugeridos} className="h-8 rounded-lg border border-[var(--lista-pill-desafio-border)] bg-[var(--lista-pill-desafio-bg)] px-3 text-[12px] font-semibold text-[var(--hall-ouro)] disabled:opacity-50">{marcando ? 'Marcando...' : `Marcar os ${jogo.meta.total_sugeridos ?? 0} sugeridos`}</button><button type="button" onClick={marcarVisiveis} className="h-8 rounded-lg border border-[var(--lista-btn-icon-border)] px-3 text-[12px] text-[var(--lista-text-light)]">Marcar visíveis</button></div></div>
-    <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-[0_28px_20px]">{jogo.carregando && jogo.itens.length === 0 ? <div className="grid grid-cols-3 gap-x-[14px] gap-y-[18px] md:grid-cols-4 xl:grid-cols-6">{Array.from({ length: 12 }, (_, index) => <div key={index} className="aspect-[3/4] animate-pulse rounded-[10px] bg-[var(--lista-cover-bg)]" />)}</div> : revisando ? <div className="flex flex-col gap-2">{selecionados.map((item) => <div key={item.igdb_id} className="flex items-center gap-3 rounded-lg border border-[var(--lista-card-border)] p-2"><span className="h-11 w-8 rounded bg-[var(--lista-cover-bg)]" /><span className="min-w-0 flex-1 truncate text-[13px]">{item.nome}</span><button type="button" aria-label={`Desmarcar ${item.nome}`} onClick={() => removerSelecionado(item.igdb_id)} className="h-9 w-9 rounded-full text-[var(--lista-text-muted)]"><X className="mx-auto h-4 w-4" /></button></div>)}</div> : jogo.itens.length === 0 && !jogo.carregando ? <div className="py-16 text-center text-[14px] text-[var(--lista-text-muted)]">Nenhum jogo encontrado com esses filtros.</div> : <div className="grid grid-cols-3 gap-x-[14px] gap-y-[18px] md:grid-cols-4 xl:grid-cols-6">{jogo.itens.map((item) => <EscolherJogosCard key={item.igdb_id} item={item} marcado={jogo.selecionados.has(item.igdb_id) || jogo.idsExistentes.has(item.igdb_id)} jaNaLista={jogo.idsExistentes.has(item.igdb_id)} onToggle={() => jogo.alternar(item)} />)}</div>}{jogo.erro && <div className="py-8 text-center text-[13px] text-[var(--danger)]">{jogo.erro} <button type="button" onClick={jogo.recarregar} className="ml-2 underline">Tentar de novo</button></div>}{!revisando && jogo.itens.length < jogo.meta.total && <button type="button" onClick={jogo.carregarMais} disabled={jogo.carregando} className="mx-auto mt-6 flex h-10 items-center rounded-lg border border-[var(--lista-btn-icon-border)] px-4 text-[13px] text-[var(--lista-text-light)]">{jogo.carregando ? 'Carregando...' : `Carregar mais ${jogo.meta.por_pagina}`}</button>}</div>
-    <div className="flex shrink-0 flex-col gap-3 border-t border-[var(--modal-border)] p-[16px_28px_20px] sm:flex-row sm:items-center sm:justify-between"><div className="flex items-center gap-3"><span className="flex h-9 min-w-9 items-center justify-center rounded-lg bg-[var(--lista-pill-desafio-bg)] px-2 text-[15px] font-extrabold text-[var(--hall-ouro)]">{selecionados.length}</span><div className="flex flex-col"><span className="text-[13px] font-semibold">jogos selecionados · {modo === 'criar' ? `meta do desafio: zerar ${totalMeta}` : `meta passa para ${totalMeta}`}</span><button type="button" onClick={() => setRevisando(!revisando)} className="text-left text-[12px] text-[var(--lista-icon-fila)]">{revisando ? 'Voltar aos resultados' : 'Ver e revisar seleção'}</button></div></div><div className="flex items-center justify-end gap-3"><button type="button" onClick={modo === 'criar' ? (onBack ?? onClose) : onClose} className="h-11 rounded-[10px] border border-[var(--lista-btn-icon-border)] px-[18px]">{modo === 'criar' ? <><ChevronLeft className="mr-1 inline h-4 w-4" />Voltar</> : 'Cancelar'}</button><button type="button" disabled={enviando || selecionados.length === 0 || selecionados.length > 1000} onClick={enviar} className="flex h-11 items-center gap-2 rounded-[10px] bg-[var(--hall-ouro)] px-5 text-[14px] font-bold text-[var(--ouro-jogo-ano-text)] disabled:opacity-50">{enviando && <Loader2 className="h-4 w-4 animate-spin" />}{modo === 'criar' ? 'Criar desafio' : `Adicionar ${selecionados.length} jogos`}</button></div>{erroEnvio && <span className="text-xs text-[var(--danger)]">{erroEnvio}</span>}</div>
-  </DialogContent></Dialog>
+function ConteudoEscolha({
+  origem,
+  modo,
+  config,
+  lista,
+  open,
+  onClose,
+  onBack,
+  onAdded,
+  navigate,
+  store,
+}: ConteudoEscolhaProps) {
+  const jogo = useEscolherJogos({ origem, existentes: lista?.itens, modo });
+  const [revisando, setRevisando] = useState(false);
+  const [marcando, setMarcando] = useState(false);
+  const selecionados = jogo.payload;
+  const meta =
+    modo === "criar" ? selecionados.length : (lista?.itens.length ?? 0) + selecionados.length;
+  const marcarVisiveis = () =>
+    jogo.itens.forEach(
+      (item) =>
+        !jogo.idsExistentes.has(item.igdb_id) &&
+        !jogo.selecionados.has(item.igdb_id) &&
+        jogo.alternar(item),
+    );
+  const envio = useEnviarSelecao({
+    modo,
+    config,
+    itens: selecionados,
+    store,
+    navigate,
+    onClose,
+    onAdded,
+  });
+  return (
+    <Dialog open={open} onOpenChange={(value) => !value && onClose()}>
+      <DialogContent
+        showCloseButton={false}
+        className={[
+          "flex h-auto max-h-[calc(100dvh-48px)] w-[1040px]",
+          "max-w-[calc(100vw-32px)] flex-col gap-0 overflow-hidden rounded-[16px]",
+          "border border-[var(--modal-border)] bg-[var(--modal-bg)] p-0 text-[var(--text-primary)]",
+          "max-md:h-dvh max-md:w-screen max-md:max-w-none max-md:rounded-none sm:max-w-none",
+        ].join(" ")}
+      >
+        <EscolherJogosCabecalho
+          origem={origem}
+          nome={config?.nome ?? lista?.nome}
+          busca={jogo.busca}
+          generoId={jogo.generoId}
+          plataformaId={jogo.plataformaId}
+          ordenar={jogo.ordenar}
+          token={jogo.token}
+          onBusca={jogo.setBusca}
+          onGenero={jogo.setGeneroId}
+          onPlataforma={jogo.setPlataformaId}
+          onOrdenar={jogo.setOrdenar}
+          onClose={onClose}
+        />
+        <EscolherJogosBarra
+          carregados={jogo.itens.length}
+          total={jogo.meta.total}
+          totalSugeridos={jogo.meta.total_sugeridos}
+          mostrarSugeridos={origem.tipo === "franquia"}
+          marcando={marcando}
+          onMarcarSugeridos={() => {
+            setMarcando(true);
+            void jogo.marcarSugeridos().finally(() => setMarcando(false));
+          }}
+          onMarcarVisiveis={marcarVisiveis}
+        />
+        <EscolherJogosGrade
+          itens={jogo.itens}
+          selecionados={jogo.selecionados}
+          idsExistentes={jogo.idsExistentes}
+          carregando={jogo.carregando}
+          erro={jogo.erro}
+          revisando={revisando}
+          total={jogo.meta.total}
+          porPagina={jogo.meta.por_pagina}
+          onToggle={jogo.alternar}
+          onDesmarcar={jogo.desmarcar}
+          onRecarregar={jogo.recarregar}
+          onCarregarMais={jogo.carregarMais}
+        />
+        <EscolherJogosRodape
+          modo={modo}
+          selecionados={selecionados.length}
+          meta={meta}
+          enviando={envio.enviando}
+          erro={envio.erro}
+          onRevisar={() => setRevisando((value) => !value)}
+          onVoltar={modo === "criar" ? (onBack ?? onClose) : onClose}
+          onEnviar={envio.enviar}
+        />
+      </DialogContent>
+    </Dialog>
+  );
 }

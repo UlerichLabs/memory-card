@@ -1,40 +1,49 @@
-import { Link } from 'react-router-dom'
-import { Check, X } from 'lucide-react'
-import { NotaBadge } from '@/components/jogos/NotaBadge'
-import { formatarCapaIGDB } from '@/lib/utils'
-import { obterIniciaisJogo } from './listas.utils'
-import type { ListaItem } from '@/types/listas'
+import { Link } from "react-router-dom";
+import { Check, X } from "lucide-react";
+import { NotaBadge } from "@/components/jogos/NotaBadge";
+import { formatarCapaIGDB } from "@/lib/utils";
+import { obterIniciaisJogo } from "./listas.utils";
+import type { ListaItem } from "@/types/listas";
 
 export interface DesafioCardProps {
-  item: ListaItem
-  onRemover: (id: number) => void
+  item: ListaItem;
+  onRemover: (id: number) => void;
 }
 
 export function DesafioCard({ item, onRemover }: DesafioCardProps) {
-  const { zerado, jogo_zerado, nome, console: consoleName, ano_lancamento, igdb_capa_url, origem } = item
-  const capaUrl = formatarCapaIGDB(igdb_capa_url ?? undefined, 't_cover_big')
-  const capaUrl2x = formatarCapaIGDB(igdb_capa_url ?? undefined, 't_cover_big_2x')
-  const iniciais = obterIniciaisJogo(nome)
+  const {
+    zerado,
+    jogo_zerado,
+    nome,
+    console: consoleName,
+    ano_lancamento,
+    igdb_capa_url,
+    origem,
+  } = item;
+  const capaUrl = formatarCapaIGDB(igdb_capa_url ?? undefined, "t_cover_big");
+  const capaUrl2x = formatarCapaIGDB(igdb_capa_url ?? undefined, "t_cover_big_2x");
+  const iniciais = obterIniciaisJogo(nome);
 
-  let metaTexto = ''
-  if (origem === 'regra' && jogo_zerado?.finalizado_em) {
-    const anoZerado = jogo_zerado.finalizado_em.slice(0, 4)
-    metaTexto = [consoleName, `zerado em ${anoZerado}`].filter(Boolean).join(' · ')
+  let metaTexto = "";
+  if (origem === "regra" && jogo_zerado?.finalizado_em) {
+    const anoZerado = jogo_zerado.finalizado_em.slice(0, 4);
+    metaTexto = [consoleName, `zerado em ${anoZerado}`].filter(Boolean).join(" · ");
   } else {
-    metaTexto = [ano_lancamento, consoleName].filter(Boolean).join(' · ')
+    metaTexto = [ano_lancamento, consoleName].filter(Boolean).join(" · ");
   }
 
   const cardContent = (
     <div
       className={`group relative flex flex-col gap-2 rounded-[10px] ${
-        zerado ? 'cursor-pointer' : 'cursor-default'
+        zerado ? "cursor-pointer" : "cursor-default"
       }`}
     >
       <div
-        className={`relative aspect-[3/4] w-full overflow-hidden rounded-[10px] bg-[var(--lista-cover-bg)] transition-transform duration-200 ${
+        className={`relative aspect-[3/4] w-full overflow-hidden rounded-[10px] bg-[var(--lista-cover-bg)]
+transition-transform duration-200 ${
           zerado
-            ? 'border border-[var(--lista-card-zerado-border)] group-hover:-translate-y-1'
-            : 'border border-dashed border-[var(--lista-card-pendente-border)] opacity-55'
+            ? "border border-[var(--lista-card-zerado-border)] group-hover:-translate-y-1"
+            : "border border-dashed border-[var(--lista-card-pendente-border)] opacity-55"
         }`}
       >
         {capaUrl ? (
@@ -49,7 +58,9 @@ export function DesafioCard({ item, onRemover }: DesafioCardProps) {
           <div className="flex h-full w-full items-center justify-center">
             <span
               className={`text-[26px] font-bold select-none ${
-                zerado ? 'text-[var(--lista-initials-zerado)]' : 'text-[var(--lista-initials-pendente)]'
+                zerado
+                  ? "text-[var(--lista-initials-zerado)]"
+                  : "text-[var(--lista-initials-pendente)]"
               }`}
             >
               {iniciais}
@@ -59,34 +70,51 @@ export function DesafioCard({ item, onRemover }: DesafioCardProps) {
 
         {zerado && (
           <>
-            <div className="absolute left-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-[var(--lista-progress-fill)] text-[var(--ouro-jogo-ano-text)] shadow">
+            <div className={[
+          "absolute left-1.5 top-1.5 flex",
+          "h-6 w-6 items-center justify-center",
+          "rounded-full bg-[var(--lista-progress-fill)] text-[var(--ouro-jogo-ano-text)] shadow"
+        ].join(" ")}>
               <Check className="h-3.5 w-3.5 stroke-[3]" />
             </div>
             {jogo_zerado && (
               <div className="absolute bottom-1.5 right-1.5">
-                <NotaBadge nota={jogo_zerado.nota} tamanho="sm" />
+                <NotaBadge
+                  nota={jogo_zerado.nota}
+                  tamanho="sm"
+                />
               </div>
             )}
           </>
         )}
 
         {!zerado && (
-          <span className="absolute bottom-1.5 left-1.5 rounded-full border border-[var(--lista-pill-pendente-border)] bg-[var(--lista-pill-pendente-bg)] px-[7px] py-[3px] text-[10px] font-semibold text-[var(--lista-pill-pendente-text)]">
+          <span className={[
+          "absolute bottom-1.5 left-1.5 rounded-full",
+          "border border-[var(--lista-pill-pendente-border)] bg-[var(--lista-pill-pendente-bg)] px-[7px]",
+          "py-[3px] text-[10px] font-semibold text-[var(--lista-pill-pendente-text)]"
+        ].join(" ")}>
             Pendente
           </span>
         )}
 
         <button
-            type="button"
-            aria-label="Tirar do desafio"
-            onClick={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              onRemover(item.id)
-            }}
-            className="absolute right-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full border border-[var(--lista-btn-icon-border)] bg-[var(--lista-card-acao-bg)] text-[var(--lista-text-muted)] opacity-0 transition-opacity hover:text-[var(--danger)] focus:opacity-100 group-hover:opacity-100 max-sm:opacity-100"
-          >
-            <X className="h-4 w-4" />
+          type="button"
+          aria-label="Tirar do desafio"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onRemover(item.id);
+          }}
+          className={[
+          "absolute right-1.5 top-1.5 flex",
+          "h-7 w-7 items-center justify-center",
+          "rounded-full border border-[var(--lista-btn-icon-border)] bg-[var(--lista-card-acao-bg)]",
+          "text-[var(--lista-text-muted)] opacity-0 transition-opacity hover:text-[var(--danger)]",
+          "focus:opacity-100 group-hover:opacity-100 max-sm:opacity-100"
+        ].join(" ")}
+        >
+          <X className="h-4 w-4" />
         </button>
       </div>
 
@@ -94,27 +122,28 @@ export function DesafioCard({ item, onRemover }: DesafioCardProps) {
         <span
           title={nome}
           className={`line-clamp-2 text-[13px] font-semibold leading-tight ${
-            zerado ? 'text-[var(--lista-text-bright)]' : 'text-[var(--lista-text-muted)]'
+            zerado ? "text-[var(--lista-text-bright)]" : "text-[var(--lista-text-muted)]"
           }`}
         >
           {nome}
         </span>
         {metaTexto && (
-          <span className="truncate text-[11px] text-[var(--lista-text-dim)]">
-            {metaTexto}
-          </span>
+          <span className="truncate text-[11px] text-[var(--lista-text-dim)]">{metaTexto}</span>
         )}
       </div>
     </div>
-  )
+  );
 
   if (zerado && jogo_zerado) {
     return (
-      <Link to={`/biblioteca/${jogo_zerado.id}`} className="block focus:outline-none">
+      <Link
+        to={`/biblioteca/${jogo_zerado.id}`}
+        className="block focus:outline-none"
+      >
         {cardContent}
       </Link>
-    )
+    );
   }
 
-  return cardContent
+  return cardContent;
 }
