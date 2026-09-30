@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -169,13 +170,11 @@ func setupListasIntegrationEnv(t *testing.T) *listasIntegrationEnv {
 	privadas.PUT("/listas/:id", listasHandler.AtualizarLista)
 	privadas.DELETE("/listas/:id", listasHandler.ExcluirLista)
 	privadas.POST("/listas/:id/itens", listasHandler.AdicionarItem)
+	privadas.POST("/listas/:id/itens/lote", listasHandler.AdicionarItensLote)
 	privadas.DELETE("/listas/:id/itens/:itemId", listasHandler.ExcluirItem)
-	privadas.POST("/listas/:id/itens/:itemId/restaurar", listasHandler.RestaurarItem)
 	privadas.PUT("/listas/:id/ordem", listasHandler.ReordenarItens)
 	privadas.PUT("/listas/:id/itens/:itemId/zeramento", listasHandler.AssociarJogoZerado)
 	privadas.DELETE("/listas/:id/itens/:itemId/zeramento", listasHandler.DesassociarJogoZerado)
-	privadas.POST("/listas/:id/sincronizar", listasHandler.SincronizarFranquia)
-	privadas.GET("/franquias/:igdbId/previa-desafio", listasHandler.PreviaDesafioFranquia)
 
 	return &listasIntegrationEnv{
 		pool:       pool,
@@ -251,10 +250,13 @@ func TestIntegration_MigrationUpDown(t *testing.T) {
 	if err != nil {
 		t.Fatalf("consulta coluna ignorado: %v", err)
 	}
-	if colExists {
-		t.Fatal("esperava que a coluna ignorado fosse removida apos migration down 0010")
+	if !colExists {
+		t.Fatal("esperava que a coluna ignorado fosse recriada apos migration down 0011")
 	}
 
+	if err := m.Steps(-1); err != nil {
+		t.Fatalf("falha ao executar migration down 0010: %v", err)
+	}
 	if err := m.Steps(-1); err != nil {
 		t.Fatalf("falha ao executar migration down 0009: %v", err)
 	}
@@ -284,12 +286,13 @@ func TestIntegration_MigrationUpDown(t *testing.T) {
 	err = env.pool.QueryRow(context.Background(),
 		"SELECT EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'lista_itens' AND column_name = 'ignorado')",
 	).Scan(&colExists)
-	if err != nil || !colExists {
-		t.Fatalf("esperava que a coluna ignorado existisse apos migration up, erro: %v", err)
+	if err != nil || colExists {
+		t.Fatalf("esperava que a coluna ignorado nao existisse apos migration up, erro: %v", err)
 	}
 }
 
 func TestIntegration_Progresso_ZeramentoAnteriorEInsensivel(t *testing.T) {
+	t.Skip("substituido por desafio com itens escolhidos")
 	env := setupListasIntegrationEnv(t)
 	userAID := criarUsuarioNoBanco(t, env.pool, "user.a.progresso@example.com")
 	tokenA := gerarTokenIntegracao(t, env.secret, userAID)
@@ -391,6 +394,7 @@ func TestIntegration_Progresso_ZeramentoAnteriorEInsensivel(t *testing.T) {
 }
 
 func TestIntegration_ZeramentoSoftDeleted_NaoConta(t *testing.T) {
+	t.Skip("substituido por desafio com itens escolhidos")
 	env := setupListasIntegrationEnv(t)
 	userID := criarUsuarioNoBanco(t, env.pool, "user.softdelete@example.com")
 	token := gerarTokenIntegracao(t, env.secret, userID)
@@ -469,6 +473,7 @@ func TestIntegration_ZeramentoSoftDeleted_NaoConta(t *testing.T) {
 }
 
 func TestIntegration_ContagemPlataforma_CaseInsensitive(t *testing.T) {
+	t.Skip("desafios de contagem foram removidos")
 	env := setupListasIntegrationEnv(t)
 	userID := criarUsuarioNoBanco(t, env.pool, "user.platform@example.com")
 	token := gerarTokenIntegracao(t, env.secret, userID)
@@ -532,6 +537,7 @@ func TestIntegration_ContagemPlataforma_CaseInsensitive(t *testing.T) {
 }
 
 func TestIntegration_Progresso_ConcluidoEm_PosicaoMeta(t *testing.T) {
+	t.Skip("desafios de contagem foram removidos")
 	env := setupListasIntegrationEnv(t)
 	userID := criarUsuarioNoBanco(t, env.pool, "user.concluidoem@example.com")
 	token := gerarTokenIntegracao(t, env.secret, userID)
@@ -757,6 +763,7 @@ func TestIntegration_IsolamentoEntreUsuarios(t *testing.T) {
 }
 
 func TestListasIntegration_DesafioFranquiaCalibrado(t *testing.T) {
+	t.Skip("previa e ignorados foram removidos")
 	env := setupListasIntegrationEnv(t)
 	defer env.pool.Close()
 
@@ -937,5 +944,79 @@ func TestListasIntegration_DesafioFranquiaCalibrado(t *testing.T) {
 	}
 	if _, ok := rawResp["dados"]; ok {
 		t.Fatalf("chave 'dados' duplicada nao deve estar presente")
+	}
+}
+
+func TestIntegration_DesafioComItensELote(t *testing.T) {
+	env := setupListasIntegrationEnv(t)
+	userID := criarUsuarioNoBanco(t, env.pool, "user.desafio.itens@example.com")
+	token := gerarTokenIntegracao(t, env.secret, userID)
+	igdbID := int32(7001)
+	_, err := env.jogosRepo.Criar(context.Background(), repository.CriarJogoZeradoParams{
+		UsuarioID: userID, IgdbID: &igdbID, Nome: "Jogo Um", Console: "SNES", Genero: "RPG",
+		FinalizadoEm: time.Now().Add(-time.Hour), Nota: 10, Dificuldade: "A",
+	})
+	if err != nil {
+		t.Fatalf("falha ao criar zeramento: %v", err)
+	}
+
+	criar := `{"tipo":"desafio","nome":"Desafio escolhido","origem":{"tipo":"franquia","igdb_id":596,"nome":"The Legend of Zelda"},"itens":[{"igdb_id":7001,"nome":"Jogo Um"},{"igdb_id":7002,"nome":"Jogo Dois"}]}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/listas", bytes.NewBufferString(criar))
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	env.router.ServeHTTP(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("criação do desafio: %d %s", w.Code, w.Body.String())
+	}
+	var criada struct {
+		Data service.ListaDetalhada `json:"data"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &criada); err != nil {
+		t.Fatal(err)
+	}
+	if criada.Data.Progresso == nil || criada.Data.Progresso.Meta != 2 || criada.Data.Progresso.Feitos != 1 {
+		t.Fatalf("progresso inicial inesperado: %+v", criada.Data.Progresso)
+	}
+
+	lote := `{"itens":[{"igdb_id":7001,"nome":"Jogo Um"},{"igdb_id":7003,"nome":"Jogo Três"},{"igdb_id":7004,"nome":"Jogo Quatro"}]}`
+	req = httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/v1/listas/%d/itens/lote", criada.Data.ID), bytes.NewBufferString(lote))
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	w = httptest.NewRecorder()
+	env.router.ServeHTTP(w, req)
+	if w.Code != http.StatusCreated || !strings.Contains(w.Body.String(), `"adicionados":2`) || !strings.Contains(w.Body.String(), `"ja_existentes":1`) {
+		t.Fatalf("resposta do lote inesperada: %d %s", w.Code, w.Body.String())
+	}
+
+	req = httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/v1/listas/%d", criada.Data.ID), nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	w = httptest.NewRecorder()
+	env.router.ServeHTTP(w, req)
+	var detalhe struct {
+		Data service.ListaDetalhada `json:"data"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &detalhe); err != nil {
+		t.Fatal(err)
+	}
+	if detalhe.Data.Progresso == nil || detalhe.Data.Progresso.Meta != 4 {
+		t.Fatalf("meta do lote inesperada: %+v", detalhe.Data.Progresso)
+	}
+
+	itemID := detalhe.Data.Itens[len(detalhe.Data.Itens)-1].ID
+	req = httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/api/v1/listas/%d/itens/%d", criada.Data.ID, itemID), nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	w = httptest.NewRecorder()
+	env.router.ServeHTTP(w, req)
+	if w.Code != http.StatusNoContent {
+		t.Fatalf("remoção do item: %d %s", w.Code, w.Body.String())
+	}
+
+	req = httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/v1/listas/%d", criada.Data.ID), nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	w = httptest.NewRecorder()
+	env.router.ServeHTTP(w, req)
+	if !strings.Contains(w.Body.String(), `"meta":3`) {
+		t.Fatalf("meta após remoção inesperada: %s", w.Body.String())
 	}
 }

@@ -3,6 +3,7 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -22,6 +23,7 @@ type ListasServicer interface {
 	AtualizarLista(ctx context.Context, input service.AtualizarListaInput) (*service.ListaDetalhada, error)
 	ExcluirLista(ctx context.Context, id int64, usuarioID int32) error
 	AdicionarItem(ctx context.Context, input service.AdicionarItemInput) (*service.ListaItemDetalhe, error)
+	AdicionarItensLote(ctx context.Context, input service.AdicionarItensLoteInput) (*service.AdicionarItensLoteResultado, error)
 	ExcluirItem(ctx context.Context, itemID int64, listaID int64, usuarioID int32) error
 	RestaurarItem(ctx context.Context, itemID int64, listaID int64, usuarioID int32) (*service.ListaItemDetalhe, error)
 	ReordenarItens(ctx context.Context, listaID int64, usuarioID int32, itemIDs []int64) ([]*service.ListaItemDetalhe, error)
@@ -40,18 +42,33 @@ func NewListasHandler(service ListasServicer) *ListasHandler {
 }
 
 type CriarListaRegraRequest struct {
-	Tipo              string  `json:"tipo"`
-	Valor             string  `json:"valor"`
-	IgdbID            *int32  `json:"igdb_id"`
+	Tipo             string  `json:"tipo"`
+	Valor            string  `json:"valor"`
+	IgdbID           *int32  `json:"igdb_id"`
 	IgdbIDsIgnorados []int32 `json:"igdb_ids_ignorados,omitempty"`
 }
 
 type CriarListaRequest struct {
-	Tipo      string                  `json:"tipo"`
-	Nome      string                  `json:"nome"`
-	Descricao *string                 `json:"descricao"`
-	Regra     *CriarListaRegraRequest `json:"regra"`
-	Meta      *int                    `json:"meta"`
+	Tipo      string                   `json:"tipo"`
+	Nome      string                   `json:"nome"`
+	Descricao *string                  `json:"descricao"`
+	Regra     *CriarListaRegraRequest  `json:"regra"`
+	Meta      *int                     `json:"meta"`
+	Origem    *CriarListaOrigemRequest `json:"origem"`
+	Itens     []CriarListaItemRequest  `json:"itens"`
+}
+
+type CriarListaOrigemRequest struct {
+	Tipo   string `json:"tipo"`
+	IgdbID int32  `json:"igdb_id"`
+	Nome   string `json:"nome"`
+}
+
+type CriarListaItemRequest struct {
+	IgdbID        int32   `json:"igdb_id"`
+	Nome          string  `json:"nome"`
+	IgdbCapaURL   *string `json:"igdb_capa_url"`
+	AnoLancamento *int    `json:"ano_lancamento"`
 }
 
 type AtualizarListaRequest struct {
@@ -68,6 +85,10 @@ type AdicionarItemRequest struct {
 	Console       *string `json:"console"`
 	IgdbCapaURL   *string `json:"igdb_capa_url"`
 	AnoLancamento *int    `json:"ano_lancamento"`
+}
+
+type AdicionarItensLoteRequest struct {
+	Itens []CriarListaItemRequest `json:"itens"`
 }
 
 type ReordenarItensRequest struct {
@@ -122,6 +143,10 @@ func extrairUsuarioIDListas(c *gin.Context) (int32, bool) {
 	return int32(uid), true
 }
 
+func respondListasError(c *gin.Context, status int, codigo string) {
+	c.JSON(status, gin.H{"error": gin.H{"codigo": codigo, "mensagem": i18n.T(c.GetHeader("Accept-Language"), codigo)}})
+}
+
 func (h *ListasHandler) ListarListas(c *gin.Context) {
 	usuarioID, ok := extrairUsuarioIDListas(c)
 	if !ok {
@@ -156,8 +181,8 @@ func (h *ListasHandler) CriarLista(c *gin.Context) {
 		return
 	}
 
-	var req CriarListaRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	var raw map[string]json.RawMessage
+	if err := c.ShouldBindJSON(&raw); err != nil {
 		lang := c.GetHeader("Accept-Language")
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": gin.H{
@@ -167,15 +192,41 @@ func (h *ListasHandler) CriarLista(c *gin.Context) {
 		})
 		return
 	}
+	encoded, err := json.Marshal(raw)
+	if err != nil {
+		respondListasError(c, http.StatusBadRequest, "listas.tipo_invalido")
+		return
+	}
+	var req CriarListaRequest
+	if err := json.Unmarshal(encoded, &req); err != nil {
+		respondListasError(c, http.StatusBadRequest, "listas.tipo_invalido")
+		return
+	}
+	if _, found := raw["meta"]; found {
+		respondListasError(c, http.StatusBadRequest, "listas.campo_nao_permitido")
+		return
+	}
+	if _, found := raw["regra"]; found {
+		respondListasError(c, http.StatusBadRequest, "listas.campo_nao_permitido")
+		return
+	}
 
 	var regraInput *service.CriarListaRegraInput
 	if req.Regra != nil {
 		regraInput = &service.CriarListaRegraInput{
-			Tipo:              req.Regra.Tipo,
-			Valor:             req.Regra.Valor,
-			IgdbID:            req.Regra.IgdbID,
+			Tipo:             req.Regra.Tipo,
+			Valor:            req.Regra.Valor,
+			IgdbID:           req.Regra.IgdbID,
 			IgdbIDsIgnorados: req.Regra.IgdbIDsIgnorados,
 		}
+	}
+	var origemInput *service.CriarListaOrigemInput
+	if req.Origem != nil {
+		origemInput = &service.CriarListaOrigemInput{Tipo: req.Origem.Tipo, IgdbID: req.Origem.IgdbID, Nome: req.Origem.Nome}
+	}
+	itensInput := make([]service.CriarListaItemInput, 0, len(req.Itens))
+	for _, item := range req.Itens {
+		itensInput = append(itensInput, service.CriarListaItemInput{IgdbID: item.IgdbID, Nome: item.Nome, IgdbCapaURL: item.IgdbCapaURL, AnoLancamento: item.AnoLancamento})
 	}
 
 	lista, err := h.service.CriarLista(c.Request.Context(), service.CriarListaInput{
@@ -185,6 +236,8 @@ func (h *ListasHandler) CriarLista(c *gin.Context) {
 		Descricao: req.Descricao,
 		Regra:     regraInput,
 		Meta:      req.Meta,
+		Origem:    origemInput,
+		Itens:     itensInput,
 	})
 	if err != nil {
 		lang := c.GetHeader("Accept-Language")
@@ -205,6 +258,12 @@ func (h *ListasHandler) CriarLista(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"codigo": "listas.franquia_nao_encontrada", "mensagem": i18n.T(lang, "listas.franquia_nao_encontrada")}})
 		case errors.Is(err, service.ErrListaFranquiaSemJogos):
 			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "listas.franquia_sem_jogos", "mensagem": i18n.T(lang, "listas.franquia_sem_jogos")}})
+		case errors.Is(err, service.ErrListaCampoNaoPermitido):
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "listas.campo_nao_permitido", "mensagem": i18n.T(lang, "listas.campo_nao_permitido")}})
+		case errors.Is(err, service.ErrListaDesafioSemJogos):
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "listas.desafio_sem_jogos", "mensagem": i18n.T(lang, "listas.desafio_sem_jogos")}})
+		case errors.Is(err, service.ErrListaItensDemais):
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "listas.itens_demais", "mensagem": i18n.T(lang, "listas.itens_demais")}})
 		case errors.Is(err, service.ErrIGDBRateLimit):
 			c.JSON(http.StatusTooManyRequests, gin.H{"error": gin.H{"codigo": "igdb.rate_limited", "mensagem": i18n.T(lang, "igdb.rate_limited")}})
 		case errors.Is(err, service.ErrIGDBIndisponivel):
@@ -257,8 +316,8 @@ func (h *ListasHandler) AtualizarLista(c *gin.Context) {
 		return
 	}
 
-	var req AtualizarListaRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	var raw map[string]json.RawMessage
+	if err := c.ShouldBindJSON(&raw); err != nil {
 		lang := c.GetHeader("Accept-Language")
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": gin.H{
@@ -267,6 +326,22 @@ func (h *ListasHandler) AtualizarLista(c *gin.Context) {
 			},
 		})
 		return
+	}
+	encoded, err := json.Marshal(raw)
+	if err != nil {
+		respondListasError(c, http.StatusBadRequest, "listas.campo_nao_permitido")
+		return
+	}
+	var req AtualizarListaRequest
+	if err := json.Unmarshal(encoded, &req); err != nil {
+		respondListasError(c, http.StatusBadRequest, "listas.campo_nao_permitido")
+		return
+	}
+	for _, campo := range []string{"meta", "tipo", "regra", "origem"} {
+		if _, found := raw[campo]; found {
+			respondListasError(c, http.StatusBadRequest, "listas.campo_nao_permitido")
+			return
+		}
 	}
 
 	var regraInput *service.CriarListaRegraInput
@@ -290,8 +365,8 @@ func (h *ListasHandler) AtualizarLista(c *gin.Context) {
 	if err != nil {
 		lang := c.GetHeader("Accept-Language")
 		switch {
-		case errors.Is(err, service.ErrListaCampoImutavel):
-			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "listas.campo_imutavel", "mensagem": i18n.T(lang, "listas.campo_imutavel")}})
+		case errors.Is(err, service.ErrListaCampoNaoPermitido), errors.Is(err, service.ErrListaCampoImutavel):
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "listas.campo_nao_permitido", "mensagem": i18n.T(lang, "listas.campo_nao_permitido")}})
 		case errors.Is(err, service.ErrListaNaoEncontrada):
 			c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"codigo": "listas.nao_encontrada", "mensagem": i18n.T(lang, "listas.nao_encontrada")}})
 		case errors.Is(err, service.ErrListaNomeObrigatorio):
@@ -424,6 +499,45 @@ func (h *ListasHandler) ExcluirItem(c *gin.Context) {
 	}
 
 	c.Status(http.StatusNoContent)
+}
+
+func (h *ListasHandler) AdicionarItensLote(c *gin.Context) {
+	usuarioID, ok := extrairUsuarioIDListas(c)
+	if !ok {
+		return
+	}
+	listaID, ok := parseListasID(c, "id")
+	if !ok {
+		return
+	}
+	var req AdicionarItensLoteRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respondListasError(c, http.StatusBadRequest, "listas.itens_demais")
+		return
+	}
+	itens := make([]service.CriarListaItemInput, 0, len(req.Itens))
+	for _, item := range req.Itens {
+		itens = append(itens, service.CriarListaItemInput{IgdbID: item.IgdbID, Nome: item.Nome, IgdbCapaURL: item.IgdbCapaURL, AnoLancamento: item.AnoLancamento})
+	}
+	resultado, err := h.service.AdicionarItensLote(c.Request.Context(), service.AdicionarItensLoteInput{ListaID: listaID, UsuarioID: usuarioID, Itens: itens})
+	if err != nil {
+		lang := c.GetHeader("Accept-Language")
+		status := http.StatusBadRequest
+		codigo := "listas.itens_demais"
+		switch {
+		case errors.Is(err, service.ErrListaNaoEncontrada):
+			status, codigo = http.StatusNotFound, "listas.nao_encontrada"
+		case errors.Is(err, service.ErrListaNomeObrigatorio):
+			codigo = "listas.nome_obrigatorio"
+		case errors.Is(err, service.ErrListaNomeInvalido):
+			codigo = "listas.nome_invalido"
+		case errors.Is(err, service.ErrListaRegraInvalida):
+			codigo = "listas.regra_invalida"
+		}
+		c.JSON(status, gin.H{"error": gin.H{"codigo": codigo, "mensagem": i18n.T(lang, codigo)}})
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{"data": resultado})
 }
 
 func (h *ListasHandler) ReordenarItens(c *gin.Context) {

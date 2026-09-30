@@ -1,8 +1,8 @@
 -- name: CriarLista :one
 INSERT INTO listas (
-    usuario_id, tipo, nome, descricao, regra_tipo, regra_valor, regra_igdb_id, meta
+    usuario_id, tipo, nome, descricao, regra_tipo, regra_valor, regra_igdb_id
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8
+    $1, $2, $3, $4, $5, $6, $7
 ) RETURNING *;
 
 -- name: BuscarListaPorID :one
@@ -23,7 +23,6 @@ ORDER BY created_at DESC, id DESC;
 UPDATE listas
 SET nome = $3,
     descricao = $4,
-    meta = $5,
     updated_at = now()
 WHERE id = $1 AND usuario_id = $2
 RETURNING *;
@@ -34,16 +33,10 @@ WHERE id = $1 AND usuario_id = $2;
 
 -- name: CriarItemLista :one
 INSERT INTO lista_itens (
-    lista_id, igdb_id, nome, console, igdb_capa_url, ano_lancamento, posicao, jogo_zerado_id, ignorado
+    lista_id, igdb_id, nome, console, igdb_capa_url, ano_lancamento, posicao, jogo_zerado_id
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9
+    $1, $2, $3, $4, $5, $6, $7, $8
 ) RETURNING *;
-
--- name: DefinirIgnoradoItem :one
-UPDATE lista_itens
-SET ignorado = $3
-WHERE id = $1 AND lista_id = $2
-RETURNING *;
 
 -- name: BuscarItemPorID :one
 SELECT i.*
