@@ -157,10 +157,12 @@ describe("listasService", () => {
       ordenar: "nome",
       pagina: 2,
       por_pagina: 60,
+      somente_sugeridos: true,
     };
     await listasService.buscarCatalogo(filtro, "tok");
     expect(spy).toHaveBeenCalledWith(
-      "/catalogo/jogos?origem=genero&id=12&plataforma_id=130&busca=Mario+%26+Zelda&ordenar=nome&pagina=2&por_pagina=60",
+      "/catalogo/jogos?origem=genero&id=12&plataforma_id=130&busca=Mario+%26+Zelda&ordenar=nome&pagina=2&por_pagina=60&"
+        + "somente_sugeridos=true",
       { method: "GET", signal: undefined },
       "tok",
     );

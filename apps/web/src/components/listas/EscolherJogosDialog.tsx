@@ -104,13 +104,16 @@ function ConteudoEscolha({
           carregados={jogo.itens.length}
           total={jogo.meta.total}
           totalSugeridos={jogo.meta.total_sugeridos}
+          totalTodos={jogo.meta.total_todos}
           mostrarSugeridos={origem.tipo === "franquia"}
+          somenteSugeridos={jogo.somenteSugeridos}
           marcando={marcando}
           onMarcarSugeridos={() => {
             setMarcando(true);
             void jogo.marcarSugeridos().finally(() => setMarcando(false));
           }}
           onMarcarVisiveis={marcarVisiveis}
+          onAlternarSugeridos={() => jogo.setSomenteSugeridos(!jogo.somenteSugeridos)}
         />
         <EscolherJogosGrade
           itens={jogo.itens}
@@ -121,6 +124,7 @@ function ConteudoEscolha({
           revisando={revisando}
           total={jogo.meta.total}
           porPagina={jogo.meta.por_pagina}
+          mostrarRelacionados={origem.tipo === "franquia" && jogo.somenteSugeridos === false}
           onToggle={jogo.alternar}
           onDesmarcar={jogo.desmarcar}
           onRecarregar={jogo.recarregar}

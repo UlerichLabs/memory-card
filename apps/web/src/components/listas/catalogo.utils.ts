@@ -8,6 +8,7 @@ export function criarFiltroCatalogo(
     pagina: number;
     generoId?: number;
     plataformaId?: number;
+    somenteSugeridos?: boolean;
   },
 ): FiltroCatalogo {
   return {
@@ -19,6 +20,9 @@ export function criarFiltroCatalogo(
     por_pagina: 60,
     ...(filtros.generoId ? { genero_id: filtros.generoId } : {}),
     ...(filtros.plataformaId ? { plataforma_id: filtros.plataformaId } : {}),
+    ...(filtros.somenteSugeridos !== undefined
+      ? { somente_sugeridos: filtros.somenteSugeridos }
+      : {}),
   };
 }
 

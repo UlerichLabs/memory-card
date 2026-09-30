@@ -117,10 +117,13 @@ export function ListasProvider({
   );
 
   const criarLista = useCallback(
-    async (payload: CriarListaPayload): Promise<ListaDetalhada> => {
+    async (
+      payload: CriarListaPayload,
+      recarregar = true,
+    ): Promise<ListaDetalhada> => {
       setError(null);
       const criada = await listasService.criar(payload, effectiveToken);
-      await carregarListas();
+      if (recarregar) await carregarListas();
       setListaAberta(criada);
       return criada;
     },

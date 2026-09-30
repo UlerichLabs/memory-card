@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ApiError } from "@/lib/api";
 import { resolverMensagemErro } from "./listas.constants";
 import type { CriarListaItemPayload } from "@/types/listas";
@@ -15,7 +15,8 @@ interface Options {
       descricao: string | null;
       origem: EscolherJogosConfig["origem"];
       itens: CriarListaItemPayload[];
-    }) => Promise<{ id: number }>;
+    }, recarregar?: boolean) => Promise<{ id: number }>;
+    carregarListas: () => Promise<unknown>;
     adicionarItensLote: (itens: CriarListaItemPayload[]) => Promise<{ adicionados: number }>;
   };
   navigate: (path: string) => void;
@@ -34,7 +35,10 @@ export function useEnviarSelecao({
 }: Options) {
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const enviandoRef = useRef(false);
   const enviar = async () => {
+    if (enviandoRef.current) return;
+    enviandoRef.current = true;
     setEnviando(true);
     setErro(null);
     try {
@@ -45,8 +49,9 @@ export function useEnviarSelecao({
           descricao: config.descricao,
           origem: config.origem,
           itens,
-        });
+        }, false);
         onClose();
+        await store.carregarListas();
         navigate(`/listas/${criada.id}`);
       } else if (modo === "adicionar") {
         const resposta = await store.adicionarItensLote(itens);
@@ -54,13 +59,13 @@ export function useEnviarSelecao({
         onClose();
       }
     } catch (caught: unknown) {
+      enviandoRef.current = false;
+      setEnviando(false);
       setErro(
         caught instanceof ApiError
           ? resolverMensagemErro(caught.codigo)
           : "Não foi possível salvar. Tente novamente.",
       );
-    } finally {
-      setEnviando(false);
     }
   };
   return { enviando, erro, enviar };

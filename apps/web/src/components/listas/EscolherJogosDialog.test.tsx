@@ -24,7 +24,7 @@ vi.mock("./useEscolherJogos", () => ({
     selecionados: new Map([[1, { igdb_id: 1, nome: "Ocarina", ano_lancamento: 1998 }]]),
     payload: [{ igdb_id: 1, nome: "Ocarina", ano_lancamento: 1998 }],
     idsExistentes: new Set<number>(),
-    meta: { pagina: 1, por_pagina: 60, total: 1, total_sugeridos: 1 },
+    meta: { pagina: 1, por_pagina: 60, total: 1, total_sugeridos: 1, total_todos: 1 },
     carregando: false,
     erro: null,
     busca: "",
@@ -40,6 +40,8 @@ vi.mock("./useEscolherJogos", () => ({
     carregarMais: vi.fn(),
     recarregar: vi.fn(),
     marcarSugeridos: vi.fn().mockResolvedValue(undefined),
+    somenteSugeridos: true,
+    setSomenteSugeridos: vi.fn(),
   }),
 }));
 
@@ -90,6 +92,9 @@ describe("EscolherJogosDialog", () => {
   it("mostra sugeridos somente para franquia", async () => {
     renderDialog();
     expect(screen.getByRole("button", { name: "Marcar os 1 sugeridos" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Mostrar outros jogos ligados/ }),
+    ).not.toBeInTheDocument();
     const user = userEvent.setup();
     await user.click(screen.getByText("Ver e revisar seleção"));
     expect(screen.getByRole("button", { name: "Desmarcar Ocarina" })).toBeInTheDocument();

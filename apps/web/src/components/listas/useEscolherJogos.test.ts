@@ -24,6 +24,7 @@ const resposta = (itens: ReturnType<typeof item>[], total = itens.length): Catal
     por_pagina: 60,
     total,
     total_sugeridos: itens.filter((jogo) => jogo.sugerido).length,
+    total_todos: total,
   },
 });
 
@@ -37,6 +38,9 @@ describe("useEscolherJogos", () => {
     renderHook(() => useEscolherJogos({ origem, modo: "criar" }));
     await waitFor(() => expect(buscar).toHaveBeenCalled());
     expect(buscar.mock.calls[0][0]).toMatchObject(esperado);
+    if (origem.tipo === "franquia") {
+      expect(buscar.mock.calls[0][0]).toMatchObject({ somente_sugeridos: true });
+    }
   });
 
   it("envia o filtro cruzado de plataforma e gênero", async () => {
@@ -61,6 +65,25 @@ describe("useEscolherJogos", () => {
       await result.current.carregarMais();
     });
     expect(result.current.itens.map((jogo) => jogo.igdb_id)).toEqual([1, 2]);
+  });
+
+  it("desativa somente sugeridos, volta à página 1 e mantém a seleção", async () => {
+    const buscar = vi
+      .spyOn(listasService, "buscarCatalogo")
+      .mockResolvedValueOnce(resposta([item(1, true)], 2))
+      .mockResolvedValueOnce({
+        ...resposta([item(2, false)], 2),
+        meta: { ...resposta([item(2, false)], 2).meta, pagina: 1, total_todos: 2 },
+      });
+    const { result } = renderHook(() => useEscolherJogos({ origem: franquia, modo: "criar" }));
+    await waitFor(() => expect(result.current.itens).toHaveLength(1));
+    act(() => result.current.alternar(item(1, true)));
+    await act(async () => {
+      result.current.setSomenteSugeridos(false);
+    });
+    await waitFor(() => expect(buscar).toHaveBeenCalledTimes(2));
+    expect(buscar.mock.calls[1][0]).toMatchObject({ pagina: 1, somente_sugeridos: false });
+    expect(result.current.payload.map((jogo) => jogo.igdb_id)).toEqual([1]);
   });
 
   it("mantém a seleção ao trocar filtro", async () => {

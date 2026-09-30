@@ -31,13 +31,29 @@ export function OrigemAutocomplete({
   const [opcoes, setOpcoes] = useState<OpcaoOrigem[]>([]);
   const [aberto, setAberto] = useState(false);
   const [carregando, setCarregando] = useState(false);
+  const [erroBusca, setErroBusca] = useState(false);
   const [indice, setIndice] = useState(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const controller = useRef<AbortController | null>(null);
+  const valorAnterior = useRef<ListaOrigem | null>(valor);
+  const tipoAnterior = useRef(tipo);
 
   useEffect(() => {
-    setTexto(valor?.nome ?? "");
-  }, [valor]);
+    if (tipoAnterior.current !== tipo) {
+      setTexto(valor?.nome ?? "");
+      tipoAnterior.current = tipo;
+      valorAnterior.current = valor;
+      return;
+    }
+    const mudouObjeto =
+      valor !== null &&
+      (valorAnterior.current === null ||
+        valorAnterior.current.igdb_id !== valor.igdb_id ||
+        valorAnterior.current.nome !== valor.nome ||
+        valorAnterior.current.tipo !== valor.tipo);
+    if (mudouObjeto) setTexto(valor.nome);
+    valorAnterior.current = valor;
+  }, [tipo, valor]);
   useEffect(() => {
     if (tipo === "franquia") return;
     if (cache[tipo]) {
@@ -51,7 +67,10 @@ export function OrigemAutocomplete({
         cache[tipo] = resultado;
         setOpcoes(resultado);
       })
-      .catch(() => setOpcoes([]))
+      .catch(() => {
+        setOpcoes([]);
+        setErroBusca(true);
+      })
       .finally(() => setCarregando(false));
   }, [tipo, token]);
 
@@ -64,6 +83,7 @@ export function OrigemAutocomplete({
   );
   const buscar = (novoTexto: string) => {
     setTexto(novoTexto);
+    setErroBusca(false);
     onChange(null);
     setAberto(true);
     setIndice(0);
@@ -81,7 +101,12 @@ export function OrigemAutocomplete({
       listasService
         .buscarFranquias(novoTexto.trim(), token, atual.signal)
         .then((items) => setOpcoes(items.map((item) => ({ id: item.id, nome: item.name }))))
-        .catch(() => setOpcoes([]))
+        .catch(() => {
+          if (!atual.signal.aborted) {
+            setOpcoes([]);
+            setErroBusca(true);
+          }
+        })
         .finally(() => setCarregando(false));
     }, 300);
   };
@@ -112,7 +137,7 @@ export function OrigemAutocomplete({
         htmlFor="origem-valor"
         className="text-[13px] font-medium text-[var(--lista-text-light)]"
       >
-        {tipo[0].toUpperCase() + tipo.slice(1)} *
+        {tipo === "genero" ? "Gênero" : tipo[0].toUpperCase() + tipo.slice(1)} *
       </label>
       <div className="relative flex min-w-0 items-center">
         <Search className="pointer-events-none absolute left-3 h-4 w-4 text-[var(--lista-text-muted)]" />
@@ -166,6 +191,11 @@ export function OrigemAutocomplete({
         </ul>
       )}
       {erro && <span className="text-xs text-[var(--danger)]">{erro}</span>}
+      {erroBusca && (
+        <span className="text-xs text-[var(--danger)]">
+          Não foi possível buscar agora. Tente de novo.
+        </span>
+      )}
     </div>
   );
 }
