@@ -15,10 +15,10 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { useListasStore } from "@/stores/listasStore";
-import { useJogosStore } from "@/stores/jogosStore";
 import { AdicionarJogoInput } from "./AdicionarJogoInput";
 import { FilaItem } from "./FilaItem";
-import type { ListaDetalhada, ListaItem } from "@/types/listas";
+import { useZereiItem } from "./useZereiItem";
+import type { ListaDetalhada } from "@/types/listas";
 
 export interface FilaListaProps {
   lista: ListaDetalhada;
@@ -29,10 +29,9 @@ export function FilaLista({ lista }: FilaListaProps) {
     reordenarItens,
     adicionarItem,
     removerItem,
-    associarZeramento,
     error,
   } = useListasStore();
-  const { abrirModalRegistro } = useJogosStore();
+  const handleZerei = useZereiItem();
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -64,20 +63,6 @@ export function FilaLista({ lista }: FilaListaProps) {
       ...zerados.map((it) => it.id),
     ];
     reordenarItens(todosIds).catch(() => undefined);
-  };
-
-  const handleZerei = (item: ListaItem) => {
-    abrirModalRegistro({
-      valoresIniciais: {
-        nome: item.nome,
-        igdb_id: item.igdb_id ?? undefined,
-        igdb_capa_url: item.igdb_capa_url ?? undefined,
-        console: item.console ?? undefined,
-      },
-      onSalvo: async (jogo) => {
-        await associarZeramento(item.id, jogo.id);
-      },
-    });
   };
 
   return (
