@@ -1305,6 +1305,9 @@ func (s *ListasService) calcularLista(lista *repository.Lista, jogos []*reposito
 			}
 		}
 	}
+	if lista.Tipo == "desafio" {
+		ordenarItensDesafio(detalhesItens)
+	}
 
 	var progresso *ProgressoDetalhe
 	var itensPendentes int
@@ -1364,6 +1367,27 @@ func (s *ListasService) calcularLista(lista *repository.Lista, jogos []*reposito
 	}
 
 	return resumo, detalhesItens
+}
+
+func ordenarItensDesafio(itens []*ListaItemDetalhe) {
+	sort.SliceStable(itens, func(i, j int) bool {
+		itemA, itemB := itens[i], itens[j]
+		if itemA.AnoLancamento == nil && itemB.AnoLancamento != nil {
+			return false
+		}
+		if itemA.AnoLancamento != nil && itemB.AnoLancamento == nil {
+			return true
+		}
+		if itemA.AnoLancamento != nil && itemB.AnoLancamento != nil && *itemA.AnoLancamento != *itemB.AnoLancamento {
+			return *itemA.AnoLancamento < *itemB.AnoLancamento
+		}
+		nomeA := normalizeLowerUnaccent(itemA.Nome)
+		nomeB := normalizeLowerUnaccent(itemB.Nome)
+		if nomeA != nomeB {
+			return nomeA < nomeB
+		}
+		return itemA.ID < itemB.ID
+	})
 }
 
 func (s *ListasService) construirItemDetalhe(item *repository.ListaItem, jogos []*repository.JogoZeradoResumo) *ListaItemDetalhe {

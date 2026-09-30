@@ -960,7 +960,7 @@ func TestIntegration_DesafioComItensELote(t *testing.T) {
 		t.Fatalf("falha ao criar zeramento: %v", err)
 	}
 
-	criar := `{"tipo":"desafio","nome":"Desafio escolhido","origem":{"tipo":"franquia","igdb_id":596,"nome":"The Legend of Zelda"},"itens":[{"igdb_id":7001,"nome":"Jogo Um"},{"igdb_id":7002,"nome":"Jogo Dois"}]}`
+	criar := `{"tipo":"desafio","nome":"Desafio escolhido","origem":{"tipo":"franquia","igdb_id":596,"nome":"The Legend of Zelda"},"itens":[{"igdb_id":7001,"nome":"Jogo Um","ano_lancamento":2010},{"igdb_id":7002,"nome":"Jogo Dois","ano_lancamento":1986}]}`
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/listas", bytes.NewBufferString(criar))
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Content-Type", "application/json")
@@ -978,8 +978,11 @@ func TestIntegration_DesafioComItensELote(t *testing.T) {
 	if criada.Data.Progresso == nil || criada.Data.Progresso.Meta != 2 || criada.Data.Progresso.Feitos != 1 {
 		t.Fatalf("progresso inicial inesperado: %+v", criada.Data.Progresso)
 	}
+	if len(criada.Data.Itens) != 2 || criada.Data.Itens[0].AnoLancamento == nil || *criada.Data.Itens[0].AnoLancamento != 1986 {
+		t.Fatalf("ordem de criação inesperada: %+v", criada.Data.Itens)
+	}
 
-	lote := `{"itens":[{"igdb_id":7001,"nome":"Jogo Um"},{"igdb_id":7003,"nome":"Jogo Três"},{"igdb_id":7004,"nome":"Jogo Quatro"}]}`
+	lote := `{"itens":[{"igdb_id":7001,"nome":"Jogo Um"},{"igdb_id":7003,"nome":"Jogo Três","ano_lancamento":1975},{"igdb_id":7004,"nome":"Jogo Quatro","ano_lancamento":2020}]}`
 	req = httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/v1/listas/%d/itens/lote", criada.Data.ID), bytes.NewBufferString(lote))
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Content-Type", "application/json")
@@ -1001,6 +1004,9 @@ func TestIntegration_DesafioComItensELote(t *testing.T) {
 	}
 	if detalhe.Data.Progresso == nil || detalhe.Data.Progresso.Meta != 4 {
 		t.Fatalf("meta do lote inesperada: %+v", detalhe.Data.Progresso)
+	}
+	if len(detalhe.Data.Itens) != 4 || detalhe.Data.Itens[0].AnoLancamento == nil || *detalhe.Data.Itens[0].AnoLancamento != 1975 {
+		t.Fatalf("ordem após lote inesperada: %+v", detalhe.Data.Itens)
 	}
 
 	itemID := detalhe.Data.Itens[len(detalhe.Data.Itens)-1].ID
