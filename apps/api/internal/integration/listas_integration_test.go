@@ -239,7 +239,7 @@ func TestIntegration_MigrationUpDown(t *testing.T) {
 	}
 	defer func() { _, _ = m.Close() }()
 
-	if err := m.Steps(-1); err != nil {
+	if err := m.Migrate(10); err != nil {
 		t.Fatalf("falha ao executar migration down: %v", err)
 	}
 
@@ -254,10 +254,7 @@ func TestIntegration_MigrationUpDown(t *testing.T) {
 		t.Fatal("esperava que a coluna ignorado fosse recriada apos migration down 0011")
 	}
 
-	if err := m.Steps(-1); err != nil {
-		t.Fatalf("falha ao executar migration down 0010: %v", err)
-	}
-	if err := m.Steps(-1); err != nil {
+	if err := m.Migrate(8); err != nil {
 		t.Fatalf("falha ao executar migration down 0009: %v", err)
 	}
 

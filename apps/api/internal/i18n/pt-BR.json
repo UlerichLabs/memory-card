@@ -66,5 +66,19 @@
   "listas.ordem_invalida": "Ordem dos itens inválida.",
   "listas.id_invalido": "Identificador inválido.",
   "catalogo.parametro_invalido": "Parâmetro de catálogo inválido.",
-  "catalogo.paginacao_invalida": "Paginação do catálogo inválida."
+  "catalogo.paginacao_invalida": "Paginação do catálogo inválida.",
+  "abandonados.entrada_invalida": "Dados de entrada inválidos.",
+  "abandonados.nome_obrigatorio": "O nome do jogo é obrigatório.",
+  "abandonados.nome_muito_longo": "O nome deve ter no máximo 200 caracteres.",
+  "abandonados.console_obrigatorio": "O console é obrigatório.",
+  "abandonados.console_muito_longo": "O console deve ter no máximo 100 caracteres.",
+  "abandonados.tempo_invalido": "O tempo jogado é inválido.",
+  "abandonados.motivo_muito_longo": "O motivo deve ter no máximo 500 caracteres.",
+  "abandonados.data_invalida": "Formato de data inválido.",
+  "abandonados.data_futura": "A data de abandono não pode estar no futuro.",
+  "abandonados.id_invalido": "Identificador inválido.",
+  "abandonados.pagina_invalida": "Página inválida.",
+  "abandonados.por_pagina_invalida": "Quantidade por página inválida.",
+  "abandonados.ordenar_invalido": "Ordenação inválida.",
+  "abandonados.nao_encontrado": "Jogo abandonado não encontrado."
 }
