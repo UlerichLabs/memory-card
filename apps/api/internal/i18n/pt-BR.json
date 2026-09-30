@@ -56,14 +56,15 @@
   "listas.regra_invalida": "Regra da lista inválida.",
   "listas.meta_invalida": "A meta deve estar entre 1 e 10.000.",
   "listas.franquia_nao_encontrada": "Franquia não encontrada no IGDB.",
+  "listas.campo_nao_permitido": "Este campo não é permitido.",
+  "listas.desafio_sem_jogos": "O desafio deve ter pelo menos um jogo.",
+  "listas.itens_demais": "A lista não pode ter mais jogos que o limite permitido.",
   "listas.campo_imutavel": "Tipo e regra da lista não podem ser alterados.",
   "listas.nao_encontrada": "Lista não encontrada.",
   "listas.item_nao_encontrado": "Item não encontrado.",
-  "listas.itens_nao_permitidos": "Esta lista não permite itens manuais.",
   "listas.item_duplicado": "Este jogo já está na lista.",
   "listas.ordem_invalida": "Ordem dos itens inválida.",
-  "listas.sincronizacao_nao_permitida": "Sincronização permitida apenas para desafios de franquia.",
   "listas.id_invalido": "Identificador inválido.",
-  "listas.franquia_sem_jogos": "Nenhum jogo encontrado para esta franquia.",
-  "listas.restauracao_nao_permitida": "Restauração permitida apenas para desafios de franquia."
+  "catalogo.parametro_invalido": "Parâmetro de catálogo inválido.",
+  "catalogo.paginacao_invalida": "Paginação do catálogo inválida."
 }

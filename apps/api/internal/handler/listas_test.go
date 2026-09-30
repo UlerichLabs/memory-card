@@ -76,6 +76,10 @@ func (m *mockListasService) AdicionarItem(ctx context.Context, input service.Adi
 	return &service.ListaItemDetalhe{}, nil
 }
 
+func (m *mockListasService) AdicionarItensLote(context.Context, service.AdicionarItensLoteInput) (*service.AdicionarItensLoteResultado, error) {
+	return &service.AdicionarItensLoteResultado{}, nil
+}
+
 func (m *mockListasService) ExcluirItem(ctx context.Context, itemID int64, listaID int64, usuarioID int32) error {
 	if m.excluirItemFn != nil {
 		return m.excluirItemFn(ctx, itemID, listaID, usuarioID)
@@ -326,7 +330,7 @@ func TestListasHandler_CriarLista_201_400_404(t *testing.T) {
 		}
 		router, token := setupListasTestRouter(t, svc)
 
-		body := `{"tipo":"desafio","nome":"Zelda","regra":{"tipo":"franquia","igdb_id":999}}`
+		body := `{"tipo":"desafio","nome":"Zelda","origem":{"tipo":"franquia","igdb_id":999,"nome":"Zelda"},"itens":[{"igdb_id":1,"nome":"Zelda"}]}`
 		req, _ := http.NewRequest("POST", "/api/v1/listas", bytes.NewBufferString(body))
 		req.Header.Set("Authorization", "Bearer "+token)
 		req.Header.Set("Content-Type", "application/json")

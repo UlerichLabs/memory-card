@@ -80,6 +80,11 @@ type CriarListaComItensParams struct {
 	Itens []CriarItemParams
 }
 
+type AdicionarItensLoteResultado struct {
+	Adicionados  int
+	JaExistentes int
+}
+
 type AtualizarListaParams struct {
 	ID        int64
 	UsuarioID int32
@@ -97,6 +102,7 @@ type ListasRepository interface {
 	Excluir(ctx context.Context, id int64, usuarioID int32) error
 
 	CriarItem(ctx context.Context, listaID int64, usuarioID int32, params CriarItemParams) (*ListaItem, error)
+	AdicionarItensLote(ctx context.Context, listaID int64, usuarioID int32, itens []CriarItemParams) (AdicionarItensLoteResultado, error)
 	BuscarItemPorID(ctx context.Context, id int64, listaID int64, usuarioID int32) (*ListaItem, error)
 	ListarItensPorLista(ctx context.Context, listaID int64, usuarioID int32) ([]*ListaItem, error)
 	ListarTodosItensDoUsuario(ctx context.Context, usuarioID int32) ([]*ListaItem, error)
@@ -104,7 +110,6 @@ type ListasRepository interface {
 	ReordenarItens(ctx context.Context, listaID int64, usuarioID int32, itemIDs []int64) ([]*ListaItem, error)
 	AssociarJogoZerado(ctx context.Context, itemID int64, listaID int64, usuarioID int32, jogoZeradoID int32) (*ListaItem, error)
 	DesassociarJogoZerado(ctx context.Context, itemID int64, listaID int64, usuarioID int32) (*ListaItem, error)
-	DefinirIgnoradoItem(ctx context.Context, itemID int64, listaID int64, usuarioID int32, ignorado bool) (*ListaItem, error)
 	SincronizarFranquia(ctx context.Context, listaID int64, usuarioID int32, novosItens []CriarItemParams) (int, error)
 
 	ListarJogosZeradosUsuario(ctx context.Context, usuarioID int32) ([]*JogoZeradoResumo, error)
@@ -137,9 +142,6 @@ func (r *SQLListasRepository) Criar(ctx context.Context, params CriarListaParams
 	}
 	if params.RegraIgdbID != nil {
 		dbParams.RegraIgdbID = pgtype.Int4{Int32: *params.RegraIgdbID, Valid: true}
-	}
-	if params.Meta != nil {
-		dbParams.Meta = pgtype.Int4{Int32: int32(*params.Meta), Valid: true}
 	}
 
 	row, err := r.queries.CriarLista(ctx, dbParams)
@@ -182,9 +184,6 @@ func (r *SQLListasRepository) CriarComItens(ctx context.Context, params CriarLis
 	if params.Lista.RegraIgdbID != nil {
 		dbParams.RegraIgdbID = pgtype.Int4{Int32: *params.Lista.RegraIgdbID, Valid: true}
 	}
-	if params.Lista.Meta != nil {
-		dbParams.Meta = pgtype.Int4{Int32: int32(*params.Lista.Meta), Valid: true}
-	}
 
 	rowLista, err := qtx.CriarLista(ctx, dbParams)
 	if err != nil {
@@ -194,10 +193,9 @@ func (r *SQLListasRepository) CriarComItens(ctx context.Context, params CriarLis
 	itensCriados := make([]*ListaItem, 0, len(params.Itens))
 	for _, it := range params.Itens {
 		itParam := db.CriarItemListaParams{
-			ListaID:  rowLista.ID,
-			Nome:     it.Nome,
-			Posicao:  int32(it.Posicao),
-			Ignorado: it.Ignorado,
+			ListaID: rowLista.ID,
+			Nome:    it.Nome,
+			Posicao: int32(it.Posicao),
 		}
 		if it.IgdbID != nil {
 			itParam.IgdbID = pgtype.Int4{Int32: *it.IgdbID, Valid: true}
@@ -265,9 +263,6 @@ func (r *SQLListasRepository) Atualizar(ctx context.Context, params AtualizarLis
 	if params.Descricao != nil {
 		dbParams.Descricao = pgtype.Text{String: *params.Descricao, Valid: true}
 	}
-	if params.Meta != nil {
-		dbParams.Meta = pgtype.Int4{Int32: int32(*params.Meta), Valid: true}
-	}
 
 	row, err := r.queries.AtualizarLista(ctx, dbParams)
 	if err != nil {
@@ -305,10 +300,9 @@ func (r *SQLListasRepository) CriarItem(ctx context.Context, listaID int64, usua
 	}
 
 	itParam := db.CriarItemListaParams{
-		ListaID:  listaID,
-		Nome:     params.Nome,
-		Posicao:  maxPos + 1,
-		Ignorado: params.Ignorado,
+		ListaID: listaID,
+		Nome:    params.Nome,
+		Posicao: maxPos + 1,
 	}
 	if params.IgdbID != nil {
 		itParam.IgdbID = pgtype.Int4{Int32: *params.IgdbID, Valid: true}
@@ -331,6 +325,79 @@ func (r *SQLListasRepository) CriarItem(ctx context.Context, listaID int64, usua
 		return nil, fmt.Errorf("criar item lista: %w", err)
 	}
 	return mapearListaItem(row), nil
+}
+
+func (r *SQLListasRepository) AdicionarItensLote(ctx context.Context, listaID int64, usuarioID int32, itens []CriarItemParams) (AdicionarItensLoteResultado, error) {
+	if r.pool == nil {
+		return AdicionarItensLoteResultado{}, errors.New("pool nao configurado")
+	}
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return AdicionarItensLoteResultado{}, fmt.Errorf("iniciar transacao: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	qtx := r.queries.WithTx(tx)
+	lista, err := qtx.BuscarListaPorIDParaUpdate(ctx, db.BuscarListaPorIDParaUpdateParams{ID: listaID, UsuarioID: usuarioID})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return AdicionarItensLoteResultado{}, pgx.ErrNoRows
+		}
+		return AdicionarItensLoteResultado{}, fmt.Errorf("buscar lista para lote: %w", err)
+	}
+	existentes, err := qtx.ListarItensPorLista(ctx, lista.ID)
+	if err != nil {
+		return AdicionarItensLoteResultado{}, fmt.Errorf("listar itens para lote: %w", err)
+	}
+	ids := make(map[int32]struct{}, len(existentes))
+	for _, item := range existentes {
+		if item.IgdbID.Valid {
+			ids[item.IgdbID.Int32] = struct{}{}
+		}
+	}
+	resultado := AdicionarItensLoteResultado{}
+	posicao := int32(0)
+	for _, item := range existentes {
+		if item.Posicao > posicao {
+			posicao = item.Posicao
+		}
+	}
+	for _, item := range itens {
+		if _, found := ids[*item.IgdbID]; found {
+			resultado.JaExistentes++
+			continue
+		}
+		ids[*item.IgdbID] = struct{}{}
+		posicao++
+		_, err = qtx.CriarItemLista(ctx, toDBCriarItem(listaID, posicao, item))
+		if err != nil {
+			return AdicionarItensLoteResultado{}, fmt.Errorf("criar item em lote: %w", err)
+		}
+		resultado.Adicionados++
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return AdicionarItensLoteResultado{}, fmt.Errorf("commit lote: %w", err)
+	}
+	return resultado, nil
+}
+
+func toDBCriarItem(listaID int64, posicao int32, item CriarItemParams) db.CriarItemListaParams {
+	params := db.CriarItemListaParams{ListaID: listaID, Posicao: posicao, Nome: item.Nome}
+	if item.IgdbID != nil {
+		params.IgdbID = pgtype.Int4{Int32: *item.IgdbID, Valid: true}
+	}
+	if item.Console != nil {
+		params.Console = pgtype.Text{String: *item.Console, Valid: true}
+	}
+	if item.IgdbCapaURL != nil {
+		params.IgdbCapaUrl = pgtype.Text{String: *item.IgdbCapaURL, Valid: true}
+	}
+	if item.AnoLancamento != nil {
+		params.AnoLancamento = pgtype.Int4{Int32: int32(*item.AnoLancamento), Valid: true}
+	}
+	if item.JogoZeradoID != nil {
+		params.JogoZeradoID = pgtype.Int4{Int32: *item.JogoZeradoID, Valid: true}
+	}
+	return params
 }
 
 func (r *SQLListasRepository) BuscarItemPorID(ctx context.Context, id int64, listaID int64, usuarioID int32) (*ListaItem, error) {
@@ -557,26 +624,6 @@ func (r *SQLListasRepository) DesassociarJogoZerado(ctx context.Context, itemID 
 	return mapearListaItem(row), nil
 }
 
-func (r *SQLListasRepository) DefinirIgnoradoItem(ctx context.Context, itemID int64, listaID int64, usuarioID int32, ignorado bool) (*ListaItem, error) {
-	_, err := r.BuscarItemPorID(ctx, itemID, listaID, usuarioID)
-	if err != nil {
-		return nil, err
-	}
-
-	row, err := r.queries.DefinirIgnoradoItem(ctx, db.DefinirIgnoradoItemParams{
-		ID:       itemID,
-		ListaID:  listaID,
-		Ignorado: ignorado,
-	})
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, pgx.ErrNoRows
-		}
-		return nil, fmt.Errorf("definir ignorado item: %w", err)
-	}
-	return mapearListaItem(row), nil
-}
-
 func (r *SQLListasRepository) SincronizarFranquia(ctx context.Context, listaID int64, usuarioID int32, novosItens []CriarItemParams) (int, error) {
 	if r.pool == nil {
 		return 0, errors.New("pool nao configurado")
@@ -627,10 +674,9 @@ func (r *SQLListasRepository) SincronizarFranquia(ctx context.Context, listaID i
 
 		maxPos++
 		itParam := db.CriarItemListaParams{
-			ListaID:  listaID,
-			Nome:     it.Nome,
-			Posicao:  maxPos,
-			Ignorado: false,
+			ListaID: listaID,
+			Nome:    it.Nome,
+			Posicao: maxPos,
 		}
 		if it.IgdbID != nil {
 			itParam.IgdbID = pgtype.Int4{Int32: *it.IgdbID, Valid: true}
@@ -756,7 +802,7 @@ func mapearListaItem(row db.ListaIten) *ListaItem {
 		ListaID:   row.ListaID,
 		Nome:      row.Nome,
 		Posicao:   int(row.Posicao),
-		Ignorado:  row.Ignorado,
+		Ignorado:  false,
 		CreatedAt: row.CreatedAt.Time,
 	}
 	if row.IgdbID.Valid {

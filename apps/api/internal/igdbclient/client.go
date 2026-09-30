@@ -86,6 +86,7 @@ type Platform struct {
 type Genre struct {
 	ID   int64  `json:"id"`
 	Name string `json:"name"`
+	Slug string `json:"slug,omitempty"`
 }
 
 type Franchise struct {
@@ -262,7 +263,30 @@ func (c *Client) GamesByFranchise(ctx context.Context, id int64) ([]Game, error)
 }
 
 func (c *Client) GamesByFranchiseParaDesafio(ctx context.Context, id int64) ([]Game, error) {
-	return c.games(ctx, fmt.Sprintf("fields id,name,cover.url,first_release_date,game_type,version_parent,franchise,franchises,collections.name; where franchises = (%d); limit 500;", id))
+	return c.games(ctx, fmt.Sprintf("fields id,name,cover.url,first_release_date,game_type,version_parent,franchise,franchises,collections.name,total_rating_count; where franchises = (%d); limit 500;", id))
+}
+
+func (c *Client) CatalogGames(ctx context.Context, where, sortOrder string, limit, offset int) ([]Game, error) {
+	fields := "fields id,name,cover.url,first_release_date,total_rating_count;"
+	return c.games(ctx, fmt.Sprintf("%s where %s; sort %s; limit %d; offset %d;", fields, where, sortOrder, limit, offset))
+}
+
+func (c *Client) CountGames(ctx context.Context, where string) (int, error) {
+	var result struct {
+		Count int `json:"count"`
+	}
+	if err := c.query(ctx, "games/count", fmt.Sprintf("where %s;", where), &result); err != nil {
+		return 0, err
+	}
+	return result.Count, nil
+}
+
+func (c *Client) Genres(ctx context.Context) ([]Genre, error) {
+	var result []Genre
+	if err := c.query(ctx, "genres", "fields id,name,slug; limit 100;", &result); err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 func (c *Client) games(ctx context.Context, query string) ([]Game, error) {

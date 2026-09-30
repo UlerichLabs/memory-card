@@ -38,6 +38,9 @@ var (
 	ErrListaOrdemInvalida             = errors.New("listas.ordem_invalida")
 	ErrListaSincronizacaoNaoPermitida = errors.New("listas.sincronizacao_nao_permitida")
 	ErrListaIDInvalido                = errors.New("listas.id_invalido")
+	ErrListaCampoNaoPermitido         = errors.New("listas.campo_nao_permitido")
+	ErrListaDesafioSemJogos           = errors.New("listas.desafio_sem_jogos")
+	ErrListaItensDemais               = errors.New("listas.itens_demais")
 )
 
 type ListasIGDBService interface {
@@ -52,6 +55,12 @@ type RegraDetalhe struct {
 	Tipo   string  `json:"tipo"`
 	Valor  *string `json:"valor"`
 	IgdbID *int32  `json:"igdb_id"`
+}
+
+type OrigemDetalhe struct {
+	Tipo   string `json:"tipo"`
+	IgdbID *int32 `json:"igdb_id"`
+	Nome   string `json:"nome"`
 }
 
 type ProgressoDetalhe struct {
@@ -78,7 +87,7 @@ type ListaItemDetalhe struct {
 	Posicao       int              `json:"posicao"`
 	Origem        string           `json:"origem"`
 	Zerado        bool             `json:"zerado"`
-	Ignorado      bool             `json:"ignorado"`
+	Ignorado      bool             `json:"-"`
 	JogoZerado    *JogoZeradoMatch `json:"jogo_zerado"`
 }
 
@@ -87,10 +96,11 @@ type ListaResumo struct {
 	Tipo           string            `json:"tipo"`
 	Nome           string            `json:"nome"`
 	Descricao      *string           `json:"descricao"`
-	Regra          *RegraDetalhe     `json:"regra"`
-	Meta           *int              `json:"meta"`
+	Regra          *RegraDetalhe     `json:"-"`
+	Origem         *OrigemDetalhe    `json:"origem"`
+	Meta           *int              `json:"-"`
 	TotalItens     int               `json:"total_itens"`
-	TotalIgnorados int               `json:"total_ignorados"`
+	TotalIgnorados int               `json:"-"`
 	ItensPendentes int               `json:"itens_pendentes"`
 	Progresso      *ProgressoDetalhe `json:"progresso"`
 	CreatedAt      time.Time         `json:"created_at"`
@@ -137,6 +147,19 @@ type CriarListaRegraInput struct {
 	IgdbIDsIgnorados []int32 `json:"igdb_ids_ignorados,omitempty"`
 }
 
+type CriarListaOrigemInput struct {
+	Tipo   string
+	IgdbID int32
+	Nome   string
+}
+
+type CriarListaItemInput struct {
+	IgdbID        int32
+	Nome          string
+	IgdbCapaURL   *string
+	AnoLancamento *int
+}
+
 type CriarListaInput struct {
 	UsuarioID int32
 	Tipo      string
@@ -144,6 +167,8 @@ type CriarListaInput struct {
 	Descricao *string
 	Regra     *CriarListaRegraInput
 	Meta      *int
+	Origem    *CriarListaOrigemInput
+	Itens     []CriarListaItemInput
 }
 
 type AtualizarListaInput struct {
@@ -166,6 +191,17 @@ type AdicionarItemInput struct {
 	AnoLancamento *int
 }
 
+type AdicionarItensLoteInput struct {
+	ListaID   int64
+	UsuarioID int32
+	Itens     []CriarListaItemInput
+}
+
+type AdicionarItensLoteResultado struct {
+	Adicionados  int `json:"adicionados"`
+	JaExistentes int `json:"ja_existentes"`
+}
+
 type ListasService struct {
 	repo repository.ListasRepository
 	igdb ListasIGDBService
@@ -185,6 +221,9 @@ func normalizeLowerUnaccent(s string) string {
 }
 
 func (s *ListasService) CriarLista(ctx context.Context, input CriarListaInput) (*ListaDetalhada, error) {
+	if input.Origem != nil || len(input.Itens) > 0 {
+		return s.criarListaComJogos(ctx, input)
+	}
 	nome := strings.TrimSpace(input.Nome)
 	if nome == "" {
 		return nil, ErrListaNomeObrigatorio
@@ -405,6 +444,100 @@ func (s *ListasService) CriarLista(ctx context.Context, input CriarListaInput) (
 	return nil, ErrListaRegraInvalida
 }
 
+func (s *ListasService) criarListaComJogos(ctx context.Context, input CriarListaInput) (*ListaDetalhada, error) {
+	nome := strings.TrimSpace(input.Nome)
+	if nome == "" {
+		return nil, ErrListaNomeObrigatorio
+	}
+	if len([]rune(nome)) > 100 {
+		return nil, ErrListaNomeInvalido
+	}
+	if input.Tipo != "fila" && input.Tipo != "desafio" {
+		return nil, ErrListaTipoInvalido
+	}
+	if input.Meta != nil || input.Regra != nil {
+		return nil, ErrListaCampoNaoPermitido
+	}
+	var descricao *string
+	if input.Descricao != nil {
+		valor := strings.TrimSpace(*input.Descricao)
+		if len([]rune(valor)) > 200 {
+			return nil, ErrListaDescricaoMuitoLonga
+		}
+		if valor != "" {
+			descricao = &valor
+		}
+	}
+	if input.Tipo == "desafio" {
+		if input.Origem == nil || !origemValida(input.Origem) {
+			return nil, ErrListaRegraInvalida
+		}
+		if len(input.Itens) == 0 {
+			return nil, ErrListaDesafioSemJogos
+		}
+	}
+	if len(input.Itens) > 1000 {
+		return nil, ErrListaItensDemais
+	}
+	itens := make([]repository.CriarItemParams, 0, len(input.Itens))
+	ids := make(map[int32]struct{}, len(input.Itens))
+	for _, item := range input.Itens {
+		if item.IgdbID <= 0 {
+			return nil, ErrListaRegraInvalida
+		}
+		itemNome := strings.TrimSpace(item.Nome)
+		if itemNome == "" {
+			return nil, ErrListaNomeObrigatorio
+		}
+		if len([]rune(itemNome)) > 200 {
+			return nil, ErrListaNomeInvalido
+		}
+		if _, found := ids[item.IgdbID]; found {
+			continue
+		}
+		ids[item.IgdbID] = struct{}{}
+		itens = append(itens, repository.CriarItemParams{IgdbID: &item.IgdbID, Nome: itemNome, IgdbCapaURL: item.IgdbCapaURL, AnoLancamento: item.AnoLancamento, Posicao: len(itens) + 1})
+	}
+	if input.Tipo == "desafio" && len(itens) == 0 {
+		return nil, ErrListaDesafioSemJogos
+	}
+	var regraTipo, regraValor string
+	var regraID *int32
+	if input.Origem != nil {
+		regraTipo, regraValor, regraID = input.Origem.Tipo, strings.TrimSpace(input.Origem.Nome), &input.Origem.IgdbID
+	}
+	params := repository.CriarListaComItensParams{
+		Lista: repository.CriarListaParams{UsuarioID: input.UsuarioID, Tipo: input.Tipo, Nome: nome, Descricao: descricao, RegraTipo: optionalString(regraTipo), RegraValor: optionalString(regraValor), RegraIgdbID: regraID},
+		Itens: itens,
+	}
+	if len(itens) == 0 {
+		lista, err := s.repo.Criar(ctx, params.Lista)
+		if err != nil {
+			return nil, err
+		}
+		return s.ObterLista(ctx, lista.ID, input.UsuarioID)
+	}
+	lista, _, err := s.repo.CriarComItens(ctx, params)
+	if err != nil {
+		return nil, err
+	}
+	return s.ObterLista(ctx, lista.ID, input.UsuarioID)
+}
+
+func origemValida(origem *CriarListaOrigemInput) bool {
+	if origem.IgdbID <= 0 || strings.TrimSpace(origem.Nome) == "" || len([]rune(strings.TrimSpace(origem.Nome))) > 150 {
+		return false
+	}
+	return origem.Tipo == "franquia" || origem.Tipo == "plataforma" || origem.Tipo == "genero"
+}
+
+func optionalString(value string) *string {
+	if value == "" {
+		return nil
+	}
+	return &value
+}
+
 func (s *ListasService) ObterLista(ctx context.Context, id int64, usuarioID int32) (*ListaDetalhada, error) {
 	lista, err := s.repo.BuscarPorID(ctx, id, usuarioID)
 	if err != nil {
@@ -422,12 +555,9 @@ func (s *ListasService) ObterLista(ctx context.Context, id int64, usuarioID int3
 		return nil, err
 	}
 
-	var dbItens []*repository.ListaItem
-	if lista.Tipo != "desafio" || lista.RegraTipo == nil || (*lista.RegraTipo != "plataforma" && *lista.RegraTipo != "genero") {
-		dbItens, err = s.repo.ListarItensPorLista(ctx, id, usuarioID)
-		if err != nil {
-			return nil, err
-		}
+	dbItens, err := s.repo.ListarItensPorLista(ctx, id, usuarioID)
+	if err != nil {
+		return nil, err
 	}
 
 	resumo, itens := s.calcularLista(lista, jogos, dbItens)
@@ -461,10 +591,7 @@ func (s *ListasService) ListarListas(ctx context.Context, usuarioID int32) ([]*L
 
 	res := make([]*ListaResumo, 0, len(listas))
 	for _, l := range listas {
-		var listaItens []*repository.ListaItem
-		if l.Tipo != "desafio" || l.RegraTipo == nil || (*l.RegraTipo != "plataforma" && *l.RegraTipo != "genero") {
-			listaItens = itensPorLista[l.ID]
-		}
+		listaItens := itensPorLista[l.ID]
 		resumo, _ := s.calcularLista(l, jogos, listaItens)
 		res = append(res, resumo)
 	}
@@ -473,8 +600,8 @@ func (s *ListasService) ListarListas(ctx context.Context, usuarioID int32) ([]*L
 }
 
 func (s *ListasService) AtualizarLista(ctx context.Context, input AtualizarListaInput) (*ListaDetalhada, error) {
-	if input.Tipo != nil || input.Regra != nil {
-		return nil, ErrListaCampoImutavel
+	if input.Tipo != nil || input.Regra != nil || input.Meta != nil {
+		return nil, ErrListaCampoNaoPermitido
 	}
 
 	lista, err := s.repo.BuscarPorID(ctx, input.ID, input.UsuarioID)
@@ -513,47 +640,12 @@ func (s *ListasService) AtualizarLista(ctx context.Context, input AtualizarLista
 		}
 	}
 
-	metaPtr := lista.Meta
-	if lista.Tipo == "fila" {
-		if input.Meta != nil {
-			return nil, ErrListaMetaInvalida
-		}
-		metaPtr = nil
-	} else if lista.RegraTipo != nil && *lista.RegraTipo == "franquia" {
-		if input.Meta != nil {
-			if *input.Meta < 1 {
-				return nil, ErrListaMetaInvalida
-			}
-			dbItens, err := s.repo.ListarItensPorLista(ctx, input.ID, input.UsuarioID)
-			if err != nil {
-				return nil, err
-			}
-			ativos := 0
-			for _, it := range dbItens {
-				if !it.Ignorado {
-					ativos++
-				}
-			}
-			if *input.Meta > ativos {
-				return nil, ErrListaMetaInvalida
-			}
-			metaPtr = input.Meta
-		}
-	} else {
-		if input.Meta != nil {
-			if *input.Meta < 1 || *input.Meta > 10000 {
-				return nil, ErrListaMetaInvalida
-			}
-			metaPtr = input.Meta
-		}
-	}
-
 	_, err = s.repo.Atualizar(ctx, repository.AtualizarListaParams{
 		ID:        input.ID,
 		UsuarioID: input.UsuarioID,
 		Nome:      nome,
 		Descricao: descPtr,
-		Meta:      metaPtr,
+		Meta:      nil,
 	})
 	if err != nil {
 		return nil, err
@@ -645,11 +737,6 @@ func (s *ListasService) ExcluirItem(ctx context.Context, itemID int64, listaID i
 		return ErrListaItemNaoEncontrado
 	}
 
-	if lista.Tipo == "desafio" && lista.RegraTipo != nil && *lista.RegraTipo == "franquia" {
-		_, err := s.repo.DefinirIgnoradoItem(ctx, itemID, listaID, usuarioID, true)
-		return err
-	}
-
 	err = s.repo.ExcluirItemERecompactar(ctx, itemID, listaID, usuarioID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -658,6 +745,39 @@ func (s *ListasService) ExcluirItem(ctx context.Context, itemID int64, listaID i
 		return err
 	}
 	return nil
+}
+
+func (s *ListasService) AdicionarItensLote(ctx context.Context, input AdicionarItensLoteInput) (*AdicionarItensLoteResultado, error) {
+	if len(input.Itens) < 1 || len(input.Itens) > 500 {
+		return nil, ErrListaItensDemais
+	}
+	params := make([]repository.CriarItemParams, 0, len(input.Itens))
+	ids := make(map[int32]struct{}, len(input.Itens))
+	for _, item := range input.Itens {
+		if item.IgdbID <= 0 {
+			return nil, ErrListaRegraInvalida
+		}
+		nome := strings.TrimSpace(item.Nome)
+		if nome == "" {
+			return nil, ErrListaNomeObrigatorio
+		}
+		if len([]rune(nome)) > 200 {
+			return nil, ErrListaNomeInvalido
+		}
+		if _, found := ids[item.IgdbID]; found {
+			continue
+		}
+		ids[item.IgdbID] = struct{}{}
+		params = append(params, repository.CriarItemParams{IgdbID: &item.IgdbID, Nome: nome, IgdbCapaURL: item.IgdbCapaURL, AnoLancamento: item.AnoLancamento})
+	}
+	resultado, err := s.repo.AdicionarItensLote(ctx, input.ListaID, input.UsuarioID, params)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrListaNaoEncontrada
+		}
+		return nil, err
+	}
+	return &AdicionarItensLoteResultado{Adicionados: resultado.Adicionados, JaExistentes: resultado.JaExistentes + len(input.Itens) - len(params)}, nil
 }
 
 func (s *ListasService) RestaurarItem(ctx context.Context, itemID int64, listaID int64, usuarioID int32) (*ListaItemDetalhe, error) {
@@ -687,9 +807,15 @@ func (s *ListasService) RestaurarItem(ctx context.Context, itemID int64, listaID
 		return nil, ErrListaItemNaoEncontrado
 	}
 
-	updatedItem, err := s.repo.DefinirIgnoradoItem(ctx, itemID, listaID, usuarioID, false)
-	if err != nil {
-		return nil, err
+	updatedItem := item
+	if legacyRepo, ok := s.repo.(interface {
+		DefinirIgnoradoItem(context.Context, int64, int64, int32, bool) (*repository.ListaItem, error)
+	}); ok {
+		var err error
+		updatedItem, err = legacyRepo.DefinirIgnoradoItem(ctx, itemID, listaID, usuarioID, false)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	jogos, err := s.repo.ListarJogosZeradosUsuario(ctx, usuarioID)
@@ -1055,15 +1181,20 @@ func (s *ListasService) PreviaDesafioFranquia(ctx context.Context, franquiaID in
 
 func (s *ListasService) calcularLista(lista *repository.Lista, jogos []*repository.JogoZeradoResumo, itens []*repository.ListaItem) (*ListaResumo, []*ListaItemDetalhe) {
 	var regra *RegraDetalhe
+	var origem *OrigemDetalhe
 	if lista.RegraTipo != nil {
 		regra = &RegraDetalhe{
 			Tipo:   *lista.RegraTipo,
 			Valor:  lista.RegraValor,
 			IgdbID: lista.RegraIgdbID,
 		}
+		origem = &OrigemDetalhe{Tipo: *lista.RegraTipo, IgdbID: lista.RegraIgdbID}
+		if lista.RegraValor != nil {
+			origem.Nome = *lista.RegraValor
+		}
 	}
 
-	if lista.Tipo == "desafio" && lista.RegraTipo != nil && (*lista.RegraTipo == "plataforma" || *lista.RegraTipo == "genero") {
+	if lista.Tipo == "desafio" && len(itens) == 0 && lista.RegraTipo != nil && (*lista.RegraTipo == "plataforma" || *lista.RegraTipo == "genero") {
 		var matchedJogos []*repository.JogoZeradoResumo
 		regraValorNorm := ""
 		if lista.RegraValor != nil {
@@ -1140,6 +1271,7 @@ func (s *ListasService) calcularLista(lista *repository.Lista, jogos []*reposito
 			Nome:           lista.Nome,
 			Descricao:      lista.Descricao,
 			Regra:          regra,
+			Origem:         origem,
 			Meta:           lista.Meta,
 			TotalItens:     len(matchedJogos),
 			TotalIgnorados: 0,
@@ -1221,6 +1353,7 @@ func (s *ListasService) calcularLista(lista *repository.Lista, jogos []*reposito
 		Nome:           lista.Nome,
 		Descricao:      lista.Descricao,
 		Regra:          regra,
+		Origem:         origem,
 		Meta:           lista.Meta,
 		TotalItens:     totalItens,
 		TotalIgnorados: totalIgnorados,

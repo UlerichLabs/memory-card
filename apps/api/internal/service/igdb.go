@@ -47,6 +47,10 @@ type IGDBService struct {
 	cache  IGDBSnapshotRepository
 }
 
+func chaveSnapshotFranquiaDesafio(id int64) string {
+	return fmt.Sprintf("franchise-desafio-v2:%d", id)
+}
+
 func NewIGDBService(client IGDBClient, cache IGDBSnapshotRepository) *IGDBService {
 	return &IGDBService{client: client, cache: cache}
 }
@@ -392,13 +396,13 @@ func (svc *IGDBService) AtualizarJogosDaFranquia(ctx context.Context, id int64) 
 }
 
 func (svc *IGDBService) JogosDaFranquiaParaDesafio(ctx context.Context, id int64) ([]igdbclient.Game, error) {
-	return svc.jogosSnapshot(ctx, fmt.Sprintf("franchise-desafio:%d", id), func() ([]igdbclient.Game, error) {
+	return svc.jogosSnapshot(ctx, chaveSnapshotFranquiaDesafio(id), func() ([]igdbclient.Game, error) {
 		return svc.client.GamesByFranchiseParaDesafio(ctx, id)
 	})
 }
 
 func (svc *IGDBService) AtualizarJogosDaFranquiaParaDesafio(ctx context.Context, id int64) ([]igdbclient.Game, error) {
-	return svc.atualizarSnapshot(ctx, fmt.Sprintf("franchise-desafio:%d", id), func() ([]igdbclient.Game, error) {
+	return svc.atualizarSnapshot(ctx, chaveSnapshotFranquiaDesafio(id), func() ([]igdbclient.Game, error) {
 		return svc.client.GamesByFranchiseParaDesafio(ctx, id)
 	})
 }
