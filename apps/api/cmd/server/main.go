@@ -171,6 +171,17 @@ func run() error {
 	privadas.PUT("/listas/:id/ordem", listasHandler.ReordenarItens)
 	privadas.PUT("/listas/:id/itens/:itemId/zeramento", listasHandler.AssociarJogoZerado)
 	privadas.DELETE("/listas/:id/itens/:itemId/zeramento", listasHandler.DesassociarJogoZerado)
+	dashboardRepo := repository.NewDashboardRepository(queries)
+	dashboardService := service.NewDashboardService(dashboardRepo)
+	dashboardHandler := handler.NewDashboardHandler(dashboardService)
+	privadas.GET("/dashboard/resumo", dashboardHandler.ObterResumo)
+	privadas.GET("/dashboard/por-ano", dashboardHandler.ListarPorAno)
+	privadas.GET("/dashboard/ranking-plataformas", dashboardHandler.ObterRankingPlataformas)
+	privadas.GET("/dashboard/ranking-generos", dashboardHandler.ObterRankingGeneros)
+	privadas.GET("/dashboard/breakdown-tipo", dashboardHandler.ObterBreakdownTipo)
+	privadas.GET("/dashboard/recordes", dashboardHandler.ObterRecordes)
+	privadas.GET("/dashboard/notas", dashboardHandler.ObterNotas)
+	privadas.GET("/dashboard/dificuldade", dashboardHandler.ObterDificuldade)
 
 	server := &http.Server{
 		Addr:              ":" + cfg.Port,

@@ -80,5 +80,7 @@
   "abandonados.pagina_invalida": "Página inválida.",
   "abandonados.por_pagina_invalida": "Quantidade por página inválida.",
   "abandonados.ordenar_invalido": "Ordenação inválida.",
-  "abandonados.nao_encontrado": "Jogo abandonado não encontrado."
+  "abandonados.nao_encontrado": "Jogo abandonado não encontrado.",
+  "dashboard.limite_invalido": "Limite inválido. Informe um número inteiro entre 1 e 20.",
+  "dashboard.genero_obrigatorio": "O gênero é obrigatório."
 }

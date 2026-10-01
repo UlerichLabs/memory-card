@@ -80,5 +80,7 @@
   "abandonados.pagina_invalida": "Invalid page.",
   "abandonados.por_pagina_invalida": "Invalid items per page.",
   "abandonados.ordenar_invalido": "Invalid ordering.",
-  "abandonados.nao_encontrado": "Abandoned game not found."
+  "abandonados.nao_encontrado": "Abandoned game not found.",
+  "dashboard.limite_invalido": "Invalid limit. Provide an integer between 1 and 20.",
+  "dashboard.genero_obrigatorio": "Genre is required."
 }
