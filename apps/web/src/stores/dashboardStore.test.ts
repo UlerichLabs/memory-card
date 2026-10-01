@@ -1,0 +1,15 @@
+import { act, renderHook, waitFor } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
+import { DashboardProvider, useDashboardStore } from './dashboardStore'
+import { dashboardService } from '@/lib/services/dashboardService'
+
+vi.mock('@/lib/services/dashboardService')
+const mocked = vi.mocked(dashboardService)
+function preparar() {
+  mocked.resumo.mockResolvedValue({ total_jogos: 1, total_segundos: 3600, media_segundos_por_jogo: 3600, nota_media: 8, jogos_no_ano_atual: 1, primeiro_zeramento_em: null, dias_desde_primeiro: 0, anos_desde_primeiro: 0 })
+  mocked.abandonados.mockResolvedValue(0); mocked.jogoDoAno.mockResolvedValue([]); mocked.jogosDaVida.mockResolvedValue([]); mocked.recentes.mockResolvedValue([]); mocked.desafios.mockRejectedValue(new Error('falhou')); mocked.porAno.mockResolvedValue([]); mocked.plataformas.mockResolvedValue([]); mocked.generos.mockResolvedValue([]); mocked.tipos.mockResolvedValue([]); mocked.notas.mockResolvedValue({ histograma: [], nota_media: 0, total_avaliados: 0 }); mocked.dificuldade.mockResolvedValue([]); mocked.recordes.mockResolvedValue({ mais_longo: null, mais_curto: null })
+}
+describe('dashboardStore', () => {
+  it('carrega blocos em paralelo e preserva falha parcial', async () => { preparar(); const { result } = renderHook(() => useDashboardStore(), { wrapper: DashboardProvider }); await act(() => result.current.carregarDashboard()); await waitFor(() => expect(result.current.carregado).toBe(true)); expect(result.current.resumo?.total_jogos).toBe(1); expect(result.current.errors.desafios).toBe('falhou') })
+  it('recarrega somente o bloco solicitado', async () => { preparar(); const { result } = renderHook(() => useDashboardStore(), { wrapper: DashboardProvider }); await act(() => result.current.carregarDashboard()); const chamadas = mocked.resumo.mock.calls.length; await act(() => result.current.recarregarBloco('resumo')); expect(mocked.resumo).toHaveBeenCalledTimes(chamadas + 1) })
+})

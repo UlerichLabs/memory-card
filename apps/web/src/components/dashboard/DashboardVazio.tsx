@@ -1,0 +1,3 @@
+export function DashboardVazio({ onRegistrar }: { onRegistrar: () => void }) {
+  return <section aria-label="Dashboard vazio" className="flex min-h-[360px] flex-col items-center justify-center gap-3 rounded-[12px] border border-dashed border-[var(--border-subtle)] p-8 text-center"><h2 className="text-xl font-bold text-[var(--text-primary)]">Seu dashboard começa no primeiro jogo zerado</h2><p className="max-w-lg text-sm text-[var(--text-secondary)]">Registre um jogo e aqui aparecem totais, gráfico por ano, plataformas, gêneros, notas, dificuldade e recordes.</p><button type="button" onClick={onRegistrar} className="mt-2 rounded-[7px] bg-[var(--accent)] px-4 py-2 text-[13px] font-bold text-[var(--accent-foreground)]">+ Registrar jogo</button></section>
+}

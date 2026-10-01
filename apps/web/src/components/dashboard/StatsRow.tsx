@@ -1,60 +1,24 @@
-import { Trophy, Clock, CircleSlash, Star } from 'lucide-react'
-import type { EstatisticasGerais } from '@/mocks/dashboardData'
+import { CircleSlash, Clock, Star, Trophy } from 'lucide-react'
+import type { DashboardResumo } from '@/types/dashboard'
+import { formatarHoras } from '@/lib/dashboardUtils'
 
-interface StatsRowProps {
-  estatisticas: EstatisticasGerais
-}
+interface StatsRowProps { resumo: DashboardResumo; totalAbandonados: number }
 
-export function StatsRow({ estatisticas }: StatsRowProps) {
+export function StatsRow({ resumo, totalAbandonados }: StatsRowProps) {
+  const ano = new Date().getFullYear()
+  const media = formatarHoras(resumo.media_segundos_por_jogo)
+  const jornada = resumo.anos_desde_primeiro > 0 ? `${resumo.anos_desde_primeiro} anos` : `${resumo.dias_desde_primeiro} dias`
   const cards = [
-    {
-      label: 'Jogos zerados',
-      valor: estatisticas.totalJogosZerados.toString(),
-      subtexto: 'Total histórico',
-      icone: Trophy,
-    },
-    {
-      label: 'Horas jogadas',
-      valor: `${estatisticas.totalHorasJogadas.toLocaleString('pt-BR')}h`,
-      subtexto: 'Tempo registrado',
-      icone: Clock,
-    },
-    {
-      label: 'Abandonados',
-      valor: estatisticas.totalAbandonados.toString(),
-      subtexto: 'Descontinuados',
-      icone: CircleSlash,
-    },
-    {
-      label: 'Nota média',
-      valor: estatisticas.notaMedia.toFixed(1),
-      subtexto: 'Avaliação geral',
-      icone: Star,
-    },
+    { label: 'Jogos zerados', value: resumo.total_jogos, sub: `${resumo.jogos_no_ano_atual} em ${ano}`, icon: Trophy },
+    { label: 'Horas jogadas', value: formatarHoras(resumo.total_segundos), sub: `Média de ${media} por jogo`, icon: Clock },
+    { label: 'Jornada', value: jornada, sub: `${resumo.dias_desde_primeiro} dias desde o primeiro`, icon: Clock },
+    { label: 'Abandonados', value: totalAbandonados, sub: 'Descontinuados', icon: CircleSlash, abandoned: true },
+    { label: 'Nota média', value: resumo.nota_media.toFixed(1), sub: 'Avaliação geral', icon: Star },
   ]
-
-  return (
-    <section aria-label="Estatísticas Gerais" className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-      {cards.map((card) => {
-        const Icone = card.icone
-        return (
-          <div
-            key={card.label}
-            className="flex flex-col justify-between rounded-[10px] border border-[var(--border)] bg-[var(--bg-surface)] p-4"
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-[13px] font-medium text-[var(--text-secondary)]">{card.label}</span>
-              <Icone className="h-4 w-4 text-[var(--text-faint)]" aria-hidden="true" />
-            </div>
-            <div className="mt-3">
-              <p className="text-2xl font-bold tracking-tight text-[var(--text-primary)] sm:text-3xl">
-                {card.valor}
-              </p>
-              <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">{card.subtexto}</p>
-            </div>
-          </div>
-        )
-      })}
-    </section>
-  )
+  return <section aria-label="Estatísticas Gerais" className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+    {cards.map(({ label, value, sub, icon: Icon, abandoned }) => <article key={label} className={`rounded-[10px] border p-4 ${abandoned ? 'border-[var(--abandonado-border)] bg-[var(--abandonado-bg)]' : 'border-[var(--border)] bg-[var(--bg-surface)]'}`}>
+      <div className="flex items-center justify-between"><span className="text-[13px] font-medium text-[var(--text-secondary)]">{label}</span><Icon className={`h-4 w-4 ${abandoned ? 'text-[var(--abandonado-text)]' : 'text-[var(--text-faint)]'}`} aria-hidden="true" /></div>
+      <p className="mt-3 text-2xl font-bold text-[var(--text-primary)]">{value}</p><p className="mt-0.5 text-[11px] text-[var(--text-muted)]">{sub}</p>
+    </article>)}
+  </section>
 }

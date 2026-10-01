@@ -1,77 +1,53 @@
-import type { CSSProperties } from 'react'
+import { useEffect, type ReactNode } from 'react'
 import { useAuthStore } from '@/store/authStore'
-import { mockDashboardData } from '@/mocks/dashboardData'
+import { useJogosStore } from '@/stores/jogosStore'
+import { useDashboardStore } from '@/stores/dashboardStore'
 import { Topbar } from '@/components/layout/Topbar'
+import { Skeleton } from '@/components/ui/skeleton'
 import { StatsRow } from '@/components/dashboard/StatsRow'
 import { GameOfTheYearCard } from '@/components/dashboard/GameOfTheYearCard'
 import { LifeGamesGrid } from '@/components/dashboard/LifeGamesGrid'
 import { ActiveChallenges } from '@/components/dashboard/ActiveChallenges'
-import { ActivityHeatmap } from '@/components/dashboard/ActivityHeatmap'
 import { RecentlyCompleted } from '@/components/dashboard/RecentlyCompleted'
 import { PlatformBreakdown } from '@/components/dashboard/PlatformBreakdown'
 import { TopGenres } from '@/components/dashboard/TopGenres'
+import { PorAnoChart } from '@/components/dashboard/PorAnoChart'
+import { NotasChart } from '@/components/dashboard/NotasChart'
+import { DificuldadeBreakdown } from '@/components/dashboard/DificuldadeBreakdown'
+import { Recordes } from '@/components/dashboard/Recordes'
+import { DashboardVazio } from '@/components/dashboard/DashboardVazio'
+import { DashboardSecaoErro } from '@/components/dashboard/DashboardSecaoErro'
 
-const dashboardTheme = {
-  '--bg-primary': '#15161A',
-  '--bg-surface': '#1A1B20',
-  '--bg-surface-alt': '#1D1F25',
-  '--border': '#24262C',
-  '--border-subtle': '#2A2C33',
-  '--text-primary': '#EDEDED',
-  '--text-secondary': '#9A9CA5',
-  '--text-muted': '#6B6D76',
-  '--text-faint': '#52545C',
-  '--accent': '#4F7CFF',
-  '--highlight-gold': '#E8C15C',
-  '--background': '#15161A',
-  '--foreground': '#EDEDED',
-  '--card': '#1A1B20',
-  '--card-foreground': '#EDEDED',
-  '--secondary': '#1D1F25',
-  '--secondary-foreground': '#9A9CA5',
-  '--muted': '#1D1F25',
-  '--muted-foreground': '#6B6D76',
-  '--primary': '#4F7CFF',
-  '--primary-foreground': '#0E0F12',
-  fontFamily: 'Inter, sans-serif',
-} as CSSProperties
+function Bloco({ erro, carregando, retry, children }: { erro?: string; carregando: boolean; retry: () => void; children: ReactNode }) {
+  if (erro) return <DashboardSecaoErro onRetry={retry} />
+  if (carregando) return <Skeleton className="h-32 w-full bg-[var(--bg-surface)]" />
+  return <>{children}</>
+}
 
 export function DashboardPage() {
   const { sessao } = useAuthStore()
+  const { abrirModalRegistro } = useJogosStore()
+  const dashboard = useDashboardStore()
+  const { carregarDashboard } = dashboard
   const nomeUsuario = sessao?.usuario?.nome ?? 'Jogador'
+  useEffect(() => { document.title = 'Dashboard'; const controller = new AbortController(); void carregarDashboard(controller.signal); return () => { controller.abort(); document.title = 'Memory Card' } }, [carregarDashboard])
 
-  return (
-    <div style={dashboardTheme} className="min-h-svh bg-[var(--bg-primary)] text-[var(--text-primary)]">
-      <link
-        rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
-      />
-
-      <Topbar />
-
-      <main className="mx-auto max-w-7xl space-y-8 px-4 py-6 sm:px-6 lg:px-8">
-        <div>
-          <p className="text-[14px] text-[var(--text-secondary)]">
-            Bem-vindo de volta, <strong className="font-bold text-[var(--text-primary)]">{nomeUsuario}</strong>
-          </p>
-        </div>
-
-        <StatsRow estatisticas={mockDashboardData.estatisticas} />
-        <GameOfTheYearCard jogoDoAno={mockDashboardData.jogoDoAno} />
-        <LifeGamesGrid jogos={mockDashboardData.jogosDaVida} />
-
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
-          <div className="space-y-8 lg:col-span-7 xl:col-span-8">
-            <RecentlyCompleted jogos={mockDashboardData.zeradosRecentemente} />
-            <ActivityHeatmap atividade={mockDashboardData.atividadeAno} />
-          </div>
-          <div className="space-y-8 lg:col-span-5 xl:col-span-4 [&_section[aria-label='Desafios Ativos']_>_div]:lg:grid-cols-1">
-            <ActiveChallenges desafios={mockDashboardData.desafiosAtivos} />
-            <PlatformBreakdown plataformas={mockDashboardData.distribuicaoPlataformas} />
-            <TopGenres generos={mockDashboardData.principaisGeneros} />
-          </div>
-        </div>
-      </main>
-    </div>
-  )
+  const registrar = () => abrirModalRegistro({ onSalvo: () => dashboard.carregarDashboard() })
+  const erroTotais = dashboard.errors.resumo ?? dashboard.errors.abandonados
+  const retryTotais = dashboard.errors.resumo ? () => void dashboard.recarregarBloco('resumo') : () => void dashboard.recarregarBloco('abandonados')
+  return <div className="dashboard-page min-h-svh overflow-x-hidden bg-[var(--bg-primary)] text-[var(--text-primary)]"><Topbar /><main className="mx-auto max-w-7xl space-y-8 px-4 py-6 sm:px-6 lg:px-8"><p className="text-sm text-[var(--text-secondary)]">Bem-vindo de volta, <strong className="font-bold text-[var(--text-primary)]">{nomeUsuario}</strong></p>
+    {dashboard.carregado && dashboard.vazio ? <DashboardVazio onRegistrar={registrar} /> : <>
+    <Bloco erro={erroTotais} carregando={dashboard.loading.resumo || dashboard.loading.abandonados} retry={retryTotais}>{dashboard.resumo && <StatsRow resumo={dashboard.resumo} totalAbandonados={dashboard.abandonados} />}</Bloco>
+      {(dashboard.jogoDoAno || dashboard.errors.jogoDoAno || dashboard.loading.jogoDoAno) && <Bloco erro={dashboard.errors.jogoDoAno} carregando={dashboard.loading.jogoDoAno} retry={() => void dashboard.recarregarBloco('jogoDoAno')}>{dashboard.jogoDoAno && <GameOfTheYearCard jogo={dashboard.jogoDoAno} />}</Bloco>}
+      <Bloco erro={dashboard.errors.jogosDaVida} carregando={dashboard.loading.jogosDaVida} retry={() => void dashboard.recarregarBloco('jogosDaVida')}><LifeGamesGrid jogos={dashboard.jogosDaVida} /></Bloco>
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-12"><div className="space-y-8 lg:col-span-7 xl:col-span-8">
+        <Bloco erro={dashboard.errors.recentes} carregando={dashboard.loading.recentes} retry={() => void dashboard.recarregarBloco('recentes')}><RecentlyCompleted jogos={dashboard.recentes} /></Bloco>
+        <Bloco erro={dashboard.errors.porAno} carregando={dashboard.loading.porAno} retry={() => void dashboard.recarregarBloco('porAno')}><PorAnoChart anos={dashboard.porAno} /></Bloco>
+      </div><div className="space-y-8 lg:col-span-5 xl:col-span-4">
+        <Bloco erro={dashboard.errors.desafios} carregando={dashboard.loading.desafios} retry={() => void dashboard.recarregarBloco('desafios')}><ActiveChallenges desafios={dashboard.desafios} /></Bloco>
+        <Bloco erro={dashboard.errors.plataformas} carregando={dashboard.loading.plataformas} retry={() => void dashboard.recarregarBloco('plataformas')}><PlatformBreakdown plataformas={dashboard.plataformas} /></Bloco>
+        <Bloco erro={dashboard.errors.generos} carregando={dashboard.loading.generos} retry={() => void dashboard.recarregarBloco('generos')}><TopGenres generos={dashboard.generos} tipos={dashboard.tipos} /></Bloco>
+      </div></div>
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-3"><Bloco erro={dashboard.errors.notas} carregando={dashboard.loading.notas} retry={() => void dashboard.recarregarBloco('notas')}>{dashboard.notas && <NotasChart notas={dashboard.notas} />}</Bloco><Bloco erro={dashboard.errors.dificuldade} carregando={dashboard.loading.dificuldade} retry={() => void dashboard.recarregarBloco('dificuldade')}><DificuldadeBreakdown dificuldade={dashboard.dificuldade} /></Bloco><Bloco erro={dashboard.errors.recordes} carregando={dashboard.loading.recordes} retry={() => void dashboard.recarregarBloco('recordes')}>{dashboard.recordes && <Recordes recordes={dashboard.recordes} />}</Bloco></div>
+    </>}</main></div>
 }

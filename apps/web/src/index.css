@@ -377,6 +377,23 @@
     --sidebar-ring: #4F7CFF;
 }
 
+.dashboard-page {
+    --bg-primary: #15161A;
+    --bg-surface: #1A1B20;
+    --bg-surface-alt: #1D1F25;
+    --border: #24262C;
+    --border-subtle: #2A2C33;
+    --text-primary: #EDEDED;
+    --text-secondary: #9A9CA5;
+    --text-muted: #6B6D76;
+    --text-faint: #52545C;
+    --accent: #4F7CFF;
+    --highlight-gold: #E8C15C;
+    --abandonado-text: #c4b8f0;
+    --abandonado-bg: #26232f;
+    --abandonado-border: #3a3552;
+}
+
 @utility bg-surface {
     background-color: var(--bg-surface);
 }
