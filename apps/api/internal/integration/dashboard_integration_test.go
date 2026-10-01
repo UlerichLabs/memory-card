@@ -747,6 +747,8 @@ func TestIntegration_Dashboard(t *testing.T) {
 		for _, nome := range []string{"Beta", "Alpha"} {
 			inserirJogoZeradoTeste(t, env.pool, jogoTesteParams{UsuarioID: user, Nome: nome, Console: nome, Genero: strPtr(nome), Tipo: strPtr("Principal"), FinalizadoEm: data, TempoJogado: 100, Nota: 8, Dificuldade: "A"})
 		}
+		inserirJogoZeradoTeste(t, env.pool, jogoTesteParams{UsuarioID: user, Nome: "Omega", Console: "Omega", Genero: strPtr("Omega"), Tipo: strPtr("Principal"), FinalizadoEm: data, TempoJogado: 500, Nota: 8, Dificuldade: "A"})
+		inserirJogoZeradoTeste(t, env.pool, jogoTesteParams{UsuarioID: user, Nome: "Gamma", Console: "Gamma", Genero: strPtr("Gamma"), Tipo: strPtr("Principal"), FinalizadoEm: data, TempoJogado: 100, Nota: 8, Dificuldade: "A"})
 		var plataformas []service.RankingPlataformaItem
 		var generos []service.RankingGeneroItem
 		if err := json.Unmarshal(dashboardRequest(t, env, token, "/api/v1/dashboard/ranking-plataformas?limite=20", "").Body.Bytes(), &plataformas); err != nil {
@@ -755,10 +757,10 @@ func TestIntegration_Dashboard(t *testing.T) {
 		if err := json.Unmarshal(dashboardRequest(t, env, token, "/api/v1/dashboard/ranking-generos?limite=20", "").Body.Bytes(), &generos); err != nil {
 			t.Fatal(err)
 		}
-		if len(plataformas) != 2 || plataformas[0].Console != "Alpha" || plataformas[1].Console != "Beta" || plataformas[0].PercentualJogos != 50.0 || plataformas[0].PercentualSegundos != 50.0 {
+		if len(plataformas) != 4 || plataformas[0].Console != "Omega" || plataformas[0].TotalSegundos != 500 || plataformas[0].PercentualJogos != 25.0 || plataformas[0].PercentualSegundos != 62.5 || plataformas[1].Console != "Alpha" || plataformas[2].Console != "Beta" || plataformas[3].Console != "Gamma" {
 			t.Errorf("empate de plataformas inesperado: %+v", plataformas)
 		}
-		if len(generos) != 2 || generos[0].Genero != "Alpha" || generos[1].Genero != "Beta" || generos[0].PercentualJogos != 50.0 {
+		if len(generos) != 4 || generos[0].Genero != "Omega" || generos[0].TotalSegundos != 500 || generos[0].PercentualJogos != 25.0 || generos[0].PercentualSegundos != 62.5 || generos[1].Genero != "Alpha" || generos[2].Genero != "Beta" || generos[3].Genero != "Gamma" {
 			t.Errorf("empate de generos inesperado: %+v", generos)
 		}
 	})
@@ -830,11 +832,25 @@ func TestIntegration_Dashboard(t *testing.T) {
 		var plataformas []service.RankingPlataformaItem
 		var notas service.NotasResponse
 		var dificuldade []service.DificuldadeItem
-		_ = json.Unmarshal(dashboardRequest(t, env, token, "/api/v1/dashboard/resumo", "").Body.Bytes(), &resumo)
-		_ = json.Unmarshal(dashboardRequest(t, env, token, "/api/v1/dashboard/por-ano", "").Body.Bytes(), &anos)
-		_ = json.Unmarshal(dashboardRequest(t, env, token, "/api/v1/dashboard/ranking-plataformas?limite=20", "").Body.Bytes(), &plataformas)
-		_ = json.Unmarshal(dashboardRequest(t, env, token, "/api/v1/dashboard/notas", "").Body.Bytes(), &notas)
-		_ = json.Unmarshal(dashboardRequest(t, env, token, "/api/v1/dashboard/dificuldade", "").Body.Bytes(), &dificuldade)
+		respostas := []struct {
+			path    string
+			destino interface{}
+		}{
+			{"/api/v1/dashboard/resumo", &resumo},
+			{"/api/v1/dashboard/por-ano", &anos},
+			{"/api/v1/dashboard/ranking-plataformas?limite=20", &plataformas},
+			{"/api/v1/dashboard/notas", &notas},
+			{"/api/v1/dashboard/dificuldade", &dificuldade},
+		}
+		for _, resposta := range respostas {
+			body := dashboardRequest(t, env, token, resposta.path, "")
+			if body.Code != http.StatusOK {
+				t.Fatalf("status inesperado em %s: %d", resposta.path, body.Code)
+			}
+			if err := json.Unmarshal(body.Body.Bytes(), resposta.destino); err != nil {
+				t.Fatalf("falha ao decodificar %s: %v", resposta.path, err)
+			}
+		}
 		var somaAnos, somaSegundos, somaPlataformas, somaNotas, somaDificuldades int64
 		for _, item := range anos {
 			somaAnos += item.TotalJogos
@@ -849,7 +865,7 @@ func TestIntegration_Dashboard(t *testing.T) {
 		for _, item := range dificuldade {
 			somaDificuldades += item.TotalJogos
 		}
-		if resumo.TotalJogos != somaAnos || resumo.TotalSegundos != somaSegundos || somaPlataformas > resumo.TotalJogos || somaNotas != notas.TotalAvaliados || somaDificuldades != resumo.TotalJogos || resumo.NotaMedia != notas.NotaMedia {
+		if resumo.TotalJogos != 3 || resumo.TotalSegundos != 600 || resumo.TotalJogos != somaAnos || resumo.TotalSegundos != somaSegundos || somaPlataformas > resumo.TotalJogos || notas.TotalAvaliados != 3 || somaNotas != notas.TotalAvaliados || somaDificuldades != 3 || somaDificuldades != resumo.TotalJogos || resumo.NotaMedia != notas.NotaMedia {
 			t.Errorf("inconsistência cruzada: resumo=%+v anos=%d/%d plataformas=%d notas=%d dificuldade=%d", resumo, somaAnos, somaSegundos, somaPlataformas, somaNotas, somaDificuldades)
 		}
 	})
@@ -897,7 +913,9 @@ func TestIntegration_Dashboard(t *testing.T) {
 			Error struct{ Codigo, Mensagem string } `json:"error"`
 		}
 		_ = json.Unmarshal(resposta.Body.Bytes(), &corpo)
-		if corpo.Error.Codigo != "dashboard.limite_invalido" || corpo.Error.Mensagem == "" || corpo.Error.Mensagem == "Limite inválido." {
+		mensagemEN := "Invalid limit. Provide an integer between 1 and 20."
+		mensagemPT := "Limite inválido. Informe um número inteiro entre 1 e 20."
+		if corpo.Error.Codigo != "dashboard.limite_invalido" || corpo.Error.Mensagem != mensagemEN || corpo.Error.Mensagem == mensagemPT {
 			t.Errorf("tradução inglesa inesperada: %+v", corpo.Error)
 		}
 	})
