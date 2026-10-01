@@ -14,6 +14,7 @@ export function useAbandonarJogoForm({ initialData, onSubmit }: UseAbandonarJogo
   const [nome, setNome] = useState(initialData?.nome ?? '')
   const [consoleName, setConsoleName] = useState(initialData?.console ?? '')
   const [abandonadoEm, setAbandonadoEm] = useState(initialData?.abandonado_em?.slice(0, 10) || hojeIso())
+  const [iniciadoEm, setIniciadoEm] = useState(initialData?.iniciado_em?.slice(0, 10) || '')
   const [horas, setHoras] = useState('')
   const [minutos, setMinutos] = useState('')
   const [segundos, setSegundos] = useState('')
@@ -28,6 +29,7 @@ export function useAbandonarJogoForm({ initialData, onSubmit }: UseAbandonarJogo
     const s = initialData?.tempo_jogado ?? 0
     setNome(initialData?.nome ?? ''); setConsoleName(initialData?.console ?? '')
     setAbandonadoEm(initialData?.abandonado_em?.slice(0, 10) || hojeIso())
+    setIniciadoEm(initialData?.iniciado_em?.slice(0, 10) || '')
     setHoras(s >= 3600 ? String(Math.floor(s / 3600)) : '')
     setMinutos((s % 3600) >= 60 ? String(Math.floor((s % 3600) / 60)) : '')
     setSegundos((s % 60) > 0 ? String(s % 60) : '')
@@ -44,6 +46,7 @@ export function useAbandonarJogoForm({ initialData, onSubmit }: UseAbandonarJogo
       tempo_jogado_minutos: minutos === '' ? 0 : parseInt(minutos, 10),
       tempo_jogado_segundos: segundos === '' ? 0 : parseInt(segundos, 10),
       motivo: motivo || null, igdb_capa_url: igdbCapaUrl,
+      iniciado_em: iniciadoEm || undefined,
     })
     if (!res.success) {
       const errMap: Record<string, string> = {}
@@ -74,6 +77,7 @@ export function useAbandonarJogoForm({ initialData, onSubmit }: UseAbandonarJogo
     nome, setNome, consoleName, setConsoleName, abandonadoEm, setAbandonadoEm,
     horas, setHoras, minutos, setMinutos, segundos, setSegundos,
     motivo, setMotivo, igdbId, setIgdbId, igdbCapaUrl, setIgdbCapaUrl,
+    iniciadoEm, setIniciadoEm,
     plataformas, setPlataformas, errors, isSubmitting, handleSubmit,
   }
 }

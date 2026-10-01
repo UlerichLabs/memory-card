@@ -4,7 +4,9 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { AuthProvider, useAuthStore } from '@/store/authStore'
 import { JogosProvider } from '@/stores/jogosStore'
+import { JogandoProvider } from '@/stores/jogandoStore'
 import { GameFormDialog } from '@/components/jogos/GameForm/GameFormDialog'
+import { IniciarJogoDialog } from '@/components/jogando/IniciarJogoDialog'
 import { authService, type SessaoDTO } from '@/services/authService'
 import { Topbar } from './Topbar'
 
@@ -42,12 +44,15 @@ function renderTopbar(initialPath = '/') {
     <MemoryRouter initialEntries={[initialPath]}>
       <AuthProvider>
         <JogosProvider>
+          <JogandoProvider>
           <GameFormDialog />
+          <IniciarJogoDialog />
           <Routes>
             <Route path="/login" element={<h1>Tela de Login</h1>} />
             <Route path="/conta" element={<h1>Tela de Conta</h1>} />
             <Route path="*" element={<TopbarWrapper />} />
           </Routes>
+          </JogandoProvider>
         </JogosProvider>
       </AuthProvider>
     </MemoryRouter>
@@ -94,14 +99,22 @@ describe('Topbar - Menu de usuário', () => {
     expect(await screen.findByRole('heading', { name: 'Tela de Login' })).toBeVisible()
   })
 
-  it('abre modal de registro de jogo ao clicar em + Registrar jogo', async () => {
+  it('abre o menu Novo e o modal de registro de jogo zerado', async () => {
     const user = userEvent.setup()
     renderTopbar()
 
-    const btnRegistrar = screen.getByRole('button', { name: '+ Registrar jogo' })
-    await user.click(btnRegistrar)
+    await user.click(screen.getByRole('button', { name: /\+ Novo/ }))
+    await user.click(await screen.findByRole('menuitem', { name: /Registrar jogo zerado/ }))
 
     expect(await screen.findByRole('heading', { name: 'Registrar jogo' })).toBeVisible()
+  })
+
+  it('abre o dialogo de iniciar jogo pelo menu Novo', async () => {
+    const user = userEvent.setup()
+    renderTopbar()
+    await user.click(screen.getByRole('button', { name: /\+ Novo/ }))
+    await user.click(await screen.findByRole('menuitem', { name: /Iniciar jogo/ }))
+    expect(await screen.findByRole('heading', { name: 'Iniciar jogo' })).toBeVisible()
   })
 
   it('exibe o item Hall da Fama no menu de navegação apontando para /hall-da-fama', () => {

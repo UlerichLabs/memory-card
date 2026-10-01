@@ -12,6 +12,7 @@ export interface JogoAbandonado {
   igdb_capa_url: string | null
   tempo_jogado: number
   motivo: string | null
+  iniciado_em: string | null
   abandonado_em: string
   created_at: string
   updated_at: string
@@ -27,6 +28,7 @@ export interface SalvarAbandonadoPayload {
   tempo_jogado_segundos?: number
   motivo?: string | null
   abandonado_em?: string
+  iniciado_em?: string
 }
 
 export interface ListarAbandonadosParams {

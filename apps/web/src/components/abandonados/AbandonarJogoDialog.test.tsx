@@ -17,6 +17,7 @@ const mockJogoEdicao: JogoAbandonado = {
   tempo_jogado: 3600,
   motivo: 'Demorado',
   abandonado_em: '2025-05-10',
+  iniciado_em: null,
   created_at: '2025-05-10T10:00:00Z',
   updated_at: '2025-05-10T10:00:00Z',
 }
@@ -105,6 +106,27 @@ describe('AbandonarJogoDialog', () => {
     expect(store.criarJogo).toHaveBeenCalledTimes(1)
     expect(onSalvo).toHaveBeenCalledTimes(1)
     expect(store.fecharModal).toHaveBeenCalledTimes(1)
+  })
+
+  it('envia iniciado_em e chama aviso e onSalvo genérico', async () => {
+    const user = userEvent.setup()
+    const onSalvo = vi.fn().mockResolvedValue(undefined)
+    const { store } = renderDialog({
+      modalOpcoes: {
+        valoresIniciais: {
+          nome: 'Hades',
+          console: 'PC',
+          iniciado_em: '2026-09-20T00:00:00Z',
+        },
+        aviso: 'Você começou este jogo em 20/09/2026.',
+        onSalvo,
+      },
+    })
+    expect(screen.getByText('Você começou este jogo em 20/09/2026.')).toBeInTheDocument()
+    expect(screen.getByText('Começou em 20/09/2026')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Salvar abandono' }))
+    expect(store.criarJogo).toHaveBeenCalledWith(expect.objectContaining({ iniciado_em: '2026-09-20' }))
+    expect(onSalvo).toHaveBeenCalledOnce()
   })
 
   it('fila: POST falha mantém item na fila sem chamar remoção', async () => {

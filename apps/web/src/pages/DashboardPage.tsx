@@ -17,6 +17,8 @@ import { DificuldadeBreakdown } from '@/components/dashboard/DificuldadeBreakdow
 import { Recordes } from '@/components/dashboard/Recordes'
 import { DashboardVazio } from '@/components/dashboard/DashboardVazio'
 import { DashboardSecaoErro } from '@/components/dashboard/DashboardSecaoErro'
+import { JogandoAgora } from '@/components/jogando/JogandoAgora'
+import { useJogandoStore } from '@/stores/jogandoStore'
 
 function Bloco({ erro, carregando, pronto, retry, children }: { erro?: string; carregando: boolean; pronto: boolean; retry: () => void; children: ReactNode }) {
   if (erro) return <DashboardSecaoErro onRetry={retry} />
@@ -28,14 +30,15 @@ export function DashboardPage() {
   const { sessao } = useAuthStore()
   const { abrirModalRegistro } = useJogosStore()
   const dashboard = useDashboardStore()
+  const { carregar: carregarJogando } = useJogandoStore()
   const { carregarDashboard } = dashboard
   const nomeUsuario = sessao?.usuario?.nome ?? 'Jogador'
-  useEffect(() => { document.title = 'Dashboard'; const controller = new AbortController(); void carregarDashboard(controller.signal); return () => { controller.abort(); document.title = 'Memory Card' } }, [carregarDashboard])
+  useEffect(() => { document.title = 'Dashboard'; const controller = new AbortController(); void carregarDashboard(controller.signal); void carregarJogando(controller.signal); return () => { controller.abort(); document.title = 'Memory Card' } }, [carregarDashboard, carregarJogando])
 
   const registrar = () => abrirModalRegistro({ onSalvo: () => dashboard.carregarDashboard() })
   const erroTotais = dashboard.errors.resumo ?? dashboard.errors.abandonados
   const retryTotais = dashboard.errors.resumo ? () => void dashboard.recarregarBloco('resumo') : () => void dashboard.recarregarBloco('abandonados')
-  return <div className="dashboard-page min-h-svh overflow-x-hidden bg-[var(--bg-primary)] text-[var(--text-primary)]"><Topbar /><main className="mx-auto max-w-7xl space-y-8 px-4 py-6 sm:px-6 lg:px-8"><p className="text-sm text-[var(--text-secondary)]">Bem-vindo de volta, <strong className="font-bold text-[var(--text-primary)]">{nomeUsuario}</strong></p>
+  return <div className="dashboard-page min-h-svh overflow-x-hidden bg-[var(--bg-primary)] text-[var(--text-primary)]"><Topbar /><main className="mx-auto max-w-7xl space-y-8 px-4 py-6 sm:px-6 lg:px-8"><p className="text-sm text-[var(--text-secondary)]">Bem-vindo de volta, <strong className="font-bold text-[var(--text-primary)]">{nomeUsuario}</strong></p><JogandoAgora />
     {dashboard.carregado && dashboard.vazio ? <DashboardVazio onRegistrar={registrar} /> : <>
     <Bloco erro={erroTotais} carregando={dashboard.loading.resumo || dashboard.loading.abandonados} pronto={Boolean(dashboard.resumo)} retry={retryTotais}>{dashboard.resumo && <StatsRow resumo={dashboard.resumo} totalAbandonados={dashboard.abandonados} />}</Bloco>
       {(dashboard.jogoDoAno || dashboard.errors.jogoDoAno || dashboard.loading.jogoDoAno || !dashboard.carregado) && <Bloco erro={dashboard.errors.jogoDoAno} carregando={dashboard.loading.jogoDoAno} pronto={Boolean(dashboard.jogoDoAno)} retry={() => void dashboard.recarregarBloco('jogoDoAno')}>{dashboard.jogoDoAno && <GameOfTheYearCard jogo={dashboard.jogoDoAno} />}</Bloco>}

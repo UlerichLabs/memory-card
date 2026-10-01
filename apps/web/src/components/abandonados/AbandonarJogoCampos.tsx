@@ -9,6 +9,7 @@ import type { IGDBJogoSugestao } from '@/lib/services/jogosService'
 
 export interface AbandonarJogoCamposProps {
   origemFila?: OrigemFilaInfo
+  aviso?: string
   errors: Record<string, string>
   nome: string
   onChangeNome: (value: string) => void
@@ -27,10 +28,12 @@ export interface AbandonarJogoCamposProps {
   setSegundos: (value: string) => void
   motivo: string
   setMotivo: (value: string) => void
+  iniciadoEm?: string
 }
 
 export function AbandonarJogoCampos({
   origemFila,
+  aviso,
   errors,
   nome,
   onChangeNome,
@@ -49,6 +52,7 @@ export function AbandonarJogoCampos({
   setSegundos,
   motivo,
   setMotivo,
+  iniciadoEm,
 }: AbandonarJogoCamposProps) {
   const erroTempo = errors.tempo_jogado_horas || errors.tempo_jogado_minutos || errors.tempo_jogado_segundos
 
@@ -64,6 +68,8 @@ export function AbandonarJogoCampos({
           Vindo da fila {origemFila.listaNome}. Ao salvar, o jogo sai da fila.
         </div>
       )}
+      {aviso && <div className="rounded-lg border border-[var(--abandonado-banner-border)] bg-[var(--abandonado-banner-bg)] px-4 py-3 text-sm text-[var(--abandonado-banner-text)]">{aviso}</div>}
+      {iniciadoEm && <p className="text-xs text-[var(--text-muted)]">Começou em {iniciadoEm.split('-').reverse().join('/')}</p>}
       {errors.form && <div className="text-sm text-[var(--danger)]">{errors.form}</div>}
       <GameFormAutocomplete
         nome={nome}

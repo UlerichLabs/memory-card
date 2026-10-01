@@ -17,6 +17,8 @@ export interface OrigemFilaInfo {
 export interface ModalAbandonadoOpcoes {
   valoresIniciais?: Partial<JogoAbandonado>
   origemFila?: OrigemFilaInfo
+  aviso?: string
+  onSalvo?: () => Promise<void> | void
 }
 
 export interface AbandonadosStore {

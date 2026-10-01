@@ -35,6 +35,7 @@ export const abandonarJogoSchema = z
     tempo_jogado_segundos: z.number().int().min(0).max(59, 'Segundos devem ser entre 0 e 59'),
     motivo: z.string().max(500, 'Motivo deve ter no máximo 500 caracteres').nullable().optional(),
     igdb_capa_url: z.string().optional(),
+    iniciado_em: z.string().optional(),
     igdb_descricao: z.string().optional(),
   })
   .superRefine((data, ctx) => {
