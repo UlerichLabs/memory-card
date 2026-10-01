@@ -58,7 +58,7 @@ export function DashboardProvider({ children, token }: { children: ReactNode; to
       if (bloco === 'abandonados') setAbandonados(await dashboardService.abandonados(effectiveToken, signal))
       if (bloco === 'jogoDoAno') {
         const anos = await dashboardService.jogoDoAno(effectiveToken, signal)
-        const atual = [...anos].reverse().find((item) => item.game_do_ano)
+        const atual = [...anos].sort((a, b) => b.ano - a.ano).find((item) => item.game_do_ano)
         setJogoDoAno(atual?.game_do_ano ? {
           id: atual.game_do_ano.id,
           nome: atual.game_do_ano.nome,
