@@ -66,6 +66,7 @@ func TestJogosEmAndamentoService_Validacoes(t *testing.T) {
 		{"nome vazio", SalvarJogoEmAndamentoInput{Nome: "  "}, ErrJogandoNomeObrigatorio},
 		{"nome longo", SalvarJogoEmAndamentoInput{Nome: string(make([]byte, 201))}, ErrJogandoNomeMuitoLongo},
 		{"data ausente", SalvarJogoEmAndamentoInput{Nome: "Jogo"}, ErrJogandoIniciadoObrigatorio},
+		{"data zero", SalvarJogoEmAndamentoInput{Nome: "Jogo", IniciadoEm: func() *time.Time { valor := time.Time{}; return &valor }()}, ErrJogandoIniciadoInvalido},
 		{"data futura", SalvarJogoEmAndamentoInput{Nome: "Jogo", IniciadoEm: func() *time.Time { v := agora.Add(time.Hour); return &v }()}, ErrJogandoIniciadoFuturo},
 	}
 	for _, teste := range testes {
@@ -75,6 +76,20 @@ func TestJogosEmAndamentoService_Validacoes(t *testing.T) {
 				t.Fatalf("esperava %v, obteve %v", teste.esperado, err)
 			}
 		})
+	}
+}
+
+func TestJogosEmAndamentoService_ListarVazioEExcluirIdInvalido(t *testing.T) {
+	svc := NewJogosEmAndamentoService(&mockJogosEmAndamentoRepo{
+		listarFn:  func(context.Context, int32) ([]*repository.JogoEmAndamento, error) { return nil, nil },
+		excluirFn: func(context.Context, int32, int32) error { return nil },
+	})
+	jogos, err := svc.Listar(context.Background(), 42)
+	if err != nil || jogos == nil || len(jogos) != 0 {
+		t.Fatalf("esperava lista vazia não nula, obteve jogos=%v erro=%v", jogos, err)
+	}
+	if err := svc.Excluir(context.Background(), 0, 42); !errors.Is(err, ErrJogandoIdInvalido) {
+		t.Fatalf("esperava id inválido, obteve %v", err)
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -531,6 +532,88 @@ func TestJogosAbandonadosHandler_TetoTempoJogado_400(t *testing.T) {
 	}
 	if respPut.Error.Codigo != "abandonados.tempo_invalido" {
 		t.Fatalf("esperava abandonados.tempo_invalido no PUT, obteve %s", respPut.Error.Codigo)
+	}
+}
+
+func TestJogosAbandonadosHandler_IniciadoEm(t *testing.T) {
+	secret := uuid.NewString()
+	iniciado := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	var recebido service.SalvarJogoAbandonadoInput
+	svc := &mockAbandonadosService{
+		criarFn: func(ctx context.Context, input service.SalvarJogoAbandonadoInput) (*repository.JogoAbandonado, error) {
+			recebido = input
+			return &repository.JogoAbandonado{ID: 1, Nome: input.Nome, Console: input.Console, IniciadoEm: input.IniciadoEm}, nil
+		},
+		atualizarFn: func(ctx context.Context, input service.SalvarJogoAbandonadoInput) (*repository.JogoAbandonado, error) {
+			return &repository.JogoAbandonado{ID: input.ID, Nome: input.Nome, Console: input.Console}, nil
+		},
+	}
+	router := setupAbandonadosTestRouter(svc, secret)
+	token := generateAbandonadosToken(t, secret, "42", "pt-BR")
+
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/jogos-abandonados", bytes.NewBufferString(`{"nome":"Jogo","console":"PC","iniciado_em":"2026-09-01"}`))
+	request.Header.Set("Authorization", "Bearer "+token)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, request)
+	if response.Code != http.StatusCreated || recebido.IniciadoEm == nil || !recebido.IniciadoEm.Equal(iniciado) {
+		t.Fatalf("resposta ou iniciado_em inesperado: %d %s", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), `"iniciado_em":"2026-09-01T00:00:00Z"`) {
+		t.Fatalf("resposta não contém iniciado_em: %s", response.Body.String())
+	}
+
+	testes := []struct {
+		method string
+		url    string
+	}{
+		{http.MethodPost, "/api/v1/jogos-abandonados"},
+		{http.MethodPut, "/api/v1/jogos-abandonados/1"},
+	}
+	for _, teste := range testes {
+		t.Run(teste.method+"_data_invalida", func(t *testing.T) {
+			req := httptest.NewRequest(teste.method, teste.url, bytes.NewBufferString(`{"nome":"Jogo","console":"PC","iniciado_em":"invalida"}`))
+			req.Header.Set("Authorization", "Bearer "+token)
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, req)
+			assertAbandonadosErrorCode(t, w, http.StatusBadRequest, "abandonados.iniciado_em_invalido")
+		})
+	}
+}
+
+func TestJogosAbandonadosHandler_IniciadoEmFuturo(t *testing.T) {
+	secret := uuid.NewString()
+	svc := &mockAbandonadosService{
+		criarFn: func(ctx context.Context, input service.SalvarJogoAbandonadoInput) (*repository.JogoAbandonado, error) {
+			return nil, service.ErrAbandonadoIniciadoFuturo
+		},
+	}
+	router := setupAbandonadosTestRouter(svc, secret)
+	token := generateAbandonadosToken(t, secret, "42", "pt-BR")
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/jogos-abandonados", bytes.NewBufferString(`{"nome":"Jogo","console":"PC","iniciado_em":"2026-10-02"}`))
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	assertAbandonadosErrorCode(t, w, http.StatusBadRequest, "abandonados.iniciado_em_futuro")
+}
+
+func assertAbandonadosErrorCode(t *testing.T, response *httptest.ResponseRecorder, status int, codigo string) {
+	t.Helper()
+	if response.Code != status {
+		t.Fatalf("esperava status %d, obteve %d: %s", status, response.Code, response.Body.String())
+	}
+	var body struct {
+		Error struct {
+			Codigo string `json:"codigo"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.Error.Codigo != codigo {
+		t.Fatalf("esperava código %s, obteve %s", codigo, body.Error.Codigo)
 	}
 }
 

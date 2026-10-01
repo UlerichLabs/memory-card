@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -98,7 +99,7 @@ func TestJogosEmAndamentoHandler_CriarEListar(t *testing.T) {
 	}
 }
 
-func TestJogosEmAndamentoHandler_ValidacoesEAuth(t *testing.T) {
+func TestJogosEmAndamentoHandler_NaoAutorizado(t *testing.T) {
 	secret := uuid.NewString()
 	svc := &mockJogosEmAndamentoService{
 		criarFn: func(context.Context, service.SalvarJogoEmAndamentoInput) (*repository.JogoEmAndamento, error) {
@@ -110,11 +111,145 @@ func TestJogosEmAndamentoHandler_ValidacoesEAuth(t *testing.T) {
 		excluirFn: func(context.Context, int32, int32) error { return nil },
 	}
 	router := setupJogandoRouter(svc, secret)
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/jogando", bytes.NewBufferString(`{"nome":"Jogo"}`))
-	req.Header.Set("Content-Type", "application/json")
+	for _, endpoint := range []struct {
+		method string
+		url    string
+	}{
+		{http.MethodGet, "/api/v1/jogando"},
+		{http.MethodPost, "/api/v1/jogando"},
+		{http.MethodDelete, "/api/v1/jogando/1"},
+	} {
+		t.Run(endpoint.method, func(t *testing.T) {
+			req := httptest.NewRequest(endpoint.method, endpoint.url, bytes.NewBufferString(`{"nome":"Jogo"}`))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, req)
+			if w.Code != http.StatusUnauthorized {
+				t.Fatalf("esperava 401, obteve %d", w.Code)
+			}
+		})
+	}
+}
+
+func TestJogosEmAndamentoHandler_Validacoes(t *testing.T) {
+	secret := uuid.NewString()
+	token := tokenJogando(t, secret)
+	testes := []struct {
+		nome   string
+		body   string
+		erro   error
+		codigo string
+	}{
+		{"nome ausente", `{"iniciado_em":"2026-09-01"}`, service.ErrJogandoNomeObrigatorio, "jogando.nome_obrigatorio"},
+		{"data ausente", `{"nome":"Jogo"}`, service.ErrJogandoIniciadoObrigatorio, "jogando.iniciado_em_obrigatorio"},
+		{"data inválida", `{"nome":"Jogo","iniciado_em":"invalida"}`, service.ErrJogandoIniciadoInvalido, "jogando.iniciado_em_invalido"},
+		{"data futura", `{"nome":"Jogo","iniciado_em":"2026-10-02"}`, service.ErrJogandoIniciadoFuturo, "jogando.iniciado_em_futuro"},
+		{"body inválido", `{invalido`, service.ErrJogandoEntradaInvalida, "jogando.entrada_invalida"},
+	}
+	for _, teste := range testes {
+		t.Run(teste.nome, func(t *testing.T) {
+			svc := &mockJogosEmAndamentoService{
+				criarFn: func(context.Context, service.SalvarJogoEmAndamentoInput) (*repository.JogoEmAndamento, error) {
+					return nil, teste.erro
+				},
+				listarFn: func(context.Context, int32) ([]*repository.JogoEmAndamento, error) {
+					return []*repository.JogoEmAndamento{}, nil
+				},
+				excluirFn: func(context.Context, int32, int32) error { return nil },
+			}
+			router := setupJogandoRouter(svc, secret)
+			req := httptest.NewRequest(http.MethodPost, "/api/v1/jogando", bytes.NewBufferString(teste.body))
+			req.Header.Set("Authorization", "Bearer "+token)
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, req)
+			assertJogandoErrorCode(t, w, http.StatusBadRequest, teste.codigo)
+		})
+	}
+}
+
+func TestJogosEmAndamentoHandler_Excluir(t *testing.T) {
+	secret := uuid.NewString()
+	token := tokenJogando(t, secret)
+	casos := []struct {
+		nome   string
+		id     string
+		erro   error
+		status int
+	}{
+		{"sucesso", "1", nil, http.StatusNoContent},
+		{"id não numérico", "abc", nil, http.StatusBadRequest},
+		{"id zero", "0", nil, http.StatusBadRequest},
+		{"não encontrado", "2", service.ErrJogandoNaoEncontrado, http.StatusNotFound},
+	}
+	for _, caso := range casos {
+		t.Run(caso.nome, func(t *testing.T) {
+			svc := &mockJogosEmAndamentoService{
+				criarFn: func(context.Context, service.SalvarJogoEmAndamentoInput) (*repository.JogoEmAndamento, error) {
+					return nil, nil
+				},
+				listarFn: func(context.Context, int32) ([]*repository.JogoEmAndamento, error) {
+					return []*repository.JogoEmAndamento{}, nil
+				},
+				excluirFn: func(context.Context, int32, int32) error { return caso.erro },
+			}
+			router := setupJogandoRouter(svc, secret)
+			req := httptest.NewRequest(http.MethodDelete, "/api/v1/jogando/"+caso.id, nil)
+			req.Header.Set("Authorization", "Bearer "+token)
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, req)
+			if w.Code != caso.status {
+				t.Fatalf("esperava status %d, obteve %d: %s", caso.status, w.Code, w.Body.String())
+			}
+		})
+	}
+}
+
+func TestJogosEmAndamentoHandler_ListaVaziaEIngles(t *testing.T) {
+	secret := uuid.NewString()
+	svc := &mockJogosEmAndamentoService{
+		criarFn: func(context.Context, service.SalvarJogoEmAndamentoInput) (*repository.JogoEmAndamento, error) {
+			return nil, service.ErrJogandoNomeObrigatorio
+		},
+		listarFn: func(context.Context, int32) ([]*repository.JogoEmAndamento, error) {
+			return []*repository.JogoEmAndamento{}, nil
+		},
+		excluirFn: func(context.Context, int32, int32) error { return nil },
+	}
+	router := setupJogandoRouter(svc, secret)
+	token := tokenJogando(t, secret)
+	get := httptest.NewRequest(http.MethodGet, "/api/v1/jogando", nil)
+	get.Header.Set("Authorization", "Bearer "+token)
 	w := httptest.NewRecorder()
-	router.ServeHTTP(w, req)
-	if w.Code != http.StatusUnauthorized {
-		t.Fatalf("esperava 401, obteve %d", w.Code)
+	router.ServeHTTP(w, get)
+	if strings.TrimSpace(w.Body.String()) != `{"data":[]}` {
+		t.Fatalf("esperava data vazio, obteve %s", w.Body.String())
+	}
+	post := httptest.NewRequest(http.MethodPost, "/api/v1/jogando", bytes.NewBufferString(`{}`))
+	post.Header.Set("Authorization", "Bearer "+token)
+	post.Header.Set("Accept-Language", "en")
+	post.Header.Set("Content-Type", "application/json")
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, post)
+	if !strings.Contains(w.Body.String(), "Start date is required.") {
+		t.Fatalf("esperava mensagem em inglês, obteve %s", w.Body.String())
+	}
+}
+
+func assertJogandoErrorCode(t *testing.T, response *httptest.ResponseRecorder, status int, codigo string) {
+	t.Helper()
+	if response.Code != status {
+		t.Fatalf("esperava status %d, obteve %d: %s", status, response.Code, response.Body.String())
+	}
+	var body struct {
+		Error struct {
+			Codigo string `json:"codigo"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.Error.Codigo != codigo {
+		t.Fatalf("esperava código %s, obteve %s", codigo, body.Error.Codigo)
 	}
 }

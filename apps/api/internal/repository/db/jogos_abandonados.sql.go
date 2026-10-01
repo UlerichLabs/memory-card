@@ -20,7 +20,7 @@ UPDATE jogos_abandonados SET
     tempo_jogado = $7,
     motivo = $8,
     abandonado_em = $9,
-    iniciado_em = $10,
+    iniciado_em = COALESCE($10::timestamp, iniciado_em),
     updated_at = now()
 WHERE id = $1 AND usuario_id = $2 AND deleted_at IS NULL
 RETURNING id, usuario_id, igdb_id, igdb_capa_url, nome, console, tempo_jogado, motivo, abandonado_em, deleted_at, created_at, updated_at, iniciado_em

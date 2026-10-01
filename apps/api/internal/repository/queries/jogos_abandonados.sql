@@ -19,7 +19,7 @@ UPDATE jogos_abandonados SET
     tempo_jogado = $7,
     motivo = $8,
     abandonado_em = $9,
-    iniciado_em = $10,
+    iniciado_em = COALESCE(sqlc.narg('iniciado_em')::timestamp, iniciado_em),
     updated_at = now()
 WHERE id = $1 AND usuario_id = $2 AND deleted_at IS NULL
 RETURNING *;
