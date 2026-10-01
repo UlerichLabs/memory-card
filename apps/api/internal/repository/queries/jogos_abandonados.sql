@@ -1,9 +1,9 @@
 -- name: CriarJogoAbandonado :one
 INSERT INTO jogos_abandonados (
     usuario_id, igdb_id, igdb_capa_url, nome, console,
-    tempo_jogado, motivo, abandonado_em
+    tempo_jogado, motivo, abandonado_em, iniciado_em
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8
+    $1, $2, $3, $4, $5, $6, $7, $8, $9
 ) RETURNING *;
 
 -- name: BuscarJogoAbandonadoPorID :one
@@ -19,6 +19,7 @@ UPDATE jogos_abandonados SET
     tempo_jogado = $7,
     motivo = $8,
     abandonado_em = $9,
+    iniciado_em = COALESCE(sqlc.narg('iniciado_em')::timestamp, iniciado_em),
     updated_at = now()
 WHERE id = $1 AND usuario_id = $2 AND deleted_at IS NULL
 RETURNING *;

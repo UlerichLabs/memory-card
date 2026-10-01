@@ -34,6 +34,7 @@ type Querier interface {
 	ContarJogosZerados(ctx context.Context, arg ContarJogosZeradosParams) (int64, error)
 	CriarItemLista(ctx context.Context, arg CriarItemListaParams) (ListaIten, error)
 	CriarJogoAbandonado(ctx context.Context, arg CriarJogoAbandonadoParams) (JogosAbandonado, error)
+	CriarJogoEmAndamento(ctx context.Context, arg CriarJogoEmAndamentoParams) (JogosEmAndamento, error)
 	CriarJogoZerado(ctx context.Context, arg CriarJogoZeradoParams) (JogosZerado, error)
 	CriarLista(ctx context.Context, arg CriarListaParams) (Lista, error)
 	CriarTokenResetSenha(ctx context.Context, arg CriarTokenResetSenhaParams) error
@@ -43,6 +44,7 @@ type Querier interface {
 	DesmarcarGameDoAnoPorID(ctx context.Context, arg DesmarcarGameDoAnoPorIDParams) (int64, error)
 	ExcluirItem(ctx context.Context, arg ExcluirItemParams) (int64, error)
 	ExcluirJogoAbandonado(ctx context.Context, arg ExcluirJogoAbandonadoParams) (int64, error)
+	ExcluirJogoEmAndamento(ctx context.Context, arg ExcluirJogoEmAndamentoParams) (int64, error)
 	ExcluirJogoZerado(ctx context.Context, arg ExcluirJogoZeradoParams) (int64, error)
 	ExcluirLista(ctx context.Context, arg ExcluirListaParams) (int64, error)
 	ExisteUsuarioComEmail(ctx context.Context, email string) (bool, error)
@@ -53,6 +55,7 @@ type Querier interface {
 	ListarJogosAbandonadosNome(ctx context.Context, arg ListarJogosAbandonadosNomeParams) ([]JogosAbandonado, error)
 	ListarJogosAbandonadosRecentes(ctx context.Context, arg ListarJogosAbandonadosRecentesParams) ([]JogosAbandonado, error)
 	ListarJogosAbandonadosTempo(ctx context.Context, arg ListarJogosAbandonadosTempoParams) ([]JogosAbandonado, error)
+	ListarJogosEmAndamento(ctx context.Context, usuarioID int32) ([]JogosEmAndamento, error)
 	ListarJogosZerados(ctx context.Context, arg ListarJogosZeradosParams) ([]JogosZerado, error)
 	ListarJogosZeradosPorNota(ctx context.Context, arg ListarJogosZeradosPorNotaParams) ([]JogosZerado, error)
 	ListarJogosZeradosUsuarioParaMatching(ctx context.Context, usuarioID int32) ([]ListarJogosZeradosUsuarioParaMatchingRow, error)

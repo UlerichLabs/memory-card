@@ -24,6 +24,8 @@ var (
 	ErrAbandonadoMotivoMuitoLongo   = errors.New("abandonados.motivo_muito_longo")
 	ErrAbandonadoDataInvalida       = errors.New("abandonados.data_invalida")
 	ErrAbandonadoDataFutura         = errors.New("abandonados.data_futura")
+	ErrAbandonadoIniciadoInvalido   = errors.New("abandonados.iniciado_em_invalido")
+	ErrAbandonadoIniciadoFuturo     = errors.New("abandonados.iniciado_em_futuro")
 	ErrAbandonadoPaginaInvalida     = errors.New("abandonados.pagina_invalida")
 	ErrAbandonadoPorPaginaInvalida  = errors.New("abandonados.por_pagina_invalida")
 	ErrAbandonadoOrdenarInvalido    = errors.New("abandonados.ordenar_invalido")
@@ -50,6 +52,7 @@ type SalvarJogoAbandonadoInput struct {
 	TempoJogado         *int32
 	Motivo              *string
 	AbandonadoEm        *time.Time
+	IniciadoEm          *time.Time
 }
 
 type ListarJogosAbandonadosInput struct {
@@ -93,6 +96,19 @@ func NewJogosAbandonadosService(repo JogosAbandonadosRepository) *JogosAbandonad
 
 func (s *JogosAbandonadosService) SetNow(nowFn func() time.Time) {
 	s.now = nowFn
+}
+
+func (s *JogosAbandonadosService) validarIniciadoEm(iniciadoEm *time.Time) error {
+	if iniciadoEm == nil {
+		return nil
+	}
+	if iniciadoEm.IsZero() {
+		return ErrAbandonadoIniciadoInvalido
+	}
+	if iniciadoEm.After(s.now()) {
+		return ErrAbandonadoIniciadoFuturo
+	}
+	return nil
 }
 
 func (s *JogosAbandonadosService) validarESintetizar(
@@ -182,6 +198,9 @@ func (s *JogosAbandonadosService) CriarJogoAbandonado(
 	if err != nil {
 		return nil, err
 	}
+	if err := s.validarIniciadoEm(input.IniciadoEm); err != nil {
+		return nil, err
+	}
 
 	jogo, err := s.repo.Criar(ctx, repository.CriarJogoAbandonadoParams{
 		UsuarioID:    input.UsuarioID,
@@ -192,6 +211,7 @@ func (s *JogosAbandonadosService) CriarJogoAbandonado(
 		TempoJogado:  tempoTotal,
 		Motivo:       motivoFinal,
 		AbandonadoEm: abandonadoEm,
+		IniciadoEm:   input.IniciadoEm,
 	})
 	if err != nil {
 		var pgErr *pgconn.PgError
@@ -217,6 +237,9 @@ func (s *JogosAbandonadosService) AtualizarJogoAbandonado(
 	if err != nil {
 		return nil, err
 	}
+	if err := s.validarIniciadoEm(input.IniciadoEm); err != nil {
+		return nil, err
+	}
 
 	jogo, err := s.repo.Atualizar(ctx, repository.AtualizarJogoAbandonadoParams{
 		ID:           input.ID,
@@ -228,6 +251,7 @@ func (s *JogosAbandonadosService) AtualizarJogoAbandonado(
 		TempoJogado:  tempoTotal,
 		Motivo:       motivoFinal,
 		AbandonadoEm: abandonadoEm,
+		IniciadoEm:   input.IniciadoEm,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

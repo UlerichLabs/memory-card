@@ -304,6 +304,19 @@ type JogosAbandonado struct {
 	DeletedAt    pgtype.Timestamp
 	CreatedAt    pgtype.Timestamp
 	UpdatedAt    pgtype.Timestamp
+	IniciadoEm   pgtype.Timestamp
+}
+
+type JogosEmAndamento struct {
+	ID          int32
+	UsuarioID   int32
+	IgdbID      pgtype.Int4
+	IgdbCapaUrl pgtype.Text
+	Nome        string
+	IniciadoEm  pgtype.Timestamp
+	DeletedAt   pgtype.Timestamp
+	CreatedAt   pgtype.Timestamp
+	UpdatedAt   pgtype.Timestamp
 }
 
 type JogosZerado struct {

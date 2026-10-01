@@ -81,6 +81,16 @@
   "abandonados.por_pagina_invalida": "Quantidade por página inválida.",
   "abandonados.ordenar_invalido": "Ordenação inválida.",
   "abandonados.nao_encontrado": "Jogo abandonado não encontrado.",
+  "abandonados.iniciado_em_invalido": "Formato de data de início inválido.",
+  "abandonados.iniciado_em_futuro": "A data de início não pode estar no futuro.",
+  "jogando.entrada_invalida": "Dados de entrada inválidos.",
+  "jogando.nome_obrigatorio": "O nome do jogo é obrigatório.",
+  "jogando.nome_muito_longo": "O nome deve ter no máximo 200 caracteres.",
+  "jogando.iniciado_em_obrigatorio": "A data de início é obrigatória.",
+  "jogando.iniciado_em_invalido": "Formato de data de início inválido.",
+  "jogando.iniciado_em_futuro": "A data de início não pode estar no futuro.",
+  "jogando.id_invalido": "Identificador inválido.",
+  "jogando.nao_encontrado": "Jogo em andamento não encontrado.",
   "dashboard.limite_invalido": "Limite inválido. Informe um número inteiro entre 1 e 20.",
   "dashboard.genero_obrigatorio": "O gênero é obrigatório."
 }

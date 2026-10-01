@@ -23,6 +23,7 @@ type JogoAbandonado struct {
 	TempoJogado  int32      `json:"tempo_jogado"`
 	Motivo       *string    `json:"motivo,omitempty"`
 	AbandonadoEm time.Time  `json:"abandonado_em"`
+	IniciadoEm   *time.Time `json:"iniciado_em"`
 	DeletedAt    *time.Time `json:"-"`
 	CreatedAt    time.Time  `json:"created_at"`
 	UpdatedAt    time.Time  `json:"updated_at"`
@@ -37,6 +38,7 @@ type CriarJogoAbandonadoParams struct {
 	TempoJogado  int32
 	Motivo       *string
 	AbandonadoEm time.Time
+	IniciadoEm   *time.Time
 }
 
 type AtualizarJogoAbandonadoParams struct {
@@ -49,6 +51,7 @@ type AtualizarJogoAbandonadoParams struct {
 	TempoJogado  int32
 	Motivo       *string
 	AbandonadoEm time.Time
+	IniciadoEm   *time.Time
 }
 
 type ListarJogosAbandonadosParams struct {
@@ -97,6 +100,11 @@ func (r *SQLJogosAbandonadosRepository) Criar(
 		motivo = pgtype.Text{String: *params.Motivo, Valid: true}
 	}
 
+	var iniciadoEm pgtype.Timestamp
+	if params.IniciadoEm != nil {
+		iniciadoEm = pgtype.Timestamp{Time: *params.IniciadoEm, Valid: true}
+	}
+
 	row, err := r.queries.CriarJogoAbandonado(ctx, db.CriarJogoAbandonadoParams{
 		UsuarioID:    params.UsuarioID,
 		IgdbID:       igdbID,
@@ -106,6 +114,7 @@ func (r *SQLJogosAbandonadosRepository) Criar(
 		TempoJogado:  params.TempoJogado,
 		Motivo:       motivo,
 		AbandonadoEm: pgtype.Timestamp{Time: params.AbandonadoEm, Valid: true},
+		IniciadoEm:   iniciadoEm,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("criar jogo abandonado: %w", err)
@@ -133,6 +142,11 @@ func (r *SQLJogosAbandonadosRepository) Atualizar(
 		motivo = pgtype.Text{String: *params.Motivo, Valid: true}
 	}
 
+	var iniciadoEm pgtype.Timestamp
+	if params.IniciadoEm != nil {
+		iniciadoEm = pgtype.Timestamp{Time: *params.IniciadoEm, Valid: true}
+	}
+
 	row, err := r.queries.AtualizarJogoAbandonado(ctx, db.AtualizarJogoAbandonadoParams{
 		ID:           params.ID,
 		UsuarioID:    params.UsuarioID,
@@ -143,6 +157,7 @@ func (r *SQLJogosAbandonadosRepository) Atualizar(
 		TempoJogado:  params.TempoJogado,
 		Motivo:       motivo,
 		AbandonadoEm: pgtype.Timestamp{Time: params.AbandonadoEm, Valid: true},
+		IniciadoEm:   iniciadoEm,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -305,6 +320,9 @@ func mapearJogoAbandonado(row db.JogosAbandonado) *JogoAbandonado {
 	}
 	if row.DeletedAt.Valid {
 		jogo.DeletedAt = &row.DeletedAt.Time
+	}
+	if row.IniciadoEm.Valid {
+		jogo.IniciadoEm = &row.IniciadoEm.Time
 	}
 	return jogo
 }

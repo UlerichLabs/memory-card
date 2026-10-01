@@ -148,6 +148,87 @@ func TestJogosAbandonadosService_Criar_Sucesso(t *testing.T) {
 	}
 }
 
+func TestJogosAbandonadosService_IniciadoEm_Criar(t *testing.T) {
+	agora := time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
+	iniciado := agora.Add(-24 * time.Hour)
+	testes := []struct {
+		nome     string
+		iniciado *time.Time
+		esperado error
+	}{
+		{"válido", &iniciado, nil},
+		{"ausente", nil, nil},
+		{"zero", func() *time.Time { valor := time.Time{}; return &valor }(), ErrAbandonadoIniciadoInvalido},
+		{"futuro", func() *time.Time { valor := agora.Add(time.Hour); return &valor }(), ErrAbandonadoIniciadoFuturo},
+	}
+	for _, teste := range testes {
+		t.Run(teste.nome, func(t *testing.T) {
+			var recebido *time.Time
+			repo := &mockAbandonadosRepo{
+				criarFn: func(ctx context.Context, params repository.CriarJogoAbandonadoParams) (*repository.JogoAbandonado, error) {
+					recebido = params.IniciadoEm
+					return &repository.JogoAbandonado{ID: 1}, nil
+				},
+			}
+			svc := NewJogosAbandonadosService(repo)
+			svc.SetNow(func() time.Time { return agora })
+			_, err := svc.CriarJogoAbandonado(context.Background(), SalvarJogoAbandonadoInput{
+				Nome: "Jogo", Console: "PC", IniciadoEm: teste.iniciado,
+			})
+			if !errors.Is(err, teste.esperado) {
+				t.Fatalf("esperava erro %v, obteve %v", teste.esperado, err)
+			}
+			if teste.esperado == nil && !datasIguais(recebido, teste.iniciado) {
+				t.Fatalf("esperava iniciado_em %v, obteve %v", teste.iniciado, recebido)
+			}
+		})
+	}
+}
+
+func TestJogosAbandonadosService_IniciadoEm_Atualizar(t *testing.T) {
+	agora := time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
+	iniciado := agora.Add(-24 * time.Hour)
+	testes := []struct {
+		nome     string
+		iniciado *time.Time
+		esperado error
+	}{
+		{"válido", &iniciado, nil},
+		{"ausente", nil, nil},
+		{"zero", func() *time.Time { valor := time.Time{}; return &valor }(), ErrAbandonadoIniciadoInvalido},
+		{"futuro", func() *time.Time { valor := agora.Add(time.Hour); return &valor }(), ErrAbandonadoIniciadoFuturo},
+	}
+	for _, teste := range testes {
+		t.Run(teste.nome, func(t *testing.T) {
+			var recebido *time.Time
+			repo := &mockAbandonadosRepo{
+				atualizarFn: func(ctx context.Context, params repository.AtualizarJogoAbandonadoParams) (*repository.JogoAbandonado, error) {
+					recebido = params.IniciadoEm
+					return &repository.JogoAbandonado{ID: 1}, nil
+				},
+			}
+			svc := NewJogosAbandonadosService(repo)
+			svc.SetNow(func() time.Time { return agora })
+			_, err := svc.AtualizarJogoAbandonado(context.Background(), SalvarJogoAbandonadoInput{
+				ID: 1, Nome: "Jogo", Console: "PC", IniciadoEm: teste.iniciado,
+			})
+			if !errors.Is(err, teste.esperado) {
+				t.Fatalf("esperava erro %v, obteve %v", teste.esperado, err)
+			}
+			if teste.esperado == nil && !datasIguais(recebido, teste.iniciado) {
+				t.Fatalf("esperava iniciado_em %v, obteve %v", teste.iniciado, recebido)
+			}
+		})
+	}
+}
+
+func datasIguais(primeira, segunda *time.Time) bool {
+	if primeira == nil || segunda == nil {
+		return primeira == segunda
+	}
+	return primeira.Equal(*segunda)
+}
+
 func TestJogosAbandonadosService_ConversaoTempo(t *testing.T) {
 	tests := []struct {
 		name     string
