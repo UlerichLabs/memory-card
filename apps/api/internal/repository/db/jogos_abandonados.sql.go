@@ -20,9 +20,10 @@ UPDATE jogos_abandonados SET
     tempo_jogado = $7,
     motivo = $8,
     abandonado_em = $9,
+    iniciado_em = $10,
     updated_at = now()
 WHERE id = $1 AND usuario_id = $2 AND deleted_at IS NULL
-RETURNING id, usuario_id, igdb_id, igdb_capa_url, nome, console, tempo_jogado, motivo, abandonado_em, deleted_at, created_at, updated_at
+RETURNING id, usuario_id, igdb_id, igdb_capa_url, nome, console, tempo_jogado, motivo, abandonado_em, deleted_at, created_at, updated_at, iniciado_em
 `
 
 type AtualizarJogoAbandonadoParams struct {
@@ -35,6 +36,7 @@ type AtualizarJogoAbandonadoParams struct {
 	TempoJogado  int32
 	Motivo       pgtype.Text
 	AbandonadoEm pgtype.Timestamp
+	IniciadoEm   pgtype.Timestamp
 }
 
 func (q *Queries) AtualizarJogoAbandonado(ctx context.Context, arg AtualizarJogoAbandonadoParams) (JogosAbandonado, error) {
@@ -48,6 +50,7 @@ func (q *Queries) AtualizarJogoAbandonado(ctx context.Context, arg AtualizarJogo
 		arg.TempoJogado,
 		arg.Motivo,
 		arg.AbandonadoEm,
+		arg.IniciadoEm,
 	)
 	var i JogosAbandonado
 	err := row.Scan(
@@ -63,12 +66,13 @@ func (q *Queries) AtualizarJogoAbandonado(ctx context.Context, arg AtualizarJogo
 		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IniciadoEm,
 	)
 	return i, err
 }
 
 const buscarJogoAbandonadoPorID = `-- name: BuscarJogoAbandonadoPorID :one
-SELECT id, usuario_id, igdb_id, igdb_capa_url, nome, console, tempo_jogado, motivo, abandonado_em, deleted_at, created_at, updated_at FROM jogos_abandonados
+SELECT id, usuario_id, igdb_id, igdb_capa_url, nome, console, tempo_jogado, motivo, abandonado_em, deleted_at, created_at, updated_at, iniciado_em FROM jogos_abandonados
 WHERE id = $1 AND usuario_id = $2 AND deleted_at IS NULL
 `
 
@@ -93,6 +97,7 @@ func (q *Queries) BuscarJogoAbandonadoPorID(ctx context.Context, arg BuscarJogoA
 		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IniciadoEm,
 	)
 	return i, err
 }
@@ -121,10 +126,10 @@ func (q *Queries) ContarJogosAbandonados(ctx context.Context, arg ContarJogosAba
 const criarJogoAbandonado = `-- name: CriarJogoAbandonado :one
 INSERT INTO jogos_abandonados (
     usuario_id, igdb_id, igdb_capa_url, nome, console,
-    tempo_jogado, motivo, abandonado_em
+    tempo_jogado, motivo, abandonado_em, iniciado_em
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8
-) RETURNING id, usuario_id, igdb_id, igdb_capa_url, nome, console, tempo_jogado, motivo, abandonado_em, deleted_at, created_at, updated_at
+    $1, $2, $3, $4, $5, $6, $7, $8, $9
+) RETURNING id, usuario_id, igdb_id, igdb_capa_url, nome, console, tempo_jogado, motivo, abandonado_em, deleted_at, created_at, updated_at, iniciado_em
 `
 
 type CriarJogoAbandonadoParams struct {
@@ -136,6 +141,7 @@ type CriarJogoAbandonadoParams struct {
 	TempoJogado  int32
 	Motivo       pgtype.Text
 	AbandonadoEm pgtype.Timestamp
+	IniciadoEm   pgtype.Timestamp
 }
 
 func (q *Queries) CriarJogoAbandonado(ctx context.Context, arg CriarJogoAbandonadoParams) (JogosAbandonado, error) {
@@ -148,6 +154,7 @@ func (q *Queries) CriarJogoAbandonado(ctx context.Context, arg CriarJogoAbandona
 		arg.TempoJogado,
 		arg.Motivo,
 		arg.AbandonadoEm,
+		arg.IniciadoEm,
 	)
 	var i JogosAbandonado
 	err := row.Scan(
@@ -163,6 +170,7 @@ func (q *Queries) CriarJogoAbandonado(ctx context.Context, arg CriarJogoAbandona
 		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IniciadoEm,
 	)
 	return i, err
 }
@@ -187,7 +195,7 @@ func (q *Queries) ExcluirJogoAbandonado(ctx context.Context, arg ExcluirJogoAban
 }
 
 const listarJogosAbandonadosAntigos = `-- name: ListarJogosAbandonadosAntigos :many
-SELECT id, usuario_id, igdb_id, igdb_capa_url, nome, console, tempo_jogado, motivo, abandonado_em, deleted_at, created_at, updated_at FROM jogos_abandonados
+SELECT id, usuario_id, igdb_id, igdb_capa_url, nome, console, tempo_jogado, motivo, abandonado_em, deleted_at, created_at, updated_at, iniciado_em FROM jogos_abandonados
 WHERE usuario_id = $1
   AND deleted_at IS NULL
   AND ($2::text IS NULL OR unaccent(nome) ILIKE unaccent('%' || $2::text || '%'))
@@ -232,6 +240,7 @@ func (q *Queries) ListarJogosAbandonadosAntigos(ctx context.Context, arg ListarJ
 			&i.DeletedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.IniciadoEm,
 		); err != nil {
 			return nil, err
 		}
@@ -244,7 +253,7 @@ func (q *Queries) ListarJogosAbandonadosAntigos(ctx context.Context, arg ListarJ
 }
 
 const listarJogosAbandonadosNome = `-- name: ListarJogosAbandonadosNome :many
-SELECT id, usuario_id, igdb_id, igdb_capa_url, nome, console, tempo_jogado, motivo, abandonado_em, deleted_at, created_at, updated_at FROM jogos_abandonados
+SELECT id, usuario_id, igdb_id, igdb_capa_url, nome, console, tempo_jogado, motivo, abandonado_em, deleted_at, created_at, updated_at, iniciado_em FROM jogos_abandonados
 WHERE usuario_id = $1
   AND deleted_at IS NULL
   AND ($2::text IS NULL OR unaccent(nome) ILIKE unaccent('%' || $2::text || '%'))
@@ -289,6 +298,7 @@ func (q *Queries) ListarJogosAbandonadosNome(ctx context.Context, arg ListarJogo
 			&i.DeletedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.IniciadoEm,
 		); err != nil {
 			return nil, err
 		}
@@ -301,7 +311,7 @@ func (q *Queries) ListarJogosAbandonadosNome(ctx context.Context, arg ListarJogo
 }
 
 const listarJogosAbandonadosRecentes = `-- name: ListarJogosAbandonadosRecentes :many
-SELECT id, usuario_id, igdb_id, igdb_capa_url, nome, console, tempo_jogado, motivo, abandonado_em, deleted_at, created_at, updated_at FROM jogos_abandonados
+SELECT id, usuario_id, igdb_id, igdb_capa_url, nome, console, tempo_jogado, motivo, abandonado_em, deleted_at, created_at, updated_at, iniciado_em FROM jogos_abandonados
 WHERE usuario_id = $1
   AND deleted_at IS NULL
   AND ($2::text IS NULL OR unaccent(nome) ILIKE unaccent('%' || $2::text || '%'))
@@ -346,6 +356,7 @@ func (q *Queries) ListarJogosAbandonadosRecentes(ctx context.Context, arg Listar
 			&i.DeletedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.IniciadoEm,
 		); err != nil {
 			return nil, err
 		}
@@ -358,7 +369,7 @@ func (q *Queries) ListarJogosAbandonadosRecentes(ctx context.Context, arg Listar
 }
 
 const listarJogosAbandonadosTempo = `-- name: ListarJogosAbandonadosTempo :many
-SELECT id, usuario_id, igdb_id, igdb_capa_url, nome, console, tempo_jogado, motivo, abandonado_em, deleted_at, created_at, updated_at FROM jogos_abandonados
+SELECT id, usuario_id, igdb_id, igdb_capa_url, nome, console, tempo_jogado, motivo, abandonado_em, deleted_at, created_at, updated_at, iniciado_em FROM jogos_abandonados
 WHERE usuario_id = $1
   AND deleted_at IS NULL
   AND ($2::text IS NULL OR unaccent(nome) ILIKE unaccent('%' || $2::text || '%'))
@@ -403,6 +414,7 @@ func (q *Queries) ListarJogosAbandonadosTempo(ctx context.Context, arg ListarJog
 			&i.DeletedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.IniciadoEm,
 		); err != nil {
 			return nil, err
 		}

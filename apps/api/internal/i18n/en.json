@@ -81,6 +81,16 @@
   "abandonados.por_pagina_invalida": "Invalid items per page.",
   "abandonados.ordenar_invalido": "Invalid ordering.",
   "abandonados.nao_encontrado": "Abandoned game not found.",
+  "abandonados.iniciado_em_invalido": "Invalid start date format.",
+  "abandonados.iniciado_em_futuro": "Start date cannot be in the future.",
+  "jogando.entrada_invalida": "Invalid input data.",
+  "jogando.nome_obrigatorio": "Game name is required.",
+  "jogando.nome_muito_longo": "Game name must be 200 characters or fewer.",
+  "jogando.iniciado_em_obrigatorio": "Start date is required.",
+  "jogando.iniciado_em_invalido": "Invalid start date format.",
+  "jogando.iniciado_em_futuro": "Start date cannot be in the future.",
+  "jogando.id_invalido": "Invalid identifier.",
+  "jogando.nao_encontrado": "Game in progress not found.",
   "dashboard.limite_invalido": "Invalid limit. Provide an integer between 1 and 20.",
   "dashboard.genero_obrigatorio": "Genre is required."
 }

@@ -56,6 +56,7 @@ type SalvarJogoAbandonadoRequest struct {
 	TempoJogado         *int32  `json:"tempo_jogado"`
 	Motivo              *string `json:"motivo"`
 	AbandonadoEm        *string `json:"abandonado_em"`
+	IniciadoEm          *string `json:"iniciado_em"`
 }
 
 func responderErroAbandonados(c *gin.Context, status int, codigo string) {
@@ -86,6 +87,10 @@ func tratarErroServiceAbandonados(c *gin.Context, err error, logMsg string) {
 		responderErroAbandonados(c, http.StatusBadRequest, "abandonados.data_invalida")
 	case errors.Is(err, service.ErrAbandonadoDataFutura):
 		responderErroAbandonados(c, http.StatusBadRequest, "abandonados.data_futura")
+	case errors.Is(err, service.ErrAbandonadoIniciadoInvalido):
+		responderErroAbandonados(c, http.StatusBadRequest, "abandonados.iniciado_em_invalido")
+	case errors.Is(err, service.ErrAbandonadoIniciadoFuturo):
+		responderErroAbandonados(c, http.StatusBadRequest, "abandonados.iniciado_em_futuro")
 	case errors.Is(err, service.ErrAbandonadoPaginaInvalida):
 		responderErroAbandonados(c, http.StatusBadRequest, "abandonados.pagina_invalida")
 	case errors.Is(err, service.ErrAbandonadoPorPaginaInvalida):
@@ -141,6 +146,15 @@ func (h *JogosAbandonadosHandler) Criar(c *gin.Context) {
 		}
 		abandonadoEmPtr = &t
 	}
+	var iniciadoEmPtr *time.Time
+	if req.IniciadoEm != nil && strings.TrimSpace(*req.IniciadoEm) != "" {
+		t, err := parseDate(*req.IniciadoEm)
+		if err != nil {
+			responderErroAbandonados(c, http.StatusBadRequest, "abandonados.iniciado_em_invalido")
+			return
+		}
+		iniciadoEmPtr = &t
+	}
 
 	jogo, err := h.service.CriarJogoAbandonado(c.Request.Context(), service.SalvarJogoAbandonadoInput{
 		UsuarioID:           int32(usuarioID),
@@ -154,6 +168,7 @@ func (h *JogosAbandonadosHandler) Criar(c *gin.Context) {
 		TempoJogado:         req.TempoJogado,
 		Motivo:              req.Motivo,
 		AbandonadoEm:        abandonadoEmPtr,
+		IniciadoEm:          iniciadoEmPtr,
 	})
 	if err != nil {
 		tratarErroServiceAbandonados(c, err, "falha ao criar jogo abandonado")
@@ -196,6 +211,15 @@ func (h *JogosAbandonadosHandler) Atualizar(c *gin.Context) {
 		}
 		abandonadoEmPtr = &t
 	}
+	var iniciadoEmPtr *time.Time
+	if req.IniciadoEm != nil && strings.TrimSpace(*req.IniciadoEm) != "" {
+		t, err := parseDate(*req.IniciadoEm)
+		if err != nil {
+			responderErroAbandonados(c, http.StatusBadRequest, "abandonados.iniciado_em_invalido")
+			return
+		}
+		iniciadoEmPtr = &t
+	}
 
 	jogo, err := h.service.AtualizarJogoAbandonado(c.Request.Context(), service.SalvarJogoAbandonadoInput{
 		ID:                  id,
@@ -210,6 +234,7 @@ func (h *JogosAbandonadosHandler) Atualizar(c *gin.Context) {
 		TempoJogado:         req.TempoJogado,
 		Motivo:              req.Motivo,
 		AbandonadoEm:        abandonadoEmPtr,
+		IniciadoEm:          iniciadoEmPtr,
 	})
 	if err != nil {
 		tratarErroServiceAbandonados(c, err, "falha ao atualizar jogo abandonado")
