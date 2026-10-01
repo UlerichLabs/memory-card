@@ -1,0 +1,9 @@
+import { Clock, Trophy } from 'lucide-react'
+import type { DashboardRecordes, DashboardRecordeJogo } from '@/types/dashboard'
+import { formatarDuracao, iniciais } from '@/lib/dashboardUtils'
+
+function Recorde({ titulo, jogo }: { titulo: string; jogo: DashboardRecordeJogo | null }) {
+  if (!jogo) return <p className="text-xs text-[var(--text-muted)]">Nenhum registro elegível.</p>
+  return <div className="flex gap-3"><div className="flex h-16 w-12 shrink-0 items-center justify-center overflow-hidden rounded border border-[var(--border)] bg-[var(--bg-surface-alt)] text-xs font-bold text-[var(--text-muted)]">{jogo.igdb_capa_url ? <img src={jogo.igdb_capa_url} alt={jogo.nome} className="h-full w-full object-cover" /> : iniciais(jogo.nome)}</div><div className="min-w-0"><p className="text-[11px] text-[var(--text-muted)]">{titulo}</p><h3 className="truncate text-sm font-semibold text-[var(--text-primary)]">{jogo.nome}</h3><p className="truncate text-[11px] text-[var(--text-secondary)]">{jogo.console} · {jogo.ano}</p><p className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-[var(--highlight-gold)]"><Clock className="h-3 w-3" aria-hidden="true" />{formatarDuracao(jogo.tempo_jogado_segundos)}</p></div></div>
+}
+export function Recordes({ recordes }: { recordes: DashboardRecordes }) { return <section aria-label="Recordes" className="space-y-4 rounded-[10px] border border-[var(--border)] bg-[var(--bg-surface)] p-4"><h2 className="flex items-center gap-2 text-base font-bold text-[var(--text-primary)]"><Trophy className="h-4 w-4 text-[var(--highlight-gold)]" aria-hidden="true" />Recordes</h2><div className="space-y-4"><Recorde titulo="Mais longo" jogo={recordes.mais_longo} /><Recorde titulo="Mais curto" jogo={recordes.mais_curto} /></div></section> }

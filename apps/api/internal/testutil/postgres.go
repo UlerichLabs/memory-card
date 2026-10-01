@@ -5,22 +5,16 @@ package testutil
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"os"
 	"testing"
 	"time"
 
-	"github.com/golang-migrate/migrate/v4"
-	pgxmigrate "github.com/golang-migrate/migrate/v4/database/pgx/v5"
-	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/testcontainers/testcontainers-go"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
 
-	"github.com/UlerichLabs/memory-card/apps/api/migrations"
+	"github.com/UlerichLabs/memory-card/apps/api/internal/migration"
 )
 
 func init() {
@@ -102,30 +96,6 @@ func SetupPostgres(t *testing.T) *PostgresContainerResult {
 }
 
 func runMigrations(pool *pgxpool.Pool) error {
-	db := stdlib.OpenDBFromPool(pool)
-	defer db.Close()
-
-	driver, err := pgxmigrate.WithInstance(db, &pgxmigrate.Config{})
-	if err != nil {
-		return fmt.Errorf("criar driver pgx para migrate: %w", err)
-	}
-
-	sourceDriver, err := iofs.New(migrations.FS, ".")
-	if err != nil {
-		return fmt.Errorf("carregar migrations do embed.FS: %w", err)
-	}
-
-	m, err := migrate.NewWithInstance("iofs", sourceDriver, "postgres", driver)
-	if err != nil {
-		return fmt.Errorf("instanciar migrate: %w", err)
-	}
-	defer func() {
-		_, _ = m.Close()
-	}()
-
-	if err := m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
-		return fmt.Errorf("executar migrate up: %w", err)
-	}
-
-	return nil
+	_, err := migration.Apply(pool)
+	return err
 }

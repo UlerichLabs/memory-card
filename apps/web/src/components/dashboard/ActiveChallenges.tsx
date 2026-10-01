@@ -1,0 +1,7 @@
+import { Target } from 'lucide-react'
+import type { ListaResumo } from '@/types/listas'
+
+export function ActiveChallenges({ desafios }: { desafios: ListaResumo[] }) {
+  if (!desafios.length) return null
+  return <section aria-label="Desafios Ativos" className="space-y-3"><header className="flex items-center gap-2"><Target className="h-4 w-4 text-[var(--accent)]" aria-hidden="true" /><h2 className="text-base font-bold text-[var(--text-primary)]">Desafios Ativos</h2></header><div className="space-y-3">{desafios.slice(0, 3).map((desafio) => { const progresso = desafio.progresso; if (!progresso) return null; return <article key={desafio.id} className="rounded-[10px] border border-[var(--border)] bg-[var(--bg-surface)] p-4"><div className="flex justify-between gap-2"><h3 className="truncate text-[13.5px] font-bold text-[var(--text-primary)]">{desafio.nome}</h3><span className="text-xs font-semibold text-[var(--accent)]">{progresso.percentual}%</span></div><p className="mt-1 line-clamp-2 text-xs text-[var(--text-secondary)]">{desafio.descricao ?? desafio.origem?.nome ?? 'Desafio personalizado'}</p><div className="mt-4 h-1.5 overflow-hidden rounded bg-[var(--border)]"><div className="h-full rounded bg-[var(--accent)]" style={{ width: `${Math.min(100, progresso.percentual)}%` }} role="progressbar" aria-valuenow={progresso.feitos} aria-valuemin={0} aria-valuemax={progresso.meta} /></div><p className="mt-2 text-[11px] text-[var(--text-muted)]">{progresso.feitos} / {progresso.meta} jogos</p></article>})}</div></section>
+}

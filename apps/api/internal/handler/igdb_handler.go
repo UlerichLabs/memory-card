@@ -1,0 +1,184 @@
+package handler
+
+import (
+	"context"
+	"errors"
+	"log/slog"
+	"net/http"
+	"strconv"
+
+	"github.com/gin-gonic/gin"
+
+	"github.com/UlerichLabs/memory-card/apps/api/internal/i18n"
+	"github.com/UlerichLabs/memory-card/apps/api/internal/igdbclient"
+	"github.com/UlerichLabs/memory-card/apps/api/internal/service"
+)
+
+type IGDBServicer interface {
+	BuscarJogos(ctx context.Context, termo string) ([]igdbclient.Game, error)
+	BuscarJogo(ctx context.Context, id int64) (*igdbclient.Game, error)
+	ListarPlataformas(ctx context.Context) ([]igdbclient.Platform, error)
+	JogosDaPlataforma(ctx context.Context, id int64) ([]igdbclient.Game, error)
+	AtualizarJogosDaPlataforma(ctx context.Context, id int64) ([]igdbclient.Game, error)
+	BuscarFranquias(ctx context.Context, termo string) ([]igdbclient.Franchise, error)
+	JogosDaFranquia(ctx context.Context, id int64) ([]igdbclient.Game, error)
+	AtualizarJogosDaFranquia(ctx context.Context, id int64) ([]igdbclient.Game, error)
+}
+
+type IGDBHandler struct {
+	service IGDBServicer
+}
+
+type igdbGameResponse struct {
+	ID               int64                 `json:"id"`
+	Name             string                `json:"name"`
+	Cover            *igdbImageResponse    `json:"cover,omitempty"`
+	FirstReleaseDate *int64                `json:"first_release_date,omitempty"`
+	Summary          string                `json:"summary,omitempty"`
+	Platforms        []igdbclient.Platform `json:"platforms,omitempty"`
+	Genres           []igdbclient.Genre    `json:"genres,omitempty"`
+}
+
+type igdbImageResponse struct {
+	URL string `json:"url,omitempty"`
+}
+
+func NewIGDBHandler(service IGDBServicer) *IGDBHandler {
+	return &IGDBHandler{service: service}
+}
+
+func (h *IGDBHandler) BuscarJogos(c *gin.Context) {
+	result, err := h.service.BuscarJogos(c.Request.Context(), c.Query("q"))
+	h.respond(c, result, err)
+}
+
+func (h *IGDBHandler) BuscarJogo(c *gin.Context) {
+	id, ok := parseIGDBID(c)
+	if !ok {
+		return
+	}
+	result, err := h.service.BuscarJogo(c.Request.Context(), id)
+	h.respond(c, result, err)
+}
+
+func (h *IGDBHandler) ListarPlataformas(c *gin.Context) {
+	result, err := h.service.ListarPlataformas(c.Request.Context())
+	h.respond(c, result, err)
+}
+
+func (h *IGDBHandler) JogosDaPlataforma(c *gin.Context) {
+	id, ok := parseIGDBID(c)
+	if !ok {
+		return
+	}
+	result, err := h.service.JogosDaPlataforma(c.Request.Context(), id)
+	h.respond(c, result, err)
+}
+
+func (h *IGDBHandler) AtualizarJogosDaPlataforma(c *gin.Context) {
+	id, ok := parseIGDBID(c)
+	if !ok {
+		return
+	}
+	result, err := h.service.AtualizarJogosDaPlataforma(c.Request.Context(), id)
+	h.respond(c, result, err)
+}
+
+func (h *IGDBHandler) BuscarFranquias(c *gin.Context) {
+	result, err := h.service.BuscarFranquias(c.Request.Context(), c.Query("q"))
+	h.respond(c, result, err)
+}
+
+func (h *IGDBHandler) JogosDaFranquia(c *gin.Context) {
+	id, ok := parseIGDBID(c)
+	if !ok {
+		return
+	}
+	result, err := h.service.JogosDaFranquia(c.Request.Context(), id)
+	h.respond(c, result, err)
+}
+
+func (h *IGDBHandler) AtualizarJogosDaFranquia(c *gin.Context) {
+	id, ok := parseIGDBID(c)
+	if !ok {
+		return
+	}
+	result, err := h.service.AtualizarJogosDaFranquia(c.Request.Context(), id)
+	h.respond(c, result, err)
+}
+
+func (h *IGDBHandler) respond(c *gin.Context, data any, err error) {
+	if err == nil {
+		c.JSON(http.StatusOK, gin.H{"data": publicIGDBData(data)})
+		return
+	}
+	if errors.Is(err, context.Canceled) {
+		c.Status(499)
+		return
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": gin.H{"codigo": "igdb.unavailable", "mensagem": i18n.T(c.GetHeader("Accept-Language"), "igdb.unavailable")}})
+		return
+	}
+	status, code := http.StatusBadGateway, "igdb.unavailable"
+	switch {
+	case errors.Is(err, service.ErrTermoIGDBVazio):
+		status, code = http.StatusBadRequest, "igdb.search.empty"
+	case errors.Is(err, service.ErrTermoIGDBCurto):
+		status, code = http.StatusBadRequest, "igdb.search.too_short"
+	case errors.Is(err, service.ErrIGDBRateLimit), errors.Is(err, igdbclient.ErrRateLimited):
+		status, code = http.StatusTooManyRequests, "igdb.rate_limited"
+	case errors.Is(err, service.ErrIGDBIndisponivel):
+		status, code = http.StatusServiceUnavailable, "igdb.unavailable"
+	case errors.Is(err, service.ErrIGDBQueryInvalida):
+		status, code = http.StatusBadGateway, "igdb.query_invalid"
+	case errors.Is(err, service.ErrJogoIGDBNaoEncontrado):
+		status, code = http.StatusNotFound, "jogos.not_found"
+	default:
+		slog.ErrorContext(c.Request.Context(), "falha no proxy IGDB", "error", err)
+	}
+	c.JSON(status, gin.H{"error": gin.H{"codigo": code, "mensagem": i18n.T(c.GetHeader("Accept-Language"), code)}})
+}
+
+func publicIGDBData(data any) any {
+	switch value := data.(type) {
+	case []igdbclient.Game:
+		result := make([]igdbGameResponse, len(value))
+		for i := range value {
+			result[i] = publicIGDBGame(value[i])
+		}
+		return result
+	case *igdbclient.Game:
+		if value == nil {
+			return nil
+		}
+		result := publicIGDBGame(*value)
+		return result
+	default:
+		return data
+	}
+}
+
+func publicIGDBGame(game igdbclient.Game) igdbGameResponse {
+	result := igdbGameResponse{
+		ID:               game.ID,
+		Name:             game.Name,
+		FirstReleaseDate: game.FirstReleaseDate,
+		Summary:          game.Summary,
+		Platforms:        game.Platforms,
+		Genres:           game.Genres,
+	}
+	if game.Cover != nil {
+		result.Cover = &igdbImageResponse{URL: game.Cover.URL}
+	}
+	return result
+}
+
+func parseIGDBID(c *gin.Context) (int64, bool) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || id <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "igdb.invalid_id", "mensagem": i18n.T(c.GetHeader("Accept-Language"), "igdb.invalid_id")}})
+		return 0, false
+	}
+	return id, true
+}

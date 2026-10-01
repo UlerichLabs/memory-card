@@ -1,0 +1,8 @@
+import { Star } from 'lucide-react'
+import type { JogoZeradoDTO } from '@/types/jogos'
+import { iniciais } from '@/lib/dashboardUtils'
+
+export function LifeGamesGrid({ jogos }: { jogos: JogoZeradoDTO[] }) {
+  if (!jogos.length) return null
+  return <section aria-label="5 Jogos da Vida" className="space-y-3"><header className="flex items-center justify-between"><h2 className="text-base font-bold text-[var(--text-primary)]">5 Jogos da Vida</h2><span className="text-[11px] text-[var(--text-muted)]">Favoritos de todos os tempos</span></header><div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5 sm:gap-4">{jogos.map((jogo, index) => <article key={jogo.id} className="group transition-transform hover:-translate-y-1"><div className="relative aspect-[3/4] overflow-hidden rounded-[6px] border border-[var(--border)] bg-[var(--bg-surface-alt)]">{jogo.igdb_capa_url ? <img src={jogo.igdb_capa_url} alt={jogo.nome} className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-xl font-bold text-[var(--text-muted)]">{iniciais(jogo.nome)}</div>}<span className="absolute left-1.5 top-1.5 rounded bg-black/80 px-1.5 py-0.5 text-[11px] font-bold text-[var(--text-primary)]">#{index + 1}</span><span className="absolute right-1.5 top-1.5 flex items-center gap-0.5 rounded bg-black/80 px-1.5 py-0.5 text-[11px] font-bold text-[var(--highlight-gold)]"><Star className="h-2.5 w-2.5 fill-current" aria-hidden="true" />{jogo.nota}</span></div><h3 className="mt-2 truncate text-[13px] font-medium text-[var(--text-primary)]" title={jogo.nome}>{jogo.nome}</h3><p className="text-[11px] text-[var(--text-muted)]">{jogo.console}</p></article>)}</div></section>
+}

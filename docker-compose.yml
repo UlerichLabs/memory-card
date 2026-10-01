@@ -6,7 +6,7 @@ services:
       POSTGRES_USER: memory_card
       POSTGRES_PASSWORD: memory_card
     ports:
-      - "5432:5432"
+      - "55432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -23,6 +23,9 @@ services:
       IGDB_CLIENT_ID: "${IGDB_CLIENT_ID}"
       IGDB_CLIENT_SECRET: "${IGDB_CLIENT_SECRET}"
       JWT_SECRET: "${JWT_SECRET}"
+      JWT_ACCESS_TTL: "${JWT_ACCESS_TTL}"
+      JWT_REFRESH_TTL: "${JWT_REFRESH_TTL}"
+      CORS_ALLOWED_ORIGINS: "${CORS_ALLOWED_ORIGINS:-http://localhost:5180}"
       PORT: 8080
     ports:
       # 8080 no host está ocupada pelo FlowLoop.
@@ -39,7 +42,7 @@ services:
         # Vite incorpora esta URL pública ao bundle durante o build.
         VITE_API_URL: "${VITE_API_URL:-http://localhost:18080}"
     ports:
-      - "5173:80"
+      - "5180:80"
     depends_on:
       - api
     restart: unless-stopped

@@ -160,3 +160,39 @@ func TestCadastroService_Cadastrar_EmailInvalido(t *testing.T) {
 		})
 	}
 }
+
+func TestCadastroService_Cadastrar_ErroRepositorio(t *testing.T) {
+	t.Run("erro ao verificar existencia de email", func(t *testing.T) {
+		mockRepo := &mockUsuarioRepo{
+			existePorEmailFn: func(ctx context.Context, email string) (bool, error) {
+				return false, errors.New("db connection timeout")
+			},
+		}
+		svc := NewCadastroService(mockRepo)
+
+		_, err := svc.Cadastrar(context.Background(), "Lucas", "lucas@example.com", "SenhaForte@123")
+		if err == nil {
+			t.Fatal("esperava erro ao falhar verificacao de email")
+		}
+		if mockRepo.criarChamado {
+			t.Fatal("repo.Criar nao deveria ter sido chamado quando verificacao de email falha")
+		}
+	})
+
+	t.Run("erro ao criar usuario no repositorio", func(t *testing.T) {
+		mockRepo := &mockUsuarioRepo{
+			existePorEmailFn: func(ctx context.Context, email string) (bool, error) {
+				return false, nil
+			},
+			criarFn: func(ctx context.Context, nome, email, senhaHash string) (*repository.Usuario, error) {
+				return nil, errors.New("db insert failed")
+			},
+		}
+		svc := NewCadastroService(mockRepo)
+
+		_, err := svc.Cadastrar(context.Background(), "Lucas", "lucas@example.com", "SenhaForte@123")
+		if err == nil {
+			t.Fatal("esperava erro ao falhar insercao no repositorio")
+		}
+	})
+}
