@@ -26,15 +26,38 @@ describe('JogandoProvider', () => {
     expect(result.current.carregado).toBe(true)
   })
 
-  it('guarda o codigo no erro e cria no início da lista', async () => {
+  it('mantém o estado da lista quando criar falha', async () => {
     service.listar.mockRejectedValue(new ApiError('jogando.entrada_invalida', '', 400))
-    const criado = { ...jogos[0], id: 3, nome: 'Tunic' }
-    service.criar.mockResolvedValue(criado)
     const { result } = renderHook(() => useJogandoStore(), { wrapper })
     await act(async () => { await result.current.carregar() })
     expect(result.current.error).toBe('jogando.entrada_invalida')
-    await act(async () => { await result.current.criar({ nome: 'Tunic', iniciado_em: '2026-09-20' }) })
-    expect(result.current.jogos[0]).toEqual(criado)
+    const antes = result.current.jogos
+    service.criar.mockRejectedValue(new ApiError('jogando.entrada_invalida', '', 400))
+    await act(async () => { await expect(result.current.criar({ nome: 'Tunic', iniciado_em: '2026-09-20' })).rejects.toBeInstanceOf(ApiError) })
+    expect(result.current.error).toBe('jogando.entrada_invalida')
+    expect(result.current.jogos).toEqual(antes)
+    expect(result.current.isLoading).toBe(false)
+  })
+
+  it('cria sem alterar carregamento e ordena por data e id', async () => {
+    service.listar.mockResolvedValue([jogos[0]])
+    const criado = { ...jogos[1], id: 3, nome: 'Tunic' }
+    service.criar.mockResolvedValue(criado)
+    const { result } = renderHook(() => useJogandoStore(), { wrapper })
+    await act(async () => { await result.current.carregar() })
+    await act(async () => { await result.current.criar({ nome: 'Tunic', iniciado_em: '2026-09-19' }) })
+    expect(result.current.jogos.map((jogo) => jogo.id)).toEqual([1, 3])
+    expect(result.current.isLoading).toBe(false)
+  })
+
+  it('mantém os cards durante um novo carregamento', async () => {
+    service.listar.mockResolvedValueOnce(jogos).mockImplementation(() => new Promise(() => undefined))
+    const { result } = renderHook(() => useJogandoStore(), { wrapper })
+    await act(async () => { await result.current.carregar() })
+    act(() => { void result.current.carregar() })
+    expect(result.current.carregado).toBe(true)
+    expect(result.current.jogos).toEqual(jogos)
+    expect(result.current.isLoading).toBe(true)
   })
 
   it('remove localmente com sucesso ou 404 e mantém o aviso', async () => {

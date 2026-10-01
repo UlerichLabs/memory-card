@@ -45,17 +45,18 @@ export function IniciarJogoDialog() {
         <form noValidate onSubmit={form.handleSubmit} className="flex flex-col gap-5">
           {form.errors.form && <p className="text-sm text-[var(--danger)]">{form.errors.form}</p>}
           <GameFormAutocomplete nome={form.nome} onChangeNome={form.setNome} onSelectSugestao={selecionarSugestao} error={form.errors.nome} />
-          <div className="flex flex-col gap-3">
-            <span className="text-sm font-medium text-[var(--text-secondary)]">Começou em</span>
-            <div className="flex flex-wrap gap-2">
-              {(['hoje', 'ontem', 'outra'] as const).map((modo) => <button key={modo} type="button" onClick={() => selecionarData(modo)} className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${modoData === modo ? 'border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-foreground)]' : 'border-[var(--border-subtle)] text-[var(--text-secondary)]'}`}>{modo === 'hoje' ? 'Hoje' : modo === 'ontem' ? 'Ontem' : 'Outra data'}</button>)}
+          <div className={form.igdbId ? 'flex flex-col gap-5 sm:flex-row sm:items-start' : ''}>
+            {form.igdbId && <div className="flex justify-center sm:justify-start"><div className="flex h-32 w-24 items-center justify-center sm:h-40 sm:w-[120px]">{form.igdbCapaUrl ? <img src={form.igdbCapaUrl} alt={`Capa de ${form.nome}`} className="h-full w-full rounded-md border border-[var(--border)] object-cover" /> : <div className="flex h-full w-full items-center justify-center rounded-md border border-dashed border-[var(--border-subtle)] bg-[linear-gradient(150deg,var(--bg-surface-alt),var(--bg-primary))]"><Gamepad2 className="size-8 text-[var(--text-faint)]" /></div>}</div></div>}
+            <div className="flex flex-1 flex-col gap-3">
+              <span className="text-sm font-medium text-[var(--text-secondary)]">Começou em</span>
+              <div className="flex flex-wrap gap-2">
+                {(['hoje', 'ontem', 'outra'] as const).map((modo) => <button key={modo} type="button" onClick={() => selecionarData(modo)} className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${modoData === modo ? 'border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-foreground)]' : 'border-[var(--border-subtle)] text-[var(--text-secondary)]'}`}>{modo === 'hoje' ? 'Hoje' : modo === 'ontem' ? 'Ontem' : 'Outra data'}</button>)}
+              </div>
+              {modoData === 'outra' && <DateInput id="iniciado_em" label="Data de início" value={form.iniciadoEm} onChange={form.setIniciadoEm} error={form.errors.iniciado_em} />}
+              <p className="text-xs text-[var(--text-muted)]">Não precisa ser exata, uma data aproximada já ajuda. Não pode ser no futuro.</p>
+              {modoData !== 'outra' && form.errors.iniciado_em && <span className="text-xs text-[var(--danger)]">{form.errors.iniciado_em}</span>}
             </div>
-            {modoData === 'outra' && <DateInput id="iniciado_em" label="Data de início" value={form.iniciadoEm} onChange={form.setIniciadoEm} error={form.errors.iniciado_em} />}
-            <p className="text-xs text-[var(--text-muted)]">Não precisa ser exata, uma data aproximada já ajuda. Não pode ser no futuro.</p>
-            {modoData !== 'outra' && form.errors.iniciado_em && <span className="text-xs text-[var(--danger)]">{form.errors.iniciado_em}</span>}
           </div>
-          {form.igdbCapaUrl && <img src={form.igdbCapaUrl} alt={`Capa de ${form.nome}`} className="h-40 w-[120px] self-start rounded-md border border-[var(--border)] object-cover" />}
-          {!form.igdbCapaUrl && form.igdbId && <div className="flex h-40 w-[120px] items-center justify-center rounded-md border border-dashed border-[var(--border-subtle)] bg-[linear-gradient(150deg,var(--bg-surface-alt),var(--bg-primary))]"><Gamepad2 className="size-8 text-[var(--text-faint)]" /></div>}
           <div className="flex justify-end gap-3 border-t border-[var(--border)] pt-4"><Button type="button" variant="outline" onClick={fecharModal} disabled={form.isSubmitting}>Cancelar</Button><Button type="submit" disabled={form.isSubmitting || !form.nome.trim()} className="bg-[var(--accent)] font-bold text-[var(--accent-foreground)]">{form.isSubmitting ? 'Iniciando...' : 'Iniciar jogo'}</Button></div>
         </form>
       </DialogContent>

@@ -22,6 +22,13 @@ export interface JogandoStore {
 
 export const JogandoContext = createContext<JogandoStore | null>(null)
 
+function ordenarJogos(jogos: JogoEmAndamento[]) {
+  return [...jogos].sort((a, b) => {
+    const data = b.iniciado_em.slice(0, 10).localeCompare(a.iniciado_em.slice(0, 10))
+    return data || b.id - a.id
+  })
+}
+
 export function JogandoProvider({ children, token }: { children: ReactNode; token?: string }) {
   const auth = useContext(AuthContext)
   const effectiveToken = token ?? auth?.sessao?.access_token
@@ -49,18 +56,9 @@ export function JogandoProvider({ children, token }: { children: ReactNode; toke
   }, [effectiveToken])
 
   const criar = useCallback(async (payload: CriarJogoEmAndamentoPayload) => {
-    setIsLoading(true)
-    setError(null)
-    try {
-      const criado = await jogandoService.criar(payload, effectiveToken)
-      setJogos((atuais) => [criado, ...atuais])
-      return criado
-    } catch (err) {
-      setError(err instanceof ApiError ? err.codigo : 'fallback')
-      throw err
-    } finally {
-      setIsLoading(false)
-    }
+    const criado = await jogandoService.criar(payload, effectiveToken)
+    setJogos((atuais) => ordenarJogos([...atuais, criado]))
+    return criado
   }, [effectiveToken])
 
   const remover = useCallback(async (id: number) => {

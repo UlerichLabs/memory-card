@@ -1,4 +1,4 @@
-import { MoreHorizontal, Play } from 'lucide-react'
+import { MoreHorizontal } from 'lucide-react'
 import { Menu } from '@base-ui/react/menu'
 import type { JogoEmAndamento } from '@/types/jogando'
 import { formatarDataJogando, rotuloDiasDesdeInicio } from '@/lib/jogandoUtils'
@@ -25,7 +25,7 @@ export function JogandoCard({ jogo, onZerei, onAbandonei, onRemover }: JogandoCa
         </div>
         <p className="mt-1 text-[11px] text-[var(--text-secondary)]">Começou em {formatarDataJogando(jogo.iniciado_em)}</p>
         <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">{rotuloDiasDesdeInicio(jogo.iniciado_em)}</p>
-        <div className="mt-auto flex gap-2 pt-2"><button type="button" onClick={onZerei} className="rounded-[6px] bg-[var(--accent)] px-2.5 py-1 text-[11px] font-bold text-[var(--accent-foreground)]">Zerei!</button><button type="button" onClick={onAbandonei} className="rounded-[6px] border border-[var(--border-subtle)] px-2.5 py-1 text-[11px] font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)]"><Play className="mr-1 inline size-3" aria-hidden="true" />Abandonei</button></div>
+        <div className="mt-auto flex gap-2 pt-2"><button type="button" onClick={onZerei} className="rounded-[6px] bg-[var(--accent)] px-2.5 py-1 text-[11px] font-bold text-[var(--accent-foreground)]">Zerei!</button><button type="button" onClick={onAbandonei} className="rounded-[6px] border border-[var(--border-subtle)] px-2.5 py-1 text-[11px] font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)]">Abandonei</button></div>
       </div>
     </article>
   )

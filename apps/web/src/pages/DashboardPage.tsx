@@ -38,9 +38,10 @@ export function DashboardPage() {
   const registrar = () => abrirModalRegistro({ onSalvo: () => dashboard.carregarDashboard() })
   const erroTotais = dashboard.errors.resumo ?? dashboard.errors.abandonados
   const retryTotais = dashboard.errors.resumo ? () => void dashboard.recarregarBloco('resumo') : () => void dashboard.recarregarBloco('abandonados')
-  return <div className="dashboard-page min-h-svh overflow-x-hidden bg-[var(--bg-primary)] text-[var(--text-primary)]"><Topbar /><main className="mx-auto max-w-7xl space-y-8 px-4 py-6 sm:px-6 lg:px-8"><p className="text-sm text-[var(--text-secondary)]">Bem-vindo de volta, <strong className="font-bold text-[var(--text-primary)]">{nomeUsuario}</strong></p><JogandoAgora />
-    {dashboard.carregado && dashboard.vazio ? <DashboardVazio onRegistrar={registrar} /> : <>
+  return <div className="dashboard-page min-h-svh overflow-x-hidden bg-[var(--bg-primary)] text-[var(--text-primary)]"><Topbar /><main className="mx-auto max-w-7xl space-y-8 px-4 py-6 sm:px-6 lg:px-8"><p className="text-sm text-[var(--text-secondary)]">Bem-vindo de volta, <strong className="font-bold text-[var(--text-primary)]">{nomeUsuario}</strong></p>
+    {dashboard.carregado && dashboard.vazio ? <><JogandoAgora /><DashboardVazio onRegistrar={registrar} /></> : <>
     <Bloco erro={erroTotais} carregando={dashboard.loading.resumo || dashboard.loading.abandonados} pronto={Boolean(dashboard.resumo)} retry={retryTotais}>{dashboard.resumo && <StatsRow resumo={dashboard.resumo} totalAbandonados={dashboard.abandonados} />}</Bloco>
+      <JogandoAgora />
       {(dashboard.jogoDoAno || dashboard.errors.jogoDoAno || dashboard.loading.jogoDoAno || !dashboard.carregado) && <Bloco erro={dashboard.errors.jogoDoAno} carregando={dashboard.loading.jogoDoAno} pronto={Boolean(dashboard.jogoDoAno)} retry={() => void dashboard.recarregarBloco('jogoDoAno')}>{dashboard.jogoDoAno && <GameOfTheYearCard jogo={dashboard.jogoDoAno} />}</Bloco>}
       <Bloco erro={dashboard.errors.jogosDaVida} carregando={dashboard.loading.jogosDaVida} pronto={dashboard.carregado} retry={() => void dashboard.recarregarBloco('jogosDaVida')}><LifeGamesGrid jogos={dashboard.jogosDaVida} /></Bloco>
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-12"><div className="space-y-8 lg:col-span-7 xl:col-span-8">

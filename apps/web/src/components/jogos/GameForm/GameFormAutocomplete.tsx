@@ -35,10 +35,12 @@ export function GameFormAutocomplete({
   const [isSearching, setIsSearching] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const ignorarBusca = useRef(false);
+  const buscaPermitida = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const controllerRef = useRef<AbortController | null>(null);
 
   function handleChange(valor: string) {
+    buscaPermitida.current = true;
     ignorarBusca.current = false;
     setSelecionado(null);
     onChangeNome(valor);
@@ -49,6 +51,7 @@ export function GameFormAutocomplete({
   }
 
   useEffect(() => {
+    if (!buscaPermitida.current) return;
     if (ignorarBusca.current) {
       ignorarBusca.current = false;
       return;
@@ -157,6 +160,7 @@ export function GameFormAutocomplete({
                     role="option"
                     aria-selected={false}
                     onClick={() => {
+                      buscaPermitida.current = false;
                       ignorarBusca.current = true;
                       if (timerRef.current) clearTimeout(timerRef.current);
                       controllerRef.current?.abort();

@@ -36,6 +36,7 @@ describe('JogandoAgora', () => {
   it('mostra vazio e abre iniciar jogo', () => {
     mocks.jogando.jogos = []
     render(<JogandoAgora />)
+    expect(screen.queryByText('0')).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Iniciar um jogo →' }))
     expect(mocks.jogando.abrirModalIniciar).toHaveBeenCalledOnce()
   })
