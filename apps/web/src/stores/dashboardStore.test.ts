@@ -35,6 +35,12 @@ describe('dashboardStore', () => {
       destaques: ['B', 'A', null],
       esperado: 'A',
     },
+    {
+      nome: 'ordem embaralhada',
+      anos: [2025, 2009, 2026],
+      destaques: ['A', 'B', null],
+      esperado: 'A',
+    },
   ])('seleciona o destaque mais recente quando há jogos do ano em $nome', async ({ anos, destaques, esperado }) => {
     preparar()
     mocked.jogoDoAno.mockResolvedValue(anos.map((ano, index) => ({
@@ -58,6 +64,30 @@ describe('dashboardStore', () => {
     await act(() => result.current.carregarDashboard())
     await waitFor(() => expect(result.current.carregado).toBe(true))
     expect(result.current.jogoDoAno).toBeNull()
+  })
+
+  it('limpa o erro ao recarregar apenas o bloco que falhou', async () => {
+    preparar()
+    const { result } = renderHook(() => useDashboardStore(), { wrapper: DashboardProvider })
+    await act(() => result.current.carregarDashboard())
+    await waitFor(() => expect(result.current.errors.desafios).toBe('fallback'))
+    const chamadasResumo = mocked.resumo.mock.calls.length
+    mocked.desafios.mockResolvedValue([])
+    await act(() => result.current.recarregarBloco('desafios'))
+    expect(result.current.errors.desafios).toBeUndefined()
+    expect(mocked.resumo).toHaveBeenCalledTimes(chamadasResumo)
+  })
+
+  it('busca tipos somente para o gênero mais jogado', async () => {
+    preparar()
+    mocked.generos.mockResolvedValue([
+      { genero: 'RPG', total_jogos: 3, total_segundos: 300, percentual_jogos: 75, percentual_segundos: 75 },
+      { genero: 'Ação', total_jogos: 1, total_segundos: 100, percentual_jogos: 25, percentual_segundos: 25 },
+    ])
+    const { result } = renderHook(() => useDashboardStore(), { wrapper: DashboardProvider })
+    await act(() => result.current.carregarDashboard())
+    await waitFor(() => expect(result.current.carregado).toBe(true))
+    expect(mocked.tipos).toHaveBeenCalledWith('RPG', undefined, undefined)
   })
 })
 
