@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { AuthProvider } from '@/store/authStore'
 import { JogosProvider } from '@/stores/jogosStore'
@@ -23,4 +23,23 @@ describe('DashboardPage', () => {
   afterEach(() => vi.resetAllMocks())
   it('carrega os dados reais pelos services e mantém a navegação', async () => { preparar(); renderPage(); expect(await screen.findByText('Jogos zerados')).toBeInTheDocument(); expect(screen.getByRole('navigation', { name: 'Navegação Principal' })).toBeInTheDocument(); expect(services.resumo).toHaveBeenCalled() })
   it('mostra o estado vazio e o CTA quando não há jogos', async () => { preparar(0); renderPage(); expect(await screen.findByText('Seu dashboard começa no primeiro jogo zerado')).toBeInTheDocument(); expect(screen.getAllByRole('button', { name: '+ Registrar jogo' }).length).toBeGreaterThan(0) })
+  it('mantém os outros blocos quando uma chamada falha e permite retry isolado', async () => {
+    preparar()
+    services.notas.mockRejectedValue(new Error('falha de notas'))
+    renderPage()
+    expect(await screen.findByText('Jogos zerados')).toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveTextContent('Não foi possível carregar este bloco.')
+    services.notas.mockResolvedValue({ histograma: Array.from({ length: 11 }, (_, index) => ({ nota: index + 1, total: 0 })), nota_media: 0, total_avaliados: 0 })
+    const chamadasResumo = services.resumo.mock.calls.length
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Tentar novamente' })) })
+    expect(await screen.findByText('Média 0.0')).toBeInTheDocument()
+    expect(services.resumo).toHaveBeenCalledTimes(chamadasResumo)
+  })
+
+  it('não renderiza valores inválidos com dados mínimos', async () => {
+    preparar()
+    renderPage()
+    await screen.findByText('Jogos zerados')
+    expect(screen.queryByText(/NaN|undefined|null/)).not.toBeInTheDocument()
+  })
 })

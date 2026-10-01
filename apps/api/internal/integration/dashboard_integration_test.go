@@ -111,6 +111,9 @@ func setupDashboardIntegrationEnv(t *testing.T) *dashboardIntegrationEnv {
 	dashRepo := repository.NewDashboardRepository(queries)
 	dashSvc := service.NewDashboardService(dashRepo)
 	dashH := handler.NewDashboardHandler(dashSvc)
+	abandonadosRepo := repository.NewJogosAbandonadosRepository(queries)
+	abandonadosSvc := service.NewJogosAbandonadosService(abandonadosRepo)
+	abandonadosH := handler.NewJogosAbandonadosHandler(abandonadosSvc)
 
 	secret := uuid.NewString()
 	tokens, err := service.NewAuthToken(secret, time.Hour, 24*time.Hour)
@@ -129,6 +132,7 @@ func setupDashboardIntegrationEnv(t *testing.T) *dashboardIntegrationEnv {
 	privadas.GET("/dashboard/recordes", dashH.ObterRecordes)
 	privadas.GET("/dashboard/notas", dashH.ObterNotas)
 	privadas.GET("/dashboard/dificuldade", dashH.ObterDificuldade)
+	privadas.GET("/jogos-abandonados/total", abandonadosH.ObterTotal)
 
 	return &dashboardIntegrationEnv{
 		pool:    pool,
@@ -213,6 +217,34 @@ func inserirJogoZeradoTeste(t *testing.T, pool *pgxpool.Pool, p jogoTesteParams)
 
 func strPtr(s string) *string {
 	return &s
+}
+
+func dashboardRequest(t *testing.T, env *dashboardIntegrationEnv, token, path, idioma string) *httptest.ResponseRecorder {
+	t.Helper()
+	req, err := http.NewRequest(http.MethodGet, path, nil)
+	if err != nil {
+		t.Fatalf("falha ao criar request %s: %v", path, err)
+	}
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	if idioma != "" {
+		req.Header.Set("Accept-Language", idioma)
+	}
+	w := httptest.NewRecorder()
+	env.router.ServeHTTP(w, req)
+	return w
+}
+
+func inserirJogoAbandonadoTeste(t *testing.T, pool *pgxpool.Pool, usuarioID int32, nome string) {
+	t.Helper()
+	_, err := pool.Exec(context.Background(), `
+		INSERT INTO jogos_abandonados (usuario_id, nome, console, tempo_jogado)
+		VALUES ($1, $2, 'PC', 100)
+	`, usuarioID, nome)
+	if err != nil {
+		t.Fatalf("falha ao inserir jogo abandonado de teste: %v", err)
+	}
 }
 
 func TestIntegration_Dashboard(t *testing.T) {
@@ -631,6 +663,260 @@ func TestIntegration_Dashboard(t *testing.T) {
 		_ = json.Unmarshal(wAcao.Body.Bytes(), &resAcao)
 		if len(resAcao) != 1 || resAcao[0].Tipo != "Campanha" || resAcao[0].TotalJogos != 1 {
 			t.Errorf("breakdown tipo com acao sem acento falhou: %+v", resAcao)
+		}
+	})
+
+	t.Run("ResumoNotasDificuldadeEViradaDeAno", func(t *testing.T) {
+		user := criarUsuarioDashboard(t, env.pool)
+		token := gerarTokenDashboard(t, env.secret, user)
+		loc, err := time.LoadLocation("America/Sao_Paulo")
+		if err != nil {
+			t.Fatal(err)
+		}
+		agora := time.Now().In(loc)
+		primeiro := time.Date(agora.Year()-2, agora.Month(), agora.Day(), 0, 0, 0, 0, time.UTC)
+		inserirJogoZeradoTeste(t, env.pool, jogoTesteParams{UsuarioID: user, Nome: "Resumo 1", Console: "PC", Genero: strPtr("RPG"), Tipo: strPtr("Principal"), FinalizadoEm: primeiro, TempoJogado: 3601, Nota: 8, Dificuldade: "C"})
+		inserirJogoZeradoTeste(t, env.pool, jogoTesteParams{UsuarioID: user, Nome: "Resumo 2", Console: "PS5", Genero: strPtr("Ação"), Tipo: strPtr("DLC"), FinalizadoEm: primeiro.Add(24 * time.Hour), TempoJogado: 7200, Nota: 10, Dificuldade: "AAA"})
+
+		var resumo service.ResumoResponse
+		if err := json.Unmarshal(dashboardRequest(t, env, token, "/api/v1/dashboard/resumo", "").Body.Bytes(), &resumo); err != nil {
+			t.Fatal(err)
+		}
+		if resumo.TotalJogos != 2 || resumo.TotalSegundos != 10801 || resumo.MediaSegundosPorJogo != 5401 || resumo.NotaMedia != 9.0 || resumo.PrimeiroZeramentoEm == nil || resumo.AnosDesdePrimeiro != 2 {
+			t.Errorf("resumo inesperado: %+v", resumo)
+		}
+
+		var notas service.NotasResponse
+		if err := json.Unmarshal(dashboardRequest(t, env, token, "/api/v1/dashboard/notas", "").Body.Bytes(), &notas); err != nil {
+			t.Fatal(err)
+		}
+		if len(notas.Histograma) != 11 || notas.TotalAvaliados != 2 || notas.NotaMedia != 9.0 {
+			t.Errorf("notas inesperadas: %+v", notas)
+		}
+		if notas.Histograma[0].Total != 0 || notas.Histograma[7].Total != 1 || notas.Histograma[9].Total != 1 {
+			t.Errorf("histograma inesperado: %+v", notas.Histograma)
+		}
+
+		var dificuldade []service.DificuldadeItem
+		if err := json.Unmarshal(dashboardRequest(t, env, token, "/api/v1/dashboard/dificuldade", "").Body.Bytes(), &dificuldade); err != nil {
+			t.Fatal(err)
+		}
+		if len(dificuldade) != 5 || dificuldade[0].Dificuldade != "C" || dificuldade[1].Dificuldade != "B" || dificuldade[2].Dificuldade != "A" || dificuldade[3].Dificuldade != "AA" || dificuldade[4].Dificuldade != "AAA" {
+			t.Errorf("ordem de dificuldade inesperada: %+v", dificuldade)
+		}
+		if dificuldade[0].TotalJogos != 1 || dificuldade[4].TotalJogos != 1 || dificuldade[0].Percentual+dificuldade[4].Percentual != 100.0 {
+			t.Errorf("valores de dificuldade inesperados: %+v", dificuldade)
+		}
+
+		userVirada := criarUsuarioDashboard(t, env.pool)
+		tokenVirada := gerarTokenDashboard(t, env.secret, userVirada)
+		anoAtual := agora.Year()
+		inserirJogoZeradoTeste(t, env.pool, jogoTesteParams{UsuarioID: userVirada, Nome: "Ano Anterior", Console: "PC", FinalizadoEm: time.Date(anoAtual-1, 12, 31, 23, 59, 0, 0, time.UTC), TempoJogado: 1, Nota: 1, Dificuldade: "C"})
+		inserirJogoZeradoTeste(t, env.pool, jogoTesteParams{UsuarioID: userVirada, Nome: "Ano Atual", Console: "PC", FinalizadoEm: time.Date(anoAtual, 1, 1, 0, 0, 0, 0, time.UTC), TempoJogado: 1, Nota: 1, Dificuldade: "C"})
+		var resumoVirada service.ResumoResponse
+		if err := json.Unmarshal(dashboardRequest(t, env, tokenVirada, "/api/v1/dashboard/resumo", "").Body.Bytes(), &resumoVirada); err != nil {
+			t.Fatal(err)
+		}
+		if resumoVirada.JogosNoAnoAtual != 1 {
+			t.Errorf("esperado um jogo no ano atual, obteve %d", resumoVirada.JogosNoAnoAtual)
+		}
+
+		userVazio := criarUsuarioDashboard(t, env.pool)
+		tokenVazio := gerarTokenDashboard(t, env.secret, userVazio)
+		var resumoVazio service.ResumoResponse
+		var notasVazias service.NotasResponse
+		var dificuldadeVazia []service.DificuldadeItem
+		if err := json.Unmarshal(dashboardRequest(t, env, tokenVazio, "/api/v1/dashboard/resumo", "").Body.Bytes(), &resumoVazio); err != nil {
+			t.Fatal(err)
+		}
+		if err := json.Unmarshal(dashboardRequest(t, env, tokenVazio, "/api/v1/dashboard/notas", "").Body.Bytes(), &notasVazias); err != nil {
+			t.Fatal(err)
+		}
+		if err := json.Unmarshal(dashboardRequest(t, env, tokenVazio, "/api/v1/dashboard/dificuldade", "").Body.Bytes(), &dificuldadeVazia); err != nil {
+			t.Fatal(err)
+		}
+		if resumoVazio.TotalJogos != 0 || resumoVazio.PrimeiroZeramentoEm != nil || len(notasVazias.Histograma) != 11 || notasVazias.NotaMedia != 0 || len(dificuldadeVazia) != 5 {
+			t.Errorf("respostas vazias inesperadas: resumo=%+v notas=%+v dificuldade=%+v", resumoVazio, notasVazias, dificuldadeVazia)
+		}
+	})
+
+	t.Run("EmpatesOrdenadosEPercentuaisSobreTotal", func(t *testing.T) {
+		user := criarUsuarioDashboard(t, env.pool)
+		token := gerarTokenDashboard(t, env.secret, user)
+		data := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
+		for _, nome := range []string{"Beta", "Alpha"} {
+			inserirJogoZeradoTeste(t, env.pool, jogoTesteParams{UsuarioID: user, Nome: nome, Console: nome, Genero: strPtr(nome), Tipo: strPtr("Principal"), FinalizadoEm: data, TempoJogado: 100, Nota: 8, Dificuldade: "A"})
+		}
+		inserirJogoZeradoTeste(t, env.pool, jogoTesteParams{UsuarioID: user, Nome: "Omega", Console: "Omega", Genero: strPtr("Omega"), Tipo: strPtr("Principal"), FinalizadoEm: data, TempoJogado: 500, Nota: 8, Dificuldade: "A"})
+		inserirJogoZeradoTeste(t, env.pool, jogoTesteParams{UsuarioID: user, Nome: "Gamma", Console: "Gamma", Genero: strPtr("Gamma"), Tipo: strPtr("Principal"), FinalizadoEm: data, TempoJogado: 100, Nota: 8, Dificuldade: "A"})
+		var plataformas []service.RankingPlataformaItem
+		var generos []service.RankingGeneroItem
+		if err := json.Unmarshal(dashboardRequest(t, env, token, "/api/v1/dashboard/ranking-plataformas?limite=20", "").Body.Bytes(), &plataformas); err != nil {
+			t.Fatal(err)
+		}
+		if err := json.Unmarshal(dashboardRequest(t, env, token, "/api/v1/dashboard/ranking-generos?limite=20", "").Body.Bytes(), &generos); err != nil {
+			t.Fatal(err)
+		}
+		if len(plataformas) != 4 || plataformas[0].Console != "Omega" || plataformas[0].TotalSegundos != 500 || plataformas[0].PercentualJogos != 25.0 || plataformas[0].PercentualSegundos != 62.5 || plataformas[1].Console != "Alpha" || plataformas[2].Console != "Beta" || plataformas[3].Console != "Gamma" {
+			t.Errorf("empate de plataformas inesperado: %+v", plataformas)
+		}
+		if len(generos) != 4 || generos[0].Genero != "Omega" || generos[0].TotalSegundos != 500 || generos[0].PercentualJogos != 25.0 || generos[0].PercentualSegundos != 62.5 || generos[1].Genero != "Alpha" || generos[2].Genero != "Beta" || generos[3].Genero != "Gamma" {
+			t.Errorf("empate de generos inesperado: %+v", generos)
+		}
+	})
+
+	t.Run("AbandonadosESoftDeleteForaDosOitoEndpoints", func(t *testing.T) {
+		user := criarUsuarioDashboard(t, env.pool)
+		token := gerarTokenDashboard(t, env.secret, user)
+		data := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
+		inserirJogoZeradoTeste(t, env.pool, jogoTesteParams{UsuarioID: user, Nome: "Ativo", Console: "PC", Genero: strPtr("RPG"), Tipo: strPtr("Principal"), FinalizadoEm: data, TempoJogado: 100, Nota: 8, Dificuldade: "A"})
+		deleted := time.Date(2024, 1, 2, 0, 0, 0, 0, time.UTC)
+		inserirJogoZeradoTeste(t, env.pool, jogoTesteParams{UsuarioID: user, Nome: "Deletado", Console: "PS5", Genero: strPtr("Acao"), Tipo: strPtr("DLC"), FinalizadoEm: deleted, TempoJogado: 9999, Nota: 11, Dificuldade: "AAA", DeletedAt: &deleted})
+		inserirJogoAbandonadoTeste(t, env.pool, user, "Abandonado")
+
+		var resumo service.ResumoResponse
+		var anos []service.PorAnoItem
+		var plataformas []service.RankingPlataformaItem
+		var generos []service.RankingGeneroItem
+		var tipos []service.BreakdownTipoItem
+		var recordes service.RecordesResponse
+		var notas service.NotasResponse
+		var dificuldade []service.DificuldadeItem
+		respostas := []struct {
+			path    string
+			destino interface{}
+		}{
+			{"/api/v1/dashboard/resumo", &resumo},
+			{"/api/v1/dashboard/por-ano", &anos},
+			{"/api/v1/dashboard/ranking-plataformas", &plataformas},
+			{"/api/v1/dashboard/ranking-generos", &generos},
+			{"/api/v1/dashboard/breakdown-tipo?genero=RPG", &tipos},
+			{"/api/v1/dashboard/recordes", &recordes},
+			{"/api/v1/dashboard/notas", &notas},
+			{"/api/v1/dashboard/dificuldade", &dificuldade},
+		}
+		for _, resposta := range respostas {
+			body := dashboardRequest(t, env, token, resposta.path, "").Body.Bytes()
+			if err := json.Unmarshal(body, resposta.destino); err != nil {
+				t.Fatalf("falha ao decodificar %s: %v", resposta.path, err)
+			}
+			if string(body) == "" || string(body) == "null" || string(body) == "{}" {
+				t.Errorf("resposta vazia em %s", resposta.path)
+			}
+		}
+		if resumo.TotalJogos != 1 || resumo.TotalSegundos != 100 || len(anos) < 1 || anos[0].TotalJogos != 1 || len(plataformas) != 1 || len(generos) != 1 || len(tipos) != 1 || recordes.MaisLongo == nil || recordes.MaisLongo.Nome != "Ativo" || recordes.MaisCurto == nil || recordes.MaisCurto.Nome != "Ativo" || notas.TotalAvaliados != 1 || len(dificuldade) != 5 || dificuldade[2].TotalJogos != 1 {
+			t.Errorf("soft delete alterou resultados: resumo=%+v anos=%+v plataformas=%+v generos=%+v tipos=%+v recordes=%+v notas=%+v dificuldade=%+v", resumo, anos, plataformas, generos, tipos, recordes, notas, dificuldade)
+		}
+		var abandonados struct {
+			Data struct {
+				Total int64 `json:"total"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(dashboardRequest(t, env, token, "/api/v1/jogos-abandonados/total", "").Body.Bytes(), &abandonados); err != nil {
+			t.Fatal(err)
+		}
+		if abandonados.Data.Total != 1 {
+			t.Errorf("total de abandonados inesperado: %+v", abandonados)
+		}
+	})
+
+	t.Run("ConsistenciaCruzadaEntreEndpoints", func(t *testing.T) {
+		user := criarUsuarioDashboard(t, env.pool)
+		token := gerarTokenDashboard(t, env.secret, user)
+		data := time.Date(2022, 3, 10, 0, 0, 0, 0, time.UTC)
+		inserirJogoZeradoTeste(t, env.pool, jogoTesteParams{UsuarioID: user, Nome: "Cruzado 1", Console: "PC", Genero: strPtr("RPG"), Tipo: strPtr("Principal"), FinalizadoEm: data, TempoJogado: 100, Nota: 8, Dificuldade: "C"})
+		inserirJogoZeradoTeste(t, env.pool, jogoTesteParams{UsuarioID: user, Nome: "Cruzado 2", Console: "PS5", Genero: nil, Tipo: nil, FinalizadoEm: data, TempoJogado: 200, Nota: 10, Dificuldade: "AA"})
+		inserirJogoZeradoTeste(t, env.pool, jogoTesteParams{UsuarioID: user, Nome: "Cruzado 3", Console: "", Genero: strPtr("Ação"), Tipo: strPtr("DLC"), FinalizadoEm: data, TempoJogado: 300, Nota: 11, Dificuldade: "AAA"})
+		var resumo service.ResumoResponse
+		var anos []service.PorAnoItem
+		var plataformas []service.RankingPlataformaItem
+		var notas service.NotasResponse
+		var dificuldade []service.DificuldadeItem
+		respostas := []struct {
+			path    string
+			destino interface{}
+		}{
+			{"/api/v1/dashboard/resumo", &resumo},
+			{"/api/v1/dashboard/por-ano", &anos},
+			{"/api/v1/dashboard/ranking-plataformas?limite=20", &plataformas},
+			{"/api/v1/dashboard/notas", &notas},
+			{"/api/v1/dashboard/dificuldade", &dificuldade},
+		}
+		for _, resposta := range respostas {
+			body := dashboardRequest(t, env, token, resposta.path, "")
+			if body.Code != http.StatusOK {
+				t.Fatalf("status inesperado em %s: %d", resposta.path, body.Code)
+			}
+			if err := json.Unmarshal(body.Body.Bytes(), resposta.destino); err != nil {
+				t.Fatalf("falha ao decodificar %s: %v", resposta.path, err)
+			}
+		}
+		var somaAnos, somaSegundos, somaPlataformas, somaNotas, somaDificuldades int64
+		for _, item := range anos {
+			somaAnos += item.TotalJogos
+			somaSegundos += item.TotalSegundos
+		}
+		for _, item := range plataformas {
+			somaPlataformas += item.TotalJogos
+		}
+		for _, item := range notas.Histograma {
+			somaNotas += item.Total
+		}
+		for _, item := range dificuldade {
+			somaDificuldades += item.TotalJogos
+		}
+		if resumo.TotalJogos != 3 || resumo.TotalSegundos != 600 || resumo.TotalJogos != somaAnos || resumo.TotalSegundos != somaSegundos || somaPlataformas > resumo.TotalJogos || notas.TotalAvaliados != 3 || somaNotas != notas.TotalAvaliados || somaDificuldades != 3 || somaDificuldades != resumo.TotalJogos || resumo.NotaMedia != notas.NotaMedia {
+			t.Errorf("inconsistência cruzada: resumo=%+v anos=%d/%d plataformas=%d notas=%d dificuldade=%d", resumo, somaAnos, somaSegundos, somaPlataformas, somaNotas, somaDificuldades)
+		}
+	})
+
+	t.Run("SegurancaEContratoDosEndpoints", func(t *testing.T) {
+		paths := []string{"/api/v1/dashboard/resumo", "/api/v1/dashboard/por-ano", "/api/v1/dashboard/ranking-plataformas", "/api/v1/dashboard/ranking-generos", "/api/v1/dashboard/breakdown-tipo?genero=RPG", "/api/v1/dashboard/recordes", "/api/v1/dashboard/notas", "/api/v1/dashboard/dificuldade"}
+		for _, path := range paths {
+			if resposta := dashboardRequest(t, env, "", path, ""); resposta.Code != http.StatusUnauthorized {
+				t.Errorf("%s sem token retornou %d", path, resposta.Code)
+			}
+			if resposta := dashboardRequest(t, env, "token-invalido", path, ""); resposta.Code != http.StatusUnauthorized {
+				t.Errorf("%s com token inválido retornou %d", path, resposta.Code)
+			}
+		}
+		user := criarUsuarioDashboard(t, env.pool)
+		token := gerarTokenDashboard(t, env.secret, user)
+		for _, limite := range []string{"0", "21", "abc"} {
+			for _, endpoint := range []string{"ranking-plataformas", "ranking-generos"} {
+				resposta := dashboardRequest(t, env, token, "/api/v1/dashboard/"+endpoint+"?limite="+limite, "")
+				var corpo struct {
+					Error struct {
+						Codigo string `json:"codigo"`
+					} `json:"error"`
+				}
+				_ = json.Unmarshal(resposta.Body.Bytes(), &corpo)
+				if resposta.Code != http.StatusBadRequest || corpo.Error.Codigo != "dashboard.limite_invalido" {
+					t.Errorf("contrato de limite inválido para %s=%s: status=%d corpo=%s", endpoint, limite, resposta.Code, resposta.Body.String())
+				}
+			}
+		}
+		for _, genero := range []string{"", "   "} {
+			resposta := dashboardRequest(t, env, token, "/api/v1/dashboard/breakdown-tipo?genero="+genero, "")
+			var corpo struct {
+				Error struct {
+					Codigo string `json:"codigo"`
+				} `json:"error"`
+			}
+			_ = json.Unmarshal(resposta.Body.Bytes(), &corpo)
+			if resposta.Code != http.StatusBadRequest || corpo.Error.Codigo != "dashboard.genero_obrigatorio" {
+				t.Errorf("contrato de genero vazio: status=%d corpo=%s", resposta.Code, resposta.Body.String())
+			}
+		}
+		resposta := dashboardRequest(t, env, token, "/api/v1/dashboard/ranking-plataformas?limite=0", "en")
+		var corpo struct {
+			Error struct{ Codigo, Mensagem string } `json:"error"`
+		}
+		_ = json.Unmarshal(resposta.Body.Bytes(), &corpo)
+		mensagemEN := "Invalid limit. Provide an integer between 1 and 20."
+		mensagemPT := "Limite inválido. Informe um número inteiro entre 1 e 20."
+		if corpo.Error.Codigo != "dashboard.limite_invalido" || corpo.Error.Mensagem != mensagemEN || corpo.Error.Mensagem == mensagemPT {
+			t.Errorf("tradução inglesa inesperada: %+v", corpo.Error)
 		}
 	})
 }
