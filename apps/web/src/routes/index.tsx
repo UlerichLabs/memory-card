@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from '@/store/authStore'
 import { JogosProvider } from '@/stores/jogosStore'
 import { AbandonadosProvider } from '@/stores/abandonadosStore'
+import { DashboardProvider } from '@/stores/dashboardStore'
 import { PrivateRoute } from '@/components/auth/PrivateRoute'
 import { LoginPage } from '@/pages/auth/LoginPage'
 import { DashboardPage } from '@/pages/DashboardPage'
@@ -28,7 +29,7 @@ export function AppRoutes() {
             <AbandonarJogoDialog />
             <Routes>
               <Route element={<PrivateRoute />}>
-                <Route path="/" element={<DashboardPage />} />
+                <Route path="/" element={<DashboardProvider><DashboardPage /></DashboardProvider>} />
                 <Route path="/conta/trocar-senha" element={<ContaTrocarSenhaPage />} />
                 <Route path="/biblioteca" element={<BibliotecaPage />} />
                 <Route path="/biblioteca/:id" element={<JogoDetalhePage />} />

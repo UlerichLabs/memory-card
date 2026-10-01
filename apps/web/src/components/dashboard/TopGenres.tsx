@@ -1,53 +1,11 @@
 import { Compass } from 'lucide-react'
-import type { GeneroEstatistica } from '@/mocks/dashboardData'
+import { useState } from 'react'
+import type { DashboardRankingGenero, DashboardTipo } from '@/types/dashboard'
+import { formatarHoras, formatarPercentual } from '@/lib/dashboardUtils'
 
-interface TopGenresProps {
-  generos: GeneroEstatistica[]
-}
-
-export function TopGenres({ generos }: TopGenresProps) {
-  return (
-    <section
-      aria-label="Gêneros Mais Jogados"
-      className="space-y-4 rounded-[10px] border border-[var(--border)] bg-[var(--bg-surface)] p-4 sm:p-5"
-    >
-      <header className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Compass className="h-4 w-4 text-[var(--accent)]" aria-hidden="true" />
-          <h2 className="text-base font-bold text-[var(--text-primary)]">Gêneros Mais Jogados</h2>
-        </div>
-        <span className="text-[11px] text-[var(--text-muted)]">Preferências de gameplay</span>
-      </header>
-
-      <div className="space-y-3.5">
-        {generos.map((item) => (
-          <div key={item.genero} className="space-y-1.5">
-            <div className="flex items-center justify-between text-[13px]">
-              <span className="font-medium text-[var(--text-primary)]">{item.genero}</span>
-              <div className="flex items-center gap-2">
-                <span className="text-[11.5px] text-[var(--text-muted)]">
-                  {item.totalJogos} jogos &bull; {item.horasJogadas.toLocaleString('pt-BR')}h
-                </span>
-                <span className="w-9 text-right font-semibold text-[var(--accent)]">
-                  {item.percentual}%
-                </span>
-              </div>
-            </div>
-
-            <div className="h-1.5 w-full overflow-hidden rounded-[3px] bg-[var(--border)]">
-              <div
-                className="h-full rounded-[3px] bg-[var(--accent)] transition-all duration-300"
-                style={{ width: `${item.percentual}%` }}
-                role="progressbar"
-                aria-valuenow={item.percentual}
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-label={`${item.genero}: ${item.percentual}%`}
-              />
-            </div>
-          </div>
-        ))}
-      </div>
-    </section>
-  )
+export function TopGenres({ generos, tipos }: { generos: DashboardRankingGenero[]; tipos: DashboardTipo[] }) {
+  const [modo, setModo] = useState<'jogos' | 'horas'>('jogos')
+  if (!generos.length) return null
+  const itens = [...generos].sort((a, b) => (modo === 'jogos' ? b.percentual_jogos - a.percentual_jogos : b.percentual_segundos - a.percentual_segundos))
+  return <section aria-label="Gêneros Mais Jogados" className="space-y-4 rounded-[10px] border border-[var(--border)] bg-[var(--bg-surface)] p-4"><header className="flex items-center justify-between gap-2"><div className="flex items-center gap-2"><Compass className="h-4 w-4 text-[var(--accent)]" aria-hidden="true" /><h2 className="text-base font-bold text-[var(--text-primary)]">Gêneros Mais Jogados</h2></div><div className="flex rounded border border-[var(--border-subtle)] text-[10px]"><button type="button" onClick={() => setModo('jogos')} className={`px-2 py-1 ${modo === 'jogos' ? 'bg-[var(--accent)] text-[var(--accent-foreground)]' : 'text-[var(--text-muted)]'}`}>Jogos</button><button type="button" onClick={() => setModo('horas')} className={`px-2 py-1 ${modo === 'horas' ? 'bg-[var(--accent)] text-[var(--accent-foreground)]' : 'text-[var(--text-muted)]'}`}>Horas</button></div></header><div className="space-y-3">{itens.map((item, index) => { const percentual = modo === 'jogos' ? item.percentual_jogos : item.percentual_segundos; return <div key={item.genero}><div className="flex justify-between text-[13px]"><span className="font-medium text-[var(--text-primary)]">{item.genero}</span><span className="text-xs text-[var(--text-muted)]">{modo === 'jogos' ? item.total_jogos : formatarHoras(item.total_segundos)} · {formatarPercentual(percentual)}%</span></div><div className="mt-1.5 h-1.5 overflow-hidden rounded bg-[var(--border)]"><div className="h-full rounded bg-[var(--accent)]" style={{ width: `${percentual}%` }} /></div>{index === 0 && tipos.length > 0 && <div className="mt-2 flex flex-wrap gap-1.5">{tipos.map((tipo) => <span key={tipo.tipo} className="rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface-alt)] px-2 py-0.5 text-[10px] text-[var(--text-secondary)]">{tipo.tipo} {tipo.total_jogos}</span>)}</div>}</div>})}</div></section>
 }
