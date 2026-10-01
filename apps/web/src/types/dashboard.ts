@@ -18,7 +18,15 @@ export interface DashboardAno {
   total_segundos: number
   game_do_ano: { id: number; nome: string; console: string; igdb_capa_url: string; nota: number } | null
 }
-export interface DashboardGameDoAno { id: number; nome: string; console: string; igdb_capa_url: string; nota: number; ano: number }
+export interface DashboardGameDoAno {
+  id: number
+  nome: string
+  console: string
+  igdb_capa_url: string
+  nota: number
+  ano: number
+  tempo_jogado?: number
+}
 
 export interface DashboardRankingPlataforma {
   console: string

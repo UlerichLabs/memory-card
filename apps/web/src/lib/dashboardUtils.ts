@@ -17,7 +17,7 @@ export function formatarPercentual(valor: number): string {
 
 export function formatarData(data: string | null): string {
   if (!data) return 'sem data'
-  return new Intl.DateTimeFormat('pt-BR').format(new Date(data))
+  return new Intl.DateTimeFormat('pt-BR', { timeZone: 'UTC' }).format(new Date(data))
 }
 
 export function iniciais(nome: string): string {

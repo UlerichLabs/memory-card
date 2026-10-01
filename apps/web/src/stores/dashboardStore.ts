@@ -1,5 +1,6 @@
 import { createContext, createElement, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
 import { AuthContext } from '@/store/authStore'
+import { ApiError } from '@/lib/api'
 import { dashboardService } from '@/lib/services/dashboardService'
 import type { DashboardAno, DashboardBloco, DashboardDados, DashboardDificuldade, DashboardNotas, DashboardRankingGenero, DashboardRankingPlataforma, DashboardRecordes, DashboardResumo, DashboardTipo } from '@/types/dashboard'
 import type { JogoZeradoDTO } from '@/types/jogos'
@@ -43,7 +44,10 @@ export function DashboardProvider({ children, token }: { children: ReactNode; to
   const [carregado, setCarregado] = useState(false)
 
   const setBloco = useCallback((bloco: DashboardBloco, active: boolean) => setLoading((atual) => ({ ...atual, [bloco]: active })), [])
-  const setErro = useCallback((bloco: DashboardBloco, error: unknown) => setErrors((atual) => ({ ...atual, [bloco]: error instanceof Error ? error.message : 'Não foi possível carregar este bloco.' })), [])
+  const setErro = useCallback((bloco: DashboardBloco, error: unknown) => setErrors((atual) => ({
+    ...atual,
+    [bloco]: error instanceof ApiError ? error.codigo : 'fallback',
+  })), [])
   const limparErro = useCallback((bloco: DashboardBloco) => setErrors((atual) => { const proximo = { ...atual }; delete proximo[bloco]; return proximo }), [])
 
   const carregarBloco = useCallback(async (bloco: DashboardBloco, signal?: AbortSignal) => {
@@ -55,7 +59,15 @@ export function DashboardProvider({ children, token }: { children: ReactNode; to
       if (bloco === 'jogoDoAno') {
         const anos = await dashboardService.jogoDoAno(effectiveToken, signal)
         const atual = [...anos].reverse().find((item) => item.game_do_ano)
-        setJogoDoAno(atual?.game_do_ano ? { id: atual.game_do_ano.id, nome: atual.game_do_ano.nome, console: atual.game_do_ano.console, igdb_capa_url: atual.game_do_ano.igdb_capa_url ?? '', nota: atual.game_do_ano.nota, ano: atual.ano } : null)
+        setJogoDoAno(atual?.game_do_ano ? {
+          id: atual.game_do_ano.id,
+          nome: atual.game_do_ano.nome,
+          console: atual.game_do_ano.console,
+          igdb_capa_url: atual.game_do_ano.igdb_capa_url ?? '',
+          nota: atual.game_do_ano.nota,
+          ano: atual.ano,
+          tempo_jogado: atual.game_do_ano.tempo_jogado,
+        } : null)
       }
       if (bloco === 'jogosDaVida') setJogosDaVida(await dashboardService.jogosDaVida(effectiveToken, signal))
       if (bloco === 'recentes') setRecentes(await dashboardService.recentes(effectiveToken, signal))
@@ -73,7 +85,7 @@ export function DashboardProvider({ children, token }: { children: ReactNode; to
     } catch (error) {
       if (!signal?.aborted) setErro(bloco, error)
     } finally {
-      if (!signal?.aborted) setBloco(bloco, false)
+      setBloco(bloco, false)
     }
   }, [effectiveToken, limparErro, setBloco, setErro])
 
