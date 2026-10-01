@@ -11,6 +11,7 @@ export function AbandonarJogoDialog() {
   const [prevModalOpen, setPrevModalOpen] = useState(isModalOpen)
   const initialData = jogoEmEdicao ?? modalOpcoes?.valoresIniciais
   const origemFila = modalOpcoes?.origemFila
+  const aviso = modalOpcoes?.aviso
 
   const formKey = jogoEmEdicao ? `edit-${jogoEmEdicao.id}` : modalOpcoes?.valoresIniciais?.nome ?? 'novo-abandono'
 
@@ -43,6 +44,7 @@ export function AbandonarJogoDialog() {
           throw new Error(ERRO_FALHA_REMOCAO_FILA)
         }
       }
+      if (modalOpcoes?.onSalvo) await modalOpcoes.onSalvo()
     }
     handleFechar()
   }
@@ -71,6 +73,7 @@ export function AbandonarJogoDialog() {
           key={formKey}
           initialData={initialData}
           origemFila={origemFila}
+          aviso={aviso}
           isEditing={!!jogoEmEdicao}
           onSubmit={handleSalvar}
           onCancel={handleFechar}

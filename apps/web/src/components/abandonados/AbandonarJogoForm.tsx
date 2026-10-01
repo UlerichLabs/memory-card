@@ -13,6 +13,7 @@ import type { AbandonarJogoFormData } from './abandonarJogo.schema'
 export interface AbandonarJogoFormProps {
   initialData?: Partial<JogoAbandonado> | null
   origemFila?: OrigemFilaInfo
+  aviso?: string
   isEditing?: boolean
   onSubmit: (data: AbandonarJogoFormData) => Promise<void>
   onCancel: () => void
@@ -21,6 +22,7 @@ export interface AbandonarJogoFormProps {
 export function AbandonarJogoForm({
   initialData,
   origemFila,
+  aviso,
   isEditing = false,
   onSubmit,
   onCancel,
@@ -32,6 +34,7 @@ export function AbandonarJogoForm({
     nome, setNome, consoleName, setConsoleName, abandonadoEm, setAbandonadoEm,
     horas, setHoras, minutos, setMinutos, segundos, setSegundos,
     motivo, setMotivo, igdbId, setIgdbId, setIgdbCapaUrl,
+    iniciadoEm,
     plataformas, setPlataformas,
     errors, isSubmitting, handleSubmit,
   } = useAbandonarJogoForm({ initialData, onSubmit })
@@ -77,6 +80,7 @@ export function AbandonarJogoForm({
       <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto overflow-x-hidden pr-1">
         <AbandonarJogoCampos
           origemFila={origemFila}
+          aviso={aviso}
           errors={errors}
           nome={nome}
           onChangeNome={handleNomeChange}
@@ -95,6 +99,7 @@ export function AbandonarJogoForm({
           setSegundos={setSegundos}
           motivo={motivo}
           setMotivo={setMotivo}
+          iniciadoEm={iniciadoEm}
         />
       </div>
       <div className="flex shrink-0 justify-end gap-3 border-t border-[var(--border)] pt-4">

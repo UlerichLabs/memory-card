@@ -11,6 +11,7 @@ const abandonadoMock: JogoAbandonado = {
   igdb_id: null,
   igdb_capa_url: null,
   abandonado_em: '2026-01-15',
+  iniciado_em: null,
   tempo_jogado: 36000,
   motivo: 'Muito difícil',
   created_at: '2026-01-15T12:00:00Z',

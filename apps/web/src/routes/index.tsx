@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from '@/store/authStore'
 import { JogosProvider } from '@/stores/jogosStore'
 import { AbandonadosProvider } from '@/stores/abandonadosStore'
+import { JogandoProvider } from '@/stores/jogandoStore'
 import { DashboardProvider } from '@/stores/dashboardStore'
 import { PrivateRoute } from '@/components/auth/PrivateRoute'
 import { LoginPage } from '@/pages/auth/LoginPage'
@@ -18,6 +19,7 @@ import { AbandonadosPage } from '@/pages/AbandonadosPage'
 import { EmConstrucaoPage } from '@/pages/EmConstrucaoPage'
 import { GameFormDialog } from '@/components/jogos/GameForm/GameFormDialog'
 import { AbandonarJogoDialog } from '@/components/abandonados/AbandonarJogoDialog'
+import { IniciarJogoDialog } from '@/components/jogando/IniciarJogoDialog'
 
 export function AppRoutes() {
   return (
@@ -25,9 +27,11 @@ export function AppRoutes() {
       <AuthProvider>
         <JogosProvider>
           <AbandonadosProvider>
-            <GameFormDialog />
-            <AbandonarJogoDialog />
-            <Routes>
+            <JogandoProvider>
+              <GameFormDialog />
+              <AbandonarJogoDialog />
+              <IniciarJogoDialog />
+              <Routes>
               <Route element={<PrivateRoute />}>
                 <Route path="/" element={<DashboardProvider><DashboardPage /></DashboardProvider>} />
                 <Route path="/conta/trocar-senha" element={<ContaTrocarSenhaPage />} />
@@ -47,7 +51,8 @@ export function AppRoutes() {
               <Route path="/esqueci-senha" element={<EsqueciSenhaPage />} />
               <Route path="/redefinir-senha" element={<RedefinirSenhaPage />} />
               <Route path="*" element={<main className="p-8">Página não encontrada.</main>} />
-            </Routes>
+              </Routes>
+            </JogandoProvider>
           </AbandonadosProvider>
         </JogosProvider>
       </AuthProvider>
