@@ -1,4 +1,5 @@
-import { Trophy, List, Plus } from "lucide-react";
+import { ChevronDown, ChevronUp, Trophy, List, Plus } from "lucide-react";
+import { useState } from "react";
 import { formatarSubFila } from "./listas.utils";
 import type { ListaResumo } from "@/types/listas";
 
@@ -10,8 +11,14 @@ export interface ListasSidebarProps {
 }
 
 export function ListasSidebar({ listas, selectedId, onSelect, onNovaLista }: ListasSidebarProps) {
+  const [desafiosExpandidos, setDesafiosExpandidos] = useState(false);
+  const [filasExpandidas, setFilasExpandidas] = useState(false);
   const desafios = listas.filter((l) => l.tipo === "desafio");
   const filas = listas.filter((l) => l.tipo === "fila");
+  const mostrarTodosDesafios = desafiosExpandidos || desafios.some((desafio) => desafio.id === selectedId && desafios.indexOf(desafio) >= 3);
+  const mostrarTodasFilas = filasExpandidas || filas.some((fila) => fila.id === selectedId && filas.indexOf(fila) >= 3);
+  const desafiosVisiveis = mostrarTodosDesafios ? desafios : desafios.slice(0, 3);
+  const filasVisiveis = mostrarTodasFilas ? filas : filas.slice(0, 3);
 
   return (
     <aside className="flex flex-col gap-5 w-full">
@@ -46,7 +53,7 @@ export function ListasSidebar({ listas, selectedId, onSelect, onNovaLista }: Lis
             </div>
 
             <div className="flex flex-row overflow-x-auto pb-1 gap-2 md:flex-col md:overflow-visible">
-              {desafios.map((desafio) => {
+              {desafiosVisiveis.map((desafio) => {
                 const ativo = desafio.id === selectedId;
                 const progresso = desafio.progresso;
                 const concluido = progresso?.concluido ?? false;
@@ -108,6 +115,17 @@ md:min-w-0 md:w-full shrink-0 ${
                 );
               })}
             </div>
+            {desafios.length > 3 && (
+              <button
+                type="button"
+                aria-expanded={mostrarTodosDesafios}
+                onClick={() => setDesafiosExpandidos((expandido) => !expandido)}
+                className="flex items-center justify-center gap-1 rounded-lg py-1 text-[12px] font-semibold text-[var(--accent)] transition-colors hover:text-[var(--text-primary)]"
+              >
+                {mostrarTodosDesafios ? <ChevronUp className="h-3.5 w-3.5" aria-hidden="true" /> : <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />}
+                <span>{mostrarTodosDesafios ? "Mostrar menos" : `Mostrar mais (${desafios.length - 3})`}</span>
+              </button>
+            )}
           </div>
         )}
 
@@ -120,7 +138,7 @@ md:min-w-0 md:w-full shrink-0 ${
             </div>
 
             <div className="flex flex-row overflow-x-auto pb-1 gap-2 md:flex-col md:overflow-visible">
-              {filas.map((fila) => {
+              {filasVisiveis.map((fila) => {
                 const ativo = fila.id === selectedId;
                 const subTexto = formatarSubFila(fila.itens_pendentes);
 
@@ -146,6 +164,17 @@ md:min-w-0 md:w-full shrink-0 ${
                 );
               })}
             </div>
+            {filas.length > 3 && (
+              <button
+                type="button"
+                aria-expanded={mostrarTodasFilas}
+                onClick={() => setFilasExpandidas((expandida) => !expandida)}
+                className="flex items-center justify-center gap-1 rounded-lg py-1 text-[12px] font-semibold text-[var(--accent)] transition-colors hover:text-[var(--text-primary)]"
+              >
+                {mostrarTodasFilas ? <ChevronUp className="h-3.5 w-3.5" aria-hidden="true" /> : <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />}
+                <span>{mostrarTodasFilas ? "Mostrar menos" : `Mostrar mais (${filas.length - 3})`}</span>
+              </button>
+            )}
           </div>
         )}
       </nav>
