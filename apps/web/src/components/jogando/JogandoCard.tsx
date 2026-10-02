@@ -24,7 +24,7 @@ export function JogandoCard({ jogo, onZerei, onAbandonei, onRemover }: JogandoCa
           </Menu.Root>
         </div>
         <p className="mt-1 truncate text-[11px] text-[var(--text-secondary)]">Começou em {formatarDataJogando(jogo.iniciado_em)} · {rotuloDiasDesdeInicio(jogo.iniciado_em)}</p>
-        <div className="mt-auto flex gap-2 pt-2"><button type="button" onClick={onZerei} className="h-9 rounded-[6px] bg-[var(--accent)] px-2.5 text-[11px] font-bold text-[var(--accent-foreground)]">Zerei!</button><button type="button" onClick={onAbandonei} className="h-9 rounded-[6px] border border-[var(--border-subtle)] px-2.5 text-[11px] font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)]">Abandonei</button></div>
+        <div className="mt-auto flex gap-2 pt-2"><button type="button" onClick={onZerei} className="btn-primario btn-primario-sm h-9 px-2.5 text-[11px]">Zerei!</button><button type="button" onClick={onAbandonei} className="h-9 rounded-[6px] border border-[var(--border-subtle)] px-2.5 text-[11px] font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)]">Abandonei</button></div>
       </div>
     </article>
   )

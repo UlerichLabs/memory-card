@@ -1,15 +1,13 @@
-import { Pause, Plus, RotateCcw, SearchX } from 'lucide-react'
+import { Pause, RotateCcw, SearchX } from 'lucide-react'
 
 export interface AbandonadosVazioProps {
   possuiFiltrosAtivos: boolean
   onLimparFiltros: () => void
-  onAbandonarJogo: () => void
 }
 
 export function AbandonadosVazio({
   possuiFiltrosAtivos,
   onLimparFiltros,
-  onAbandonarJogo,
 }: AbandonadosVazioProps) {
   if (possuiFiltrosAtivos) {
     return (
@@ -75,17 +73,7 @@ export function AbandonadosVazio({
           Você também pode abandonar um jogo direto de uma fila.
         </p>
       </div>
-      <button
-        type="button"
-        onClick={onAbandonarJogo}
-        className={
-          'mt-5 inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--accent)] ' +
-          'px-4 py-2.5 text-xs font-bold text-[var(--accent-foreground)] transition hover:opacity-90'
-        }
-      >
-        <Plus className="h-4 w-4" aria-hidden="true" />
-        <span>Abandonar jogo</span>
-      </button>
+      <p className="mt-5 text-xs text-[var(--text-secondary)]">Use o botão Novo no topo e escolha Abandonar jogo.</p>
     </div>
   )
 }

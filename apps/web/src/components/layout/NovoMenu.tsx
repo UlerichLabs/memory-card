@@ -1,13 +1,15 @@
 import { useContext, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronDown, Gamepad2, ListChecks, Play, Trophy } from 'lucide-react'
+import { Ban, ChevronDown, Gamepad2, ListChecks, Play, Trophy } from 'lucide-react'
 import { Menu } from '@base-ui/react/menu'
 import { JogosContext } from '@/stores/jogosStore'
 import { JogandoContext } from '@/stores/jogandoStore'
+import { AbandonadosContext } from '@/stores/abandonadosStore'
 
 const acoes = [
   { titulo: 'Iniciar jogo', descricao: 'Comece agora, anota a data.', atalho: 'I', icone: Play, cor: 'text-[var(--accent)]' },
   { titulo: 'Registrar jogo zerado', descricao: 'Já terminei: tempo, nota e review.', atalho: 'R', icone: Trophy, cor: 'text-[var(--highlight-gold)]' },
+  { titulo: 'Abandonar jogo', descricao: 'Parei de jogar. Registre o motivo.', atalho: 'A', icone: Ban, cor: 'text-[var(--abandonado-text)]' },
   { titulo: 'Nova lista ou desafio', descricao: 'Organize sua coleção ou crie uma meta.', atalho: 'L', icone: ListChecks, cor: 'text-[var(--accent)]' },
 ]
 
@@ -15,10 +17,12 @@ export function NovoMenu() {
   const navigate = useNavigate()
   const jogos = useContext(JogosContext)
   const jogando = useContext(JogandoContext)
+  const abandonados = useContext(AbandonadosContext)
   const [aberto, setAberto] = useState(false)
   const executar = (titulo: string) => {
     if (titulo === 'Iniciar jogo') jogando?.abrirModalIniciar()
     if (titulo === 'Registrar jogo zerado') jogos?.abrirModalRegistro()
+    if (titulo === 'Abandonar jogo') abandonados?.abrirModalCriacao()
     if (titulo === 'Nova lista ou desafio') navigate('/listas?novo=1')
     setAberto(false)
   }
@@ -33,7 +37,7 @@ export function NovoMenu() {
         <Menu.Positioner side="bottom" align="end" sideOffset={8} className="z-50">
           <Menu.Popup style={{ backgroundColor: 'var(--bg-surface)', color: 'var(--text-primary)' }} className="w-[340px] rounded-[14px] border border-[var(--border)] p-1.5 shadow-2xl shadow-black/60 outline-none">
             <p className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-faint)]">Criar</p>
-            {acoes.map(({ titulo, descricao, atalho, icone: Icon, cor }) => <Menu.Item key={titulo} onClick={() => executar(titulo)} className="flex cursor-pointer items-center gap-3 rounded-[10px] px-2.5 py-2 outline-none hover:bg-[var(--bg-surface-alt)] focus:bg-[var(--bg-surface-alt)] data-highlighted:bg-[var(--bg-surface-alt)]"><span className="flex size-9 shrink-0 items-center justify-center rounded-[10px] border border-[var(--border-subtle)] bg-[var(--bg-surface-alt)]"><Icon className={`size-[17px] ${cor}`} aria-hidden="true" /></span><span className="min-w-0 flex-1"><strong className="block text-sm font-semibold text-[var(--text-primary)]">{titulo}</strong><small className="block truncate text-xs font-normal text-[var(--text-secondary)]">{descricao}</small></span><kbd className="rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--text-muted)]">{atalho}</kbd></Menu.Item>)}
+            {acoes.map(({ titulo, descricao, atalho, icone: Icon, cor }) => <Menu.Item key={titulo} onClick={() => executar(titulo)} className="flex cursor-pointer items-center gap-3 rounded-[10px] px-2.5 py-2 outline-none hover:bg-[var(--bg-surface-alt)] focus:bg-[var(--bg-surface-alt)] data-highlighted:bg-[var(--bg-surface-alt)]"><span className="flex size-9 shrink-0 items-center justify-center rounded-[10px] border border-[var(--border-subtle)] bg-[var(--bg-surface-alt)]"><Icon className={`size-[17px] ${cor}`} aria-hidden="true" /></span><span className="min-w-0 flex-1"><strong className="block text-sm font-semibold text-[var(--text-primary)]">{titulo}</strong><small className="block max-w-[220px] text-xs font-normal leading-snug text-[var(--text-secondary)]">{descricao}</small></span><kbd className="hidden rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--text-muted)] md:inline-block">{atalho}</kbd></Menu.Item>)}
           </Menu.Popup>
         </Menu.Positioner>
       </Menu.Portal>

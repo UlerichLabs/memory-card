@@ -51,7 +51,7 @@ export function BibliotecaVazia({
       <button
         type="button"
         onClick={onRegistrarPrimeiroJogo}
-        className="mt-5 inline-flex items-center justify-center gap-2 rounded-[7px] bg-[var(--accent)] px-4 py-2 text-xs font-bold text-[var(--accent-foreground)] transition-opacity hover:opacity-90"
+        className="btn-primario mt-5 inline-flex items-center justify-center gap-2 px-4 py-2 text-xs"
       >
         <Plus className="h-4 w-4" aria-hidden="true" />
         <span>Registrar primeiro jogo</span>

@@ -135,7 +135,7 @@ export function JogoDetalhePage() {
             <button
               type="button"
               onClick={handleVoltar}
-              className="rounded-[10px] bg-[var(--accent)] px-4 py-2 text-sm font-bold text-[var(--accent-foreground)] transition-opacity hover:opacity-90"
+              className="btn-primario px-4 py-2 text-sm"
             >
               Voltar para a Biblioteca
             </button>
@@ -147,7 +147,7 @@ export function JogoDetalhePage() {
             <button
               type="button"
               onClick={() => carregarDetalhe()}
-              className="rounded-[10px] bg-[var(--accent)] px-4 py-2 text-sm font-bold text-[var(--accent-foreground)] transition-opacity hover:opacity-90"
+              className="btn-primario px-4 py-2 text-sm"
             >
               Tentar novamente
             </button>

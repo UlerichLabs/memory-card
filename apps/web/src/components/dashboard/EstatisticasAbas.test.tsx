@@ -26,7 +26,7 @@ describe('EstatisticasAbas', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Plataformas' }))
     expect(screen.getByRole('button', { name: 'Horas' })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Horas' }))
-    expect(screen.getByRole('button', { name: 'Horas' })).toHaveClass('bg-[var(--accent)]')
+    expect(screen.getByRole('button', { name: 'Horas' })).toHaveClass('btn-primario')
   })
 
   it('mantém outras abas disponíveis quando uma delas falha', () => {

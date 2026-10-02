@@ -41,7 +41,7 @@ export function EmConstrucaoPage({ modulo }: EmConstrucaoPageProps) {
 
           <Link
             to="/biblioteca"
-            className="inline-block rounded-[7px] bg-[var(--accent)] px-4 py-2 text-[13px] font-bold text-[#0E0F12] transition-opacity hover:opacity-90"
+            className="btn-primario inline-block px-4 py-2 text-[13px]"
           >
             Ir para a Biblioteca
           </Link>

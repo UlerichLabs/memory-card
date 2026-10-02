@@ -117,7 +117,7 @@ export function GameForm({
     </div>
     <div className="flex shrink-0 justify-end gap-3 border-t border-[var(--border)] pt-4">
       {onCancel && <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>Cancelar</Button>}
-      <Button type="submit" disabled={isSubmitting} className="bg-[var(--accent)] font-bold text-[var(--accent-foreground)]">
+      <Button type="submit" disabled={isSubmitting} className="btn-primario">
         {isSubmitting ? 'Salvando...' : isEditing ? 'Atualizar registro' : (textoSubmit ?? 'Salvar registro')}
       </Button>
     </div>

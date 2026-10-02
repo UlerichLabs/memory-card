@@ -87,7 +87,7 @@ function HallDaFamaConteudo() {
             <button
               type="button"
               onClick={() => carregarHallDaFama()}
-              className="rounded-[10px] bg-[var(--accent)] px-4 py-2 text-sm font-bold text-[var(--accent-foreground)] transition-opacity hover:opacity-90"
+              className="btn-primario px-4 py-2 text-sm"
             >
               Tentar novamente
             </button>
@@ -103,7 +103,7 @@ function HallDaFamaConteudo() {
             <button
               type="button"
               onClick={() => abrirModalRegistro()}
-              className="mt-2 inline-flex items-center justify-center rounded-[7px] bg-[var(--accent)] px-4 py-2 text-[13px] font-bold text-[var(--accent-foreground)] transition-opacity hover:opacity-90"
+              className="btn-primario mt-2 inline-flex items-center justify-center px-4 py-2 text-[13px]"
             >
               + Registrar jogo
             </button>

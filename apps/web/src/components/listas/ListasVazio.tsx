@@ -21,7 +21,7 @@ export function ListasVazio({ onNovaLista }: ListasVazioProps) {
       <button
         type="button"
         onClick={onNovaLista}
-        className="mt-2 flex h-11 items-center gap-2 rounded-[10px] bg-[var(--accent)] px-5 text-[14px] font-semibold text-[var(--accent-foreground)] transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+        className="btn-primario mt-2 flex h-11 items-center gap-2 px-5 text-[14px]"
       >
         <Plus className="h-4 w-4" />
         <span>Nova lista ou desafio</span>

@@ -79,7 +79,7 @@ export function BibliotecaPaginacao({ meta, onMudarPagina }: BibliotecaPaginacao
               aria-label={`Página ${item}`}
               className={`h-8 min-w-[32px] rounded-[6px] px-2 text-xs font-semibold transition-colors ${
                 ativo
-                  ? 'bg-[var(--accent)] text-white'
+                  ? 'btn-primario btn-primario-ativo text-white'
                   : 'border border-[var(--biblioteca-control-border)] bg-[var(--biblioteca-control-bg)] text-[var(--biblioteca-control-text)] hover:border-[var(--biblioteca-control-border-hover)]'
               }`}
             >
