@@ -10,19 +10,19 @@ export function GameDoAnoVazio({ ano, totalJogos, onEscolher }: GameDoAnoVazioPr
   const textoJogos = totalJogos === 1 ? `1 jogo zerado em ${ano}` : `${totalJogos} jogos zerados em ${ano}`
 
   return (
-    <article className="flex flex-col justify-between gap-[14px] rounded-[16px] border border-dashed border-[var(--hall-card-vazio-border)] bg-transparent p-[18px]">
+    <article className="flex min-h-[184px] flex-col justify-between gap-3 rounded-[10px] border border-dashed border-[var(--hall-card-vazio-border)] bg-transparent p-3">
       <div>
-        <span className="text-[32px] font-extrabold tracking-[-0.02em] tabular-nums text-[var(--hall-ano-vazio)]">
+        <span className="text-[20px] font-bold tabular-nums text-[var(--hall-ano-vazio)]">
           {ano}
         </span>
       </div>
 
-      <div className="flex min-h-[144px] flex-col items-center justify-center gap-[10px] py-2 text-center">
-        <Crown className="h-8 w-8 text-[var(--hall-coroa-vazio)]" aria-hidden="true" />
-        <span className="text-[14px] font-semibold text-[var(--hall-vazio-titulo)]">
+      <div className="flex min-h-[70px] flex-col items-center justify-center gap-1 py-2 text-center">
+        <Crown className="h-5 w-5 text-[var(--hall-coroa-vazio)]" aria-hidden="true" />
+        <span className="text-[12px] font-semibold text-[var(--hall-vazio-titulo)]">
           Sem Game do Ano
         </span>
-        <span className="text-[12px] text-[var(--hall-muted)]">
+        <span className="text-[10px] text-[var(--hall-muted)]">
           {textoJogos}
         </span>
       </div>
@@ -30,7 +30,7 @@ export function GameDoAnoVazio({ ano, totalJogos, onEscolher }: GameDoAnoVazioPr
       <button
         type="button"
         onClick={() => onEscolher(ano)}
-        className="flex h-[40px] w-full items-center justify-center rounded-[10px] border border-[var(--hall-btn-escolher-border)] bg-[var(--hall-btn-escolher-bg)] px-4 text-[14px] font-semibold text-[var(--hall-ouro)] transition-opacity hover:opacity-90"
+        className="flex h-7 w-full items-center justify-center rounded-[6px] border border-[var(--hall-btn-escolher-border)] bg-[var(--hall-btn-escolher-bg)] px-3 text-[10px] font-semibold text-[var(--hall-ouro)] transition-opacity hover:opacity-90"
       >
         Escolher Game do Ano
       </button>

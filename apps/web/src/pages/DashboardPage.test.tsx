@@ -29,7 +29,7 @@ describe('DashboardPage', () => {
   afterEach(() => vi.resetAllMocks())
   it('carrega os dados reais pelos services e mantém a navegação', async () => { preparar(); renderPage(); expect(await screen.findByText('Jogos zerados')).toBeInTheDocument(); expect(screen.getByRole('navigation', { name: 'Navegação Principal' })).toBeInTheDocument(); expect(services.resumo).toHaveBeenCalled() })
   it('mostra o estado vazio e o CTA quando não há jogos', async () => { preparar(0); renderPage(); expect(await screen.findByText('Seu dashboard começa no primeiro jogo zerado')).toBeInTheDocument(); expect(screen.getAllByRole('button', { name: '+ Registrar jogo' }).length).toBeGreaterThan(0) })
-  it('posiciona Jogando agora entre os totais e o Jogo do Ano', async () => {
+  it('posiciona perfil, elite e Jogando agora na ordem do dashboard', async () => {
     preparar()
     services.jogoDoAno.mockResolvedValue([{ ano: 2026, total_jogos: 1, game_do_ano: { id: 1, nome: 'Hades', console: 'PC', igdb_capa_url: '', nota: 10, usuario_id: 1, finalizado_em: '2026-01-01', tempo_jogado: 3600, dificuldade: 'A', destaque: true } }])
     renderPage()
@@ -37,7 +37,8 @@ describe('DashboardPage', () => {
     const jogando = screen.getByRole('heading', { name: 'Jogando agora' })
     const jogoDoAno = await screen.findByText('Jogo do Ano 2026')
     expect(totais.compareDocumentPosition(jogando) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(jogando.compareDocumentPosition(jogoDoAno) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(totais.compareDocumentPosition(jogoDoAno) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(jogoDoAno.compareDocumentPosition(jogando) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
   it('mantém os outros blocos quando uma chamada falha e permite retry isolado', async () => {
     preparar()

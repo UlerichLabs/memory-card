@@ -20,7 +20,7 @@ export function AbandonadoCard({ jogo, onRetomar, onEditar, onExcluir }: Abandon
     <article
       className={
         'group flex flex-col justify-between overflow-hidden rounded-xl border ' +
-        'border-[var(--biblioteca-card-border)] bg-[var(--biblioteca-card-bg)] p-3 ' +
+        'border-[var(--biblioteca-card-border)] bg-[var(--biblioteca-card-bg)] p-4 ' +
         'transition duration-150 hover:-translate-y-0.5'
       }
     >
@@ -85,7 +85,7 @@ export function AbandonadoCard({ jogo, onRetomar, onEditar, onExcluir }: Abandon
         </div>
       </div>
 
-      <div className="mt-3 flex items-center gap-1.5 border-t border-[var(--border-subtle)] pt-2.5">
+      <div className="mt-4 flex items-center gap-2 border-t border-[var(--border-subtle)] pt-3">
         <button
           type="button"
           onClick={() => onRetomar(jogo)}

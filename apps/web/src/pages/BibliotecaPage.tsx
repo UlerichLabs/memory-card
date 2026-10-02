@@ -50,7 +50,7 @@ export function BibliotecaPage() {
     const controller = new AbortController()
     abortControllerRef.current = controller
 
-    const params: ListarJogosParams = { pagina, por_pagina: 24 }
+    const params: ListarJogosParams = { pagina, por_pagina: 100 }
     if (busca) params.busca = busca
     if (consoleVal) params.console = consoleVal
     if (generoVal) params.genero = generoVal

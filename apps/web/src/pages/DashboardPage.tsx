@@ -4,9 +4,8 @@ import { useJogosStore } from '@/stores/jogosStore'
 import { useDashboardStore } from '@/stores/dashboardStore'
 import { Topbar } from '@/components/layout/Topbar'
 import { Skeleton } from '@/components/ui/skeleton'
-import { StatsRow } from '@/components/dashboard/StatsRow'
-import { GameOfTheYearCard } from '@/components/dashboard/GameOfTheYearCard'
-import { LifeGamesGrid } from '@/components/dashboard/LifeGamesGrid'
+import { PerfilJogador } from '@/components/dashboard/PerfilJogador'
+import { EliteDoJogador } from '@/components/dashboard/EliteDoJogador'
 import { ActiveChallenges } from '@/components/dashboard/ActiveChallenges'
 import { RecentlyCompleted } from '@/components/dashboard/RecentlyCompleted'
 import { PlatformBreakdown } from '@/components/dashboard/PlatformBreakdown'
@@ -38,20 +37,19 @@ export function DashboardPage() {
   const registrar = () => abrirModalRegistro({ onSalvo: () => dashboard.carregarDashboard() })
   const erroTotais = dashboard.errors.resumo ?? dashboard.errors.abandonados
   const retryTotais = dashboard.errors.resumo ? () => void dashboard.recarregarBloco('resumo') : () => void dashboard.recarregarBloco('abandonados')
-  return <div className="dashboard-page min-h-svh overflow-x-hidden bg-[var(--bg-primary)] text-[var(--text-primary)]"><Topbar /><main className="mx-auto max-w-7xl space-y-8 px-4 py-6 sm:px-6 lg:px-8"><p className="text-sm text-[var(--text-secondary)]">Bem-vindo de volta, <strong className="font-bold text-[var(--text-primary)]">{nomeUsuario}</strong></p>
+  return <div className="dashboard-page min-h-svh overflow-x-hidden bg-[var(--bg-primary)] text-[var(--text-primary)]"><Topbar /><main className="mx-auto max-w-7xl space-y-8 px-4 py-6 sm:px-6 lg:px-8">
     {dashboard.carregado && dashboard.vazio ? <><JogandoAgora /><DashboardVazio onRegistrar={registrar} /></> : <>
-    <Bloco erro={erroTotais} carregando={dashboard.loading.resumo || dashboard.loading.abandonados} pronto={Boolean(dashboard.resumo)} retry={retryTotais}>{dashboard.resumo && <StatsRow resumo={dashboard.resumo} totalAbandonados={dashboard.abandonados} />}</Bloco>
+    <Bloco erro={erroTotais} carregando={dashboard.loading.resumo || dashboard.loading.abandonados} pronto={Boolean(dashboard.resumo)} retry={retryTotais}>{dashboard.resumo && <PerfilJogador nome={nomeUsuario} resumo={dashboard.resumo} totalAbandonados={dashboard.abandonados} />}</Bloco>
+      <Bloco erro={dashboard.errors.jogoDoAno || dashboard.errors.jogosDaVida} carregando={dashboard.loading.jogoDoAno || dashboard.loading.jogosDaVida} pronto={dashboard.carregado} retry={() => void dashboard.recarregarBloco('jogoDoAno')}><EliteDoJogador jogoDoAno={dashboard.jogoDoAno} jogosDaVida={dashboard.jogosDaVida} /></Bloco>
       <JogandoAgora />
-      {(dashboard.jogoDoAno || dashboard.errors.jogoDoAno || dashboard.loading.jogoDoAno || !dashboard.carregado) && <Bloco erro={dashboard.errors.jogoDoAno} carregando={dashboard.loading.jogoDoAno} pronto={Boolean(dashboard.jogoDoAno)} retry={() => void dashboard.recarregarBloco('jogoDoAno')}>{dashboard.jogoDoAno && <GameOfTheYearCard jogo={dashboard.jogoDoAno} />}</Bloco>}
-      <Bloco erro={dashboard.errors.jogosDaVida} carregando={dashboard.loading.jogosDaVida} pronto={dashboard.carregado} retry={() => void dashboard.recarregarBloco('jogosDaVida')}><LifeGamesGrid jogos={dashboard.jogosDaVida} /></Bloco>
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-12"><div className="space-y-8 lg:col-span-7 xl:col-span-8">
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)]"><div className="space-y-8">
         <Bloco erro={dashboard.errors.recentes} carregando={dashboard.loading.recentes} pronto={dashboard.carregado} retry={() => void dashboard.recarregarBloco('recentes')}><RecentlyCompleted jogos={dashboard.recentes} /></Bloco>
         <Bloco erro={dashboard.errors.porAno} carregando={dashboard.loading.porAno} pronto={dashboard.carregado} retry={() => void dashboard.recarregarBloco('porAno')}><PorAnoChart anos={dashboard.porAno} /></Bloco>
-      </div><div className="space-y-8 lg:col-span-5 xl:col-span-4">
+        <div className="grid grid-cols-1 gap-8 md:grid-cols-2"><Bloco erro={dashboard.errors.notas} carregando={dashboard.loading.notas} pronto={Boolean(dashboard.notas)} retry={() => void dashboard.recarregarBloco('notas')}>{dashboard.notas && <NotasChart notas={dashboard.notas} />}</Bloco><Bloco erro={dashboard.errors.dificuldade} carregando={dashboard.loading.dificuldade} pronto={dashboard.carregado} retry={() => void dashboard.recarregarBloco('dificuldade')}><DificuldadeBreakdown dificuldade={dashboard.dificuldade} /></Bloco></div>
+      </div><div className="space-y-8">
         <Bloco erro={dashboard.errors.desafios} carregando={dashboard.loading.desafios} pronto={dashboard.carregado} retry={() => void dashboard.recarregarBloco('desafios')}><ActiveChallenges desafios={dashboard.desafios} /></Bloco>
-        <Bloco erro={dashboard.errors.plataformas} carregando={dashboard.loading.plataformas} pronto={dashboard.carregado} retry={() => void dashboard.recarregarBloco('plataformas')}><PlatformBreakdown plataformas={dashboard.plataformas} /></Bloco>
-        <Bloco erro={dashboard.errors.generos} carregando={dashboard.loading.generos} pronto={dashboard.carregado} retry={() => void dashboard.recarregarBloco('generos')}><TopGenres generos={dashboard.generos} tipos={dashboard.tipos} /></Bloco>
+        <Bloco erro={dashboard.errors.recordes} carregando={dashboard.loading.recordes} pronto={Boolean(dashboard.recordes)} retry={() => void dashboard.recarregarBloco('recordes')}>{dashboard.recordes && <Recordes recordes={dashboard.recordes} />}</Bloco>
       </div></div>
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-3"><Bloco erro={dashboard.errors.notas} carregando={dashboard.loading.notas} pronto={Boolean(dashboard.notas)} retry={() => void dashboard.recarregarBloco('notas')}>{dashboard.notas && <NotasChart notas={dashboard.notas} />}</Bloco><Bloco erro={dashboard.errors.dificuldade} carregando={dashboard.loading.dificuldade} pronto={dashboard.carregado} retry={() => void dashboard.recarregarBloco('dificuldade')}><DificuldadeBreakdown dificuldade={dashboard.dificuldade} /></Bloco><Bloco erro={dashboard.errors.recordes} carregando={dashboard.loading.recordes} pronto={Boolean(dashboard.recordes)} retry={() => void dashboard.recarregarBloco('recordes')}>{dashboard.recordes && <Recordes recordes={dashboard.recordes} />}</Bloco></div>
+      <div className="grid grid-cols-1 gap-8 md:grid-cols-2"><Bloco erro={dashboard.errors.plataformas} carregando={dashboard.loading.plataformas} pronto={dashboard.carregado} retry={() => void dashboard.recarregarBloco('plataformas')}><PlatformBreakdown plataformas={dashboard.plataformas} /></Bloco><Bloco erro={dashboard.errors.generos} carregando={dashboard.loading.generos} pronto={dashboard.carregado} retry={() => void dashboard.recarregarBloco('generos')}><TopGenres generos={dashboard.generos} tipos={dashboard.tipos} /></Bloco></div>
     </>}</main></div>
 }
