@@ -5,6 +5,7 @@ import { listasService } from './listasService'
 import type {
   DashboardAno, DashboardDificuldade, DashboardNotas, DashboardRankingGenero,
   DashboardRankingPlataforma, DashboardRecordes, DashboardResumo, DashboardTipo,
+  DashboardJogosDaVida,
 } from '@/types/dashboard'
 
 const baseUrl = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '')
@@ -37,7 +38,7 @@ export const dashboardService = {
   dificuldade: (token?: string, signal?: AbortSignal) => direto<DashboardDificuldade[]>('/dashboard/dificuldade', token, signal),
   abandonados: (token?: string, signal?: AbortSignal) => abandonadosService.obterTotal(token, signal).then((res) => res.total),
   jogoDoAno: (token?: string, signal?: AbortSignal) => jogosService.obterResumoGameDoAno(token, signal),
-  jogosDaVida: (token?: string, signal?: AbortSignal) => jogosService.listar({ nota_min: 11, por_pagina: 5, ordenar: 'nota' }, token, signal).then((res) => res.data),
-  recentes: (token?: string, signal?: AbortSignal) => jogosService.listar({ por_pagina: 4, ordenar: 'recentes' }, token, signal).then((res) => res.data),
+  jogosDaVida: (token?: string, signal?: AbortSignal): Promise<DashboardJogosDaVida> => jogosService.listar({ nota_min: 11, por_pagina: 5, ordenar: 'nota' }, token, signal).then((res) => ({ jogos: res.data, total: res.meta.total })),
+  recentes: (token?: string, signal?: AbortSignal) => jogosService.listar({ por_pagina: 6, ordenar: 'recentes' }, token, signal).then((res) => res.data),
   desafios: (token?: string, signal?: AbortSignal) => listasService.listar(token, signal).then((listas) => listas.filter((lista) => lista.tipo === 'desafio' && lista.progresso && !lista.progresso.concluido).slice(0, 3)),
 }

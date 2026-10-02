@@ -20,6 +20,7 @@ type ListasServicer interface {
 	CriarLista(ctx context.Context, input service.CriarListaInput) (*service.ListaDetalhada, error)
 	ObterLista(ctx context.Context, id int64, usuarioID int32) (*service.ListaDetalhada, error)
 	ListarListas(ctx context.Context, usuarioID int32) ([]*service.ListaResumo, error)
+	ReordenarListas(ctx context.Context, usuarioID int32, listaIDs []int64) ([]*service.ListaResumo, error)
 	AtualizarLista(ctx context.Context, input service.AtualizarListaInput) (*service.ListaDetalhada, error)
 	ExcluirLista(ctx context.Context, id int64, usuarioID int32) error
 	AdicionarItem(ctx context.Context, input service.AdicionarItemInput) (*service.ListaItemDetalhe, error)
@@ -93,6 +94,10 @@ type AdicionarItensLoteRequest struct {
 
 type ReordenarItensRequest struct {
 	ItemIDs []int64 `json:"item_ids"`
+}
+
+type ReordenarListasRequest struct {
+	ListaIDs []int64 `json:"lista_ids"`
 }
 
 type AssociarZeramentoRequest struct {
@@ -579,6 +584,33 @@ func (h *ListasHandler) ReordenarItens(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"data": itens})
+}
+
+func (h *ListasHandler) ReordenarListas(c *gin.Context) {
+	usuarioID, ok := extrairUsuarioIDListas(c)
+	if !ok {
+		return
+	}
+
+	var req ReordenarListasRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respondListasError(c, http.StatusBadRequest, "listas.ordem_listas_invalida")
+		return
+	}
+
+	listas, err := h.service.ReordenarListas(c.Request.Context(), usuarioID, req.ListaIDs)
+	if err != nil {
+		lang := c.GetHeader("Accept-Language")
+		if errors.Is(err, service.ErrListaOrdemListasInvalida) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"codigo": "listas.ordem_listas_invalida", "mensagem": i18n.T(lang, "listas.ordem_listas_invalida")}})
+			return
+		}
+		slog.ErrorContext(c.Request.Context(), "falha ao reordenar listas", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"codigo": "server.internal_error", "mensagem": i18n.T(lang, "server.internal_error")}})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": listas})
 }
 
 func (h *ListasHandler) AssociarJogoZerado(c *gin.Context) {

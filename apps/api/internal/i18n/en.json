@@ -64,6 +64,7 @@
   "listas.item_nao_encontrado": "Item not found.",
   "listas.item_duplicado": "This game is already in the list.",
   "listas.ordem_invalida": "Invalid item order.",
+  "listas.ordem_listas_invalida": "Invalid list order.",
   "listas.id_invalido": "Invalid identifier.",
   "catalogo.parametro_invalido": "Invalid catalog parameter.",
   "catalogo.paginacao_invalida": "Invalid catalog pagination.",

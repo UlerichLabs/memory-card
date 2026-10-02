@@ -166,6 +166,7 @@ func setupListasIntegrationEnv(t *testing.T) *listasIntegrationEnv {
 
 	privadas.GET("/listas", listasHandler.ListarListas)
 	privadas.POST("/listas", listasHandler.CriarLista)
+	privadas.PUT("/listas/ordem", listasHandler.ReordenarListas)
 	privadas.GET("/listas/:id", listasHandler.ObterLista)
 	privadas.PUT("/listas/:id", listasHandler.AtualizarLista)
 	privadas.DELETE("/listas/:id", listasHandler.ExcluirLista)

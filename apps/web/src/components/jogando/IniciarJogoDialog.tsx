@@ -50,14 +50,14 @@ export function IniciarJogoDialog() {
             <div className="flex flex-1 flex-col gap-3">
               <span className="text-sm font-medium text-[var(--text-secondary)]">Começou em</span>
               <div className="flex flex-wrap gap-2">
-                {(['hoje', 'ontem', 'outra'] as const).map((modo) => <button key={modo} type="button" onClick={() => selecionarData(modo)} className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${modoData === modo ? 'border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-foreground)]' : 'border-[var(--border-subtle)] text-[var(--text-secondary)]'}`}>{modo === 'hoje' ? 'Hoje' : modo === 'ontem' ? 'Ontem' : 'Outra data'}</button>)}
+                {(['hoje', 'ontem', 'outra'] as const).map((modo) => <button key={modo} type="button" onClick={() => selecionarData(modo)} className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${modoData === modo ? 'btn-primario btn-primario-ativo border-transparent' : 'border-[var(--border-subtle)] text-[var(--text-secondary)]'}`}>{modo === 'hoje' ? 'Hoje' : modo === 'ontem' ? 'Ontem' : 'Outra data'}</button>)}
               </div>
               {modoData === 'outra' && <DateInput id="iniciado_em" label="Data de início" value={form.iniciadoEm} onChange={form.setIniciadoEm} error={form.errors.iniciado_em} />}
               <p className="text-xs text-[var(--text-muted)]">Não precisa ser exata, uma data aproximada já ajuda. Não pode ser no futuro.</p>
               {modoData !== 'outra' && form.errors.iniciado_em && <span className="text-xs text-[var(--danger)]">{form.errors.iniciado_em}</span>}
             </div>
           </div>
-          <div className="flex justify-end gap-3 border-t border-[var(--border)] pt-4"><Button type="button" variant="outline" onClick={fecharModal} disabled={form.isSubmitting}>Cancelar</Button><Button type="submit" disabled={form.isSubmitting || !form.nome.trim()} className="bg-[var(--accent)] font-bold text-[var(--accent-foreground)]">{form.isSubmitting ? 'Iniciando...' : 'Iniciar jogo'}</Button></div>
+          <div className="flex justify-end gap-3 border-t border-[var(--border)] pt-4"><Button type="button" variant="outline" onClick={fecharModal} disabled={form.isSubmitting}>Cancelar</Button><Button type="submit" disabled={form.isSubmitting || !form.nome.trim()} className="btn-primario">{form.isSubmitting ? 'Iniciando...' : 'Iniciar jogo'}</Button></div>
         </form>
       </DialogContent>
     </Dialog>

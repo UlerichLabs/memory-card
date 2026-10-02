@@ -1,8 +1,10 @@
 import { Link } from 'react-router-dom'
 import { SolicitarResetForm } from '@/components/auth/SolicitarResetForm'
 import { authTheme } from './authTheme'
+import { useDocumentTitle } from '@/lib/useDocumentTitle'
 
 export function EsqueciSenhaPage() {
+  useDocumentTitle('Recuperar senha')
   return (
     <main style={authTheme} className="flex min-h-svh items-center justify-center bg-background p-6 text-foreground">
       <section className="w-full max-w-md space-y-6 rounded-xl border bg-card p-5">

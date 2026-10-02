@@ -31,7 +31,7 @@ describe('GameDoAnoCard', () => {
     expect(screen.getByText('Chrono Trigger')).toBeInTheDocument()
     expect(screen.getByText('Super Nintendo')).toBeInTheDocument()
     expect(screen.getByText('10')).toBeInTheDocument()
-    expect(screen.getByText('5 jogos zerados no ano')).toBeInTheDocument()
+    expect(screen.getByText('5 jogos')).toBeInTheDocument()
     expect(screen.queryByText('Em andamento')).not.toBeInTheDocument()
   })
 
@@ -42,7 +42,7 @@ describe('GameDoAnoCard', () => {
       </MemoryRouter>
     )
 
-    expect(screen.getByText('1 jogo zerado no ano')).toBeInTheDocument()
+    expect(screen.getByText('1 jogo')).toBeInTheDocument()
   })
 
   it('exibe pill "Em andamento" apenas no ano atual', () => {

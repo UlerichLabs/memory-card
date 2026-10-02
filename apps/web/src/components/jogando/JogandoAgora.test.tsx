@@ -39,5 +39,16 @@ describe('JogandoAgora', () => {
     expect(screen.queryByText('0')).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Iniciar um jogo →' }))
     expect(mocks.jogando.abrirModalIniciar).toHaveBeenCalledOnce()
+    mocks.jogando.jogos = [{ id: 1, nome: 'Hades', igdb_id: 10, igdb_capa_url: null, iniciado_em: '2026-09-20T00:00:00Z' }]
+  })
+
+  it('limita a três cards e expande no próprio lugar', () => {
+    mocks.jogando.jogos = [1, 2, 3, 4].map((id) => ({ id, nome: `Jogo ${id}`, igdb_id: id, igdb_capa_url: null, iniciado_em: '2026-09-20T00:00:00Z' }))
+    render(<JogandoAgora />)
+    expect(screen.getByRole('button', { name: 'Ver todos (4)' })).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.getAllByRole('article')).toHaveLength(3)
+    fireEvent.click(screen.getByRole('button', { name: 'Ver todos (4)' }))
+    expect(screen.getAllByRole('article')).toHaveLength(4)
+    expect(screen.getByRole('button', { name: 'Mostrar menos' })).toHaveAttribute('aria-expanded', 'true')
   })
 })

@@ -93,13 +93,21 @@ describe('AbandonadosPage', () => {
     expect(screen.getByRole('button', { name: 'Limpar filtros' })).toBeInTheDocument()
   })
 
-  it('abre o modal de criação ao clicar no botão Abandonar jogo', async () => {
+  it('remove o botão duplicado e orienta usar o menu Novo no vazio', async () => {
+    vi.spyOn(abandonadosService, 'obterTotal').mockResolvedValue({ total: 0 })
+    vi.spyOn(abandonadosService, 'listar').mockResolvedValue({ data: [], meta: { pagina: 1, por_pagina: 12, total: 0, total_paginas: 0 } })
+    renderAbandonados()
+    expect(await screen.findByText('Use o botão Novo no topo e escolha Abandonar jogo.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Abandonar jogo' })).not.toBeInTheDocument()
+  })
+
+  it('abre o modal de criação pelo menu Novo', async () => {
     const user = userEvent.setup()
     renderAbandonados()
 
     await screen.findByText('Chrono Trigger')
-    const btnAbandonar = screen.getAllByRole('button', { name: 'Abandonar jogo' })[0]
-    await user.click(btnAbandonar)
+    await user.click(screen.getByRole('button', { name: 'Novo' }))
+    await user.click(screen.getByRole('menuitem', { name: /Abandonar jogo/ }))
 
     expect(await screen.findByRole('heading', { name: 'Abandonar jogo' })).toBeInTheDocument()
     expect(screen.getByLabelText('Nome do jogo *')).toBeInTheDocument()

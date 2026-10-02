@@ -1,10 +1,9 @@
-import { useContext, type CSSProperties } from 'react'
+import { type CSSProperties } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { Disc3, Search, Bell, User, LogOut, Play, CheckCircle2 } from 'lucide-react'
+import { Disc3, Search, Bell, User, LogOut } from 'lucide-react'
 import { Menu } from '@base-ui/react/menu'
 import { useAuthStore } from '@/store/authStore'
-import { JogosContext } from '@/stores/jogosStore'
-import { JogandoContext } from '@/stores/jogandoStore'
+import { NovoMenu } from './NovoMenu'
 
 const navLinks = [
   { label: 'Dashboard', href: '/' },
@@ -26,8 +25,6 @@ export function Topbar() {
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const { sessao, logout } = useAuthStore()
-  const jogos = useContext(JogosContext)
-  const jogando = useContext(JogandoContext)
   const nomeUsuario = sessao?.usuario?.nome ?? 'Jogador'
 
   async function handleLogout() {
@@ -128,13 +125,7 @@ export function Topbar() {
             </Menu.Portal>
           </Menu.Root>
 
-          <Menu.Root>
-            <Menu.Trigger type="button" aria-haspopup="menu" className="inline-flex h-9 shrink-0 items-center justify-center rounded-[7px] bg-[var(--accent)] px-3 text-[13px] font-bold text-[var(--accent-foreground)] transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]">+ Novo <span className="ml-1 text-[11px]">▾</span></Menu.Trigger>
-            <Menu.Portal><Menu.Positioner side="bottom" align="end" sideOffset={8} className="z-50"><Menu.Popup style={dropdownTheme} className="w-[280px] rounded-[10px] border border-[var(--border)] bg-[var(--bg-surface)] p-1.5 shadow-2xl outline-none">
-              <Menu.Item onClick={() => jogando?.abrirModalIniciar()} className="flex cursor-pointer items-start gap-3 rounded-[6px] px-3 py-2.5 outline-none hover:bg-[var(--bg-surface-alt)] focus:bg-[var(--bg-surface-alt)]"><Play className="mt-0.5 size-4 text-[var(--accent)]" aria-hidden="true" /><span><strong className="block text-[13px] text-[var(--text-primary)]">Iniciar jogo</strong><small className="block text-[11px] font-normal text-[var(--text-secondary)]">Comecei agora. Anota a data pra eu não esquecer.</small></span></Menu.Item>
-              <Menu.Item onClick={() => jogos?.abrirModalRegistro()} className="flex cursor-pointer items-start gap-3 rounded-[6px] px-3 py-2.5 outline-none hover:bg-[var(--bg-surface-alt)] focus:bg-[var(--bg-surface-alt)]"><CheckCircle2 className="mt-0.5 size-4 text-[var(--success)]" aria-hidden="true" /><span><strong className="block text-[13px] text-[var(--text-primary)]">Registrar jogo zerado</strong><small className="block text-[11px] font-normal text-[var(--text-secondary)]">Já terminei. Quero registrar tempo, nota e mais.</small></span></Menu.Item>
-            </Menu.Popup></Menu.Positioner></Menu.Portal>
-          </Menu.Root>
+          <NovoMenu />
         </div>
       </div>
     </header>

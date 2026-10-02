@@ -1,8 +1,10 @@
 import { Link, useLocation } from 'react-router-dom'
 import { LoginForm } from '@/components/auth/LoginForm'
 import { authTheme } from './authTheme'
+import { useDocumentTitle } from '@/lib/useDocumentTitle'
 
 export function LoginPage() {
+  useDocumentTitle('Entrar')
   const location = useLocation()
   const mensagem = (location.state as { mensagem?: string } | null)?.mensagem
 

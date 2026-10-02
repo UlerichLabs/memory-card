@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuthStore } from '@/store/authStore'
 import { JogosProvider } from '@/stores/jogosStore'
 import { JogandoProvider } from '@/stores/jogandoStore'
@@ -26,6 +26,7 @@ function TopbarWrapper() {
   const { login } = useAuthStore()
   return (
     <>
+      <LocationEcho />
       <button
         type="button"
         onClick={async () => {
@@ -37,6 +38,11 @@ function TopbarWrapper() {
       <Topbar />
     </>
   )
+}
+
+function LocationEcho() {
+  const location = useLocation()
+  return <output data-testid="location">{location.pathname}{location.search}</output>
 }
 
 function renderTopbar(initialPath = '/') {
@@ -103,7 +109,7 @@ describe('Topbar - Menu de usuário', () => {
     const user = userEvent.setup()
     renderTopbar()
 
-    await user.click(screen.getByRole('button', { name: /\+ Novo/ }))
+    await user.click(screen.getByRole('button', { name: 'Novo' }))
     await user.click(await screen.findByRole('menuitem', { name: /Registrar jogo zerado/ }))
 
     expect(await screen.findByRole('heading', { name: 'Registrar jogo' })).toBeVisible()
@@ -112,9 +118,19 @@ describe('Topbar - Menu de usuário', () => {
   it('abre o dialogo de iniciar jogo pelo menu Novo', async () => {
     const user = userEvent.setup()
     renderTopbar()
-    await user.click(screen.getByRole('button', { name: /\+ Novo/ }))
+    await user.click(screen.getByRole('button', { name: 'Novo' }))
     await user.click(await screen.findByRole('menuitem', { name: /Iniciar jogo/ }))
     expect(await screen.findByRole('heading', { name: 'Iniciar jogo' })).toBeVisible()
+  })
+
+  it('exibe as três ações do menu Novo e navega para nova lista', async () => {
+    const user = userEvent.setup()
+    renderTopbar()
+    await user.click(screen.getByRole('button', { name: 'Novo' }))
+    expect(screen.getByRole('menuitem', { name: /Iniciar jogo/ })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: /Registrar jogo zerado/ })).toBeInTheDocument()
+    await user.click(screen.getByRole('menuitem', { name: /Nova lista ou desafio/ }))
+    expect(screen.getByTestId('location')).toHaveTextContent('/listas?novo=1')
   })
 
   it('exibe o item Hall da Fama no menu de navegação apontando para /hall-da-fama', () => {

@@ -13,6 +13,7 @@ import { JogoDetalheStats } from '@/components/jogos/detalhe/JogoDetalheStats'
 import { JogoDetalheReview } from '@/components/jogos/detalhe/JogoDetalheReview'
 import { JogoDetalheSobre } from '@/components/jogos/detalhe/JogoDetalheSobre'
 import { JogoDetalheSkeleton } from '@/components/jogos/detalhe/JogoDetalheSkeleton'
+import { useDocumentTitle } from '@/lib/useDocumentTitle'
 
 export function JogoDetalhePage() {
   const { id } = useParams<{ id: string }>()
@@ -25,6 +26,7 @@ export function JogoDetalhePage() {
   const [erroStatus, setErroStatus] = useState<'notFound' | 'network' | null>(null)
   const [excluindoAberto, setExcluindoAberto] = useState(false)
   const [isExcluindo, setIsExcluindo] = useState(false)
+  useDocumentTitle(jogo?.nome ?? 'Jogo')
 
   const fromSearch = (location.state as { from?: string } | null)?.from || ''
   const handleVoltar = () => navigate(`/biblioteca${fromSearch}`)
@@ -65,11 +67,6 @@ export function JogoDetalhePage() {
     prevModalRef.current = isModalOpen
   }, [isModalOpen, carregarDetalhe])
 
-  useEffect(() => {
-    if (jogo?.nome) document.title = jogo.nome
-    return () => { document.title = 'Memory Card' }
-  }, [jogo?.nome])
-
   async function handleConfirmarExclusao() {
     if (!jogo) return
     setIsExcluindo(true)
@@ -88,7 +85,7 @@ export function JogoDetalhePage() {
     : `Criado em ${dataCriacao} · atualizado em ${dataAtualizacao}`
 
   return (
-    <div className="min-h-svh w-full bg-[var(--bg-primary)] overflow-x-hidden">
+    <div className="min-h-full w-full bg-[var(--bg-primary)] overflow-x-hidden">
       <Topbar />
 
       <div className="flex h-[56px] items-center justify-between border-b border-[var(--detalhe-mobile-header-border)] bg-[var(--detalhe-mobile-header-bg)] px-3 sm:hidden">
@@ -135,7 +132,7 @@ export function JogoDetalhePage() {
             <button
               type="button"
               onClick={handleVoltar}
-              className="rounded-[10px] bg-[var(--accent)] px-4 py-2 text-sm font-bold text-[var(--accent-foreground)] transition-opacity hover:opacity-90"
+              className="btn-primario px-4 py-2 text-sm"
             >
               Voltar para a Biblioteca
             </button>
@@ -147,7 +144,7 @@ export function JogoDetalhePage() {
             <button
               type="button"
               onClick={() => carregarDetalhe()}
-              className="rounded-[10px] bg-[var(--accent)] px-4 py-2 text-sm font-bold text-[var(--accent-foreground)] transition-opacity hover:opacity-90"
+              className="btn-primario px-4 py-2 text-sm"
             >
               Tentar novamente
             </button>

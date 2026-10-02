@@ -108,6 +108,16 @@ describe("listasService", () => {
     );
   });
 
+  it("reordenarListas chama PUT /listas/ordem com lista_ids", async () => {
+    const spy = vi.spyOn(apiModule, "apiRequest").mockResolvedValue([]);
+    await listasService.reordenarListas([3, 2, 1], "tok");
+    expect(spy).toHaveBeenCalledWith(
+      "/listas/ordem",
+      { method: "PUT", body: JSON.stringify({ lista_ids: [3, 2, 1] }) },
+      "tok",
+    );
+  });
+
   it("associarZeramento chama PUT /listas/:id/itens/:itemId/zeramento", async () => {
     const spy = vi.spyOn(apiModule, "apiRequest").mockResolvedValue({ id: 20 });
     await listasService.associarZeramento(7, 20, 99, "tok");

@@ -1,7 +1,9 @@
 import { Link } from 'react-router-dom'
 import { CadastroForm } from '@/components/auth/CadastroForm'
+import { useDocumentTitle } from '@/lib/useDocumentTitle'
 
 export function CadastroPage() {
+  useDocumentTitle('Criar conta')
   return (
     <main className="flex min-h-svh items-center justify-center bg-background p-6 text-foreground">
       <section className="w-full max-w-md space-y-6 rounded-xl border p-8 shadow-sm">

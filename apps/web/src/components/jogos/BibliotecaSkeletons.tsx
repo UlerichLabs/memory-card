@@ -35,7 +35,7 @@ export function BibliotecaSkeletons({ modo = 'grid' }: BibliotecaSkeletonsProps)
       {itens.map((i) => (
         <div
           key={i}
-          className="flex flex-col rounded-[10px] border border-[var(--biblioteca-card-border)] bg-[var(--biblioteca-card-bg)] p-3"
+          className="flex flex-col rounded-xl border border-[var(--biblioteca-card-border)] bg-[var(--biblioteca-card-bg)] p-3 sm:p-4"
         >
           <Skeleton className="aspect-[3/4] w-full rounded-[6px] bg-[var(--biblioteca-control-bg)]" />
           <div className="mt-3 space-y-2">

@@ -13,18 +13,19 @@ export function obterIniciaisJogo(nome: string): string {
 }
 
 export function ordenarListas(listas: ListaResumo[]): ListaResumo[] {
+  const comparar = (a: ListaResumo, b: ListaResumo): number => {
+    if (a.posicao !== undefined && b.posicao !== undefined && a.posicao !== b.posicao) {
+      return a.posicao - b.posicao;
+    }
+    const porData = b.created_at.localeCompare(a.created_at);
+    return porData || b.id - a.id;
+  };
   const desafios = listas
     .filter((l) => l.tipo === "desafio")
-    .sort(
-      (a, b) =>
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-    );
+    .sort(comparar);
   const filas = listas
     .filter((l) => l.tipo === "fila")
-    .sort(
-      (a, b) =>
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-    );
+    .sort(comparar);
   return [...desafios, ...filas];
 }
 

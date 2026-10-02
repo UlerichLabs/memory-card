@@ -3,6 +3,7 @@ import type { JogoAbandonado } from '@/types/abandonados'
 import { formatarCapaIGDB } from '@/lib/utils'
 import { obterIniciaisJogo } from '@/components/listas/listas.utils'
 import { formatarDataBrasileira, formatarTempoAbandonado } from './abandonados.utils'
+import { ConsoleBadge } from '@/components/jogos/ConsoleBadge'
 export interface AbandonadoCardProps {
   jogo: JogoAbandonado
   onRetomar: (jogo: JogoAbandonado) => void
@@ -20,7 +21,7 @@ export function AbandonadoCard({ jogo, onRetomar, onEditar, onExcluir }: Abandon
     <article
       className={
         'group flex flex-col justify-between overflow-hidden rounded-xl border ' +
-        'border-[var(--biblioteca-card-border)] bg-[var(--biblioteca-card-bg)] p-3 ' +
+        'border-[var(--biblioteca-card-border)] bg-[var(--biblioteca-card-bg)] p-4 ' +
         'transition duration-150 hover:-translate-y-0.5'
       }
     >
@@ -70,9 +71,7 @@ export function AbandonadoCard({ jogo, onRetomar, onEditar, onExcluir }: Abandon
           >
             {jogo.nome}
           </h3>
-          <p className="truncate text-[12px] text-[var(--biblioteca-card-plataforma)]">
-            {jogo.console}
-          </p>
+          <ConsoleBadge nome={jogo.console} />
           <p className="truncate text-[12px] tabular-nums text-[var(--biblioteca-card-meta)]">
             Abandonado em {dataPt}
           </p>
@@ -85,18 +84,18 @@ export function AbandonadoCard({ jogo, onRetomar, onEditar, onExcluir }: Abandon
         </div>
       </div>
 
-      <div className="mt-3 flex items-center gap-1.5 border-t border-[var(--border-subtle)] pt-2.5">
+      <div className="mt-4 flex min-w-0 flex-wrap items-center gap-1.5 border-t border-[var(--border-subtle)] pt-3 sm:gap-2">
         <button
           type="button"
           onClick={() => onRetomar(jogo)}
           aria-label={`Retomar ${jogo.nome}`}
           className={
-            'flex min-h-[44px] flex-1 items-center justify-center rounded-lg border ' +
+            'flex min-h-[44px] min-w-0 flex-1 items-center justify-center rounded-lg border ' +
             'border-[var(--abandonado-border)] bg-[var(--abandonado-bg)] px-2.5 text-xs ' +
             'font-semibold text-[var(--abandonado-text)] transition hover:opacity-90'
           }
         >
-          Retomar
+          <span className="truncate">Retomar</span>
         </button>
         <button
           type="button"
@@ -104,7 +103,7 @@ export function AbandonadoCard({ jogo, onRetomar, onEditar, onExcluir }: Abandon
           aria-label={`Editar ${jogo.nome}`}
           title="Editar"
           className={
-            'flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg ' +
+            'flex h-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg ' +
             'border border-[var(--border-subtle)] text-[var(--text-secondary)] ' +
             'transition hover:text-[var(--text-primary)]'
           }
@@ -117,7 +116,7 @@ export function AbandonadoCard({ jogo, onRetomar, onEditar, onExcluir }: Abandon
           aria-label={`Excluir ${jogo.nome}`}
           title="Excluir"
           className={
-            'flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg ' +
+            'flex h-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg ' +
             'border border-[var(--border-subtle)] text-[var(--text-secondary)] ' +
             'transition hover:text-[var(--danger)]'
           }

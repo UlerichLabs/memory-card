@@ -28,7 +28,7 @@ function calcularPaginas(paginaAtual: number, totalPaginas: number): (number | s
 }
 
 export function BibliotecaPaginacao({ meta, onMudarPagina }: BibliotecaPaginacaoProps) {
-  if (meta.total_paginas <= 1) return null
+  if (meta.total <= 0) return null
 
   const inicio = meta.total === 0 ? 0 : (meta.pagina - 1) * meta.por_pagina + 1
   const fim = Math.min(meta.pagina * meta.por_pagina, meta.total)
@@ -41,13 +41,14 @@ export function BibliotecaPaginacao({ meta, onMudarPagina }: BibliotecaPaginacao
     >
       <p className="text-xs text-[var(--biblioteca-text-muted)]">
         Mostrando <span className="font-semibold text-[var(--biblioteca-text-primary)]">{inicio}–{fim}</span> de{' '}
-        <span className="font-semibold text-[var(--biblioteca-text-primary)]">{meta.total}</span>
+        <span className="font-semibold text-[var(--biblioteca-text-primary)]">{meta.total}</span> jogos
       </p>
 
       <div className="flex items-center gap-1.5">
         <button
           type="button"
           disabled={meta.pagina <= 1}
+          aria-disabled={meta.pagina <= 1}
           onClick={() => onMudarPagina(meta.pagina - 1)}
           aria-label="Página anterior"
           className="inline-flex h-8 items-center gap-1 rounded-[6px] border border-[var(--biblioteca-control-border)] bg-[var(--biblioteca-control-bg)] px-2.5 text-xs text-[var(--biblioteca-control-text)] transition-colors hover:border-[var(--biblioteca-control-border-hover)] disabled:cursor-not-allowed disabled:opacity-40"
@@ -74,12 +75,14 @@ export function BibliotecaPaginacao({ meta, onMudarPagina }: BibliotecaPaginacao
             <button
               key={item}
               type="button"
+              disabled={ativo}
               onClick={() => onMudarPagina(item)}
               aria-current={ativo ? 'page' : undefined}
+              aria-disabled={ativo}
               aria-label={`Página ${item}`}
               className={`h-8 min-w-[32px] rounded-[6px] px-2 text-xs font-semibold transition-colors ${
                 ativo
-                  ? 'bg-[var(--accent)] text-white'
+                  ? 'btn-primario btn-primario-ativo text-white'
                   : 'border border-[var(--biblioteca-control-border)] bg-[var(--biblioteca-control-bg)] text-[var(--biblioteca-control-text)] hover:border-[var(--biblioteca-control-border-hover)]'
               }`}
             >
@@ -91,6 +94,7 @@ export function BibliotecaPaginacao({ meta, onMudarPagina }: BibliotecaPaginacao
         <button
           type="button"
           disabled={meta.pagina >= meta.total_paginas}
+          aria-disabled={meta.pagina >= meta.total_paginas}
           onClick={() => onMudarPagina(meta.pagina + 1)}
           aria-label="Próxima página"
           className="inline-flex h-8 items-center gap-1 rounded-[6px] border border-[var(--biblioteca-control-border)] bg-[var(--biblioteca-control-bg)] px-2.5 text-xs text-[var(--biblioteca-control-text)] transition-colors hover:border-[var(--biblioteca-control-border-hover)] disabled:cursor-not-allowed disabled:opacity-40"

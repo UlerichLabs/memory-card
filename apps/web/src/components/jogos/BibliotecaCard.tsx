@@ -4,6 +4,7 @@ import type { JogoZeradoDTO } from '@/types/jogos'
 import { formatarCapaIGDB, isoParaDataPt } from '@/lib/utils'
 import { NotaBadge } from './NotaBadge'
 import { DificuldadePill } from './DificuldadePill'
+import { ConsoleBadge } from './ConsoleBadge'
 
 export interface BibliotecaCardProps {
   jogo: JogoZeradoDTO
@@ -41,7 +42,7 @@ export function BibliotecaCard({ jogo, onEditar, onExcluir, onDetalhes }: Biblio
   return (
     <article
       onClick={() => onDetalhes?.(jogo)}
-      className="group flex cursor-pointer flex-col overflow-hidden transition duration-150 hover:-translate-y-0.5"
+      className="group flex min-w-0 cursor-pointer flex-col overflow-hidden rounded-xl border border-[var(--biblioteca-card-border)] bg-[var(--biblioteca-card-bg)] p-3 transition duration-150 hover:-translate-y-0.5 hover:border-[var(--biblioteca-control-border-hover)] sm:p-4"
     >
       <div className="relative aspect-[3/4] w-full overflow-hidden rounded-[12px] border border-[var(--biblioteca-card-cover-border)] bg-[var(--biblioteca-card-cover-bg)]">
         {capaUrl ? (
@@ -103,13 +104,11 @@ export function BibliotecaCard({ jogo, onEditar, onExcluir, onDetalhes }: Biblio
         </div>
       </div>
 
-      <div className="flex flex-col gap-0.5 pt-2.5">
+      <div className="flex min-w-0 flex-col gap-0.5 pt-2.5">
         <h3 className="line-clamp-2 min-h-[38px] text-[14px] font-semibold leading-[1.35] text-[var(--biblioteca-text-primary)]" title={jogo.nome}>
           {jogo.nome}
         </h3>
-        <p className="truncate text-[12px] text-[var(--biblioteca-card-plataforma)]">
-          {jogo.console}
-        </p>
+        <ConsoleBadge nome={jogo.console} variante="solido" />
         {metaTexto && (
           <p className="truncate text-[12px] tabular-nums text-[var(--biblioteca-card-meta)]">
             {metaTexto}

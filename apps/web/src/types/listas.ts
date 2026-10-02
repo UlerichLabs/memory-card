@@ -27,6 +27,7 @@ export interface ListaResumo {
   progresso: ListaProgresso | null;
   created_at: string;
   updated_at: string;
+  posicao?: number;
 }
 
 export interface JogoZeradoVinculado {
@@ -161,6 +162,7 @@ export interface ListasStore {
   ) => Promise<AdicionarItensLoteResposta>;
   removerItem: (itemId: number) => Promise<void>;
   reordenarItens: (itemIds: number[]) => Promise<void>;
+  reordenarListas: (tipo: ListaTipo, listaIds: number[]) => Promise<void>;
   associarZeramento: (itemId: number, jogoZeradoId: number) => Promise<void>;
 }
 
