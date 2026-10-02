@@ -15,7 +15,7 @@ export function GameDoAnoCard({ ano, totalJogos, jogo, onTrocar }: GameDoAnoCard
   const anoAtual = new Date().getFullYear()
   const ehAnoAtual = ano === anoAtual
   const capaUrl = formatarCapaIGDB(jogo.igdb_capa_url, 't_cover_big')
-  const textoJogos = totalJogos === 1 ? '1 jogo zerado no ano' : `${totalJogos} jogos zerados no ano`
+  const textoJogos = totalJogos === 1 ? '1 jogo' : `${totalJogos} jogos`
 
   return (
     <article className="flex min-h-[184px] flex-col justify-between gap-3 rounded-[10px] border border-[var(--hall-card-border)] bg-[var(--hall-card-bg)] p-3">

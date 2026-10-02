@@ -10,6 +10,7 @@ type LoadingState = Record<DashboardBloco, boolean>
 type ErrorState = Partial<Record<DashboardBloco, string>>
 
 export interface DashboardStore extends DashboardDados {
+  jogosDaVidaTotal: number
   loading: LoadingState
   errors: ErrorState
   carregado: boolean
@@ -30,6 +31,7 @@ export function DashboardProvider({ children, token }: { children: ReactNode; to
   const [abandonados, setAbandonados] = useState(0)
   const [jogoDoAno, setJogoDoAno] = useState<DashboardDados['jogoDoAno']>(null)
   const [jogosDaVida, setJogosDaVida] = useState<JogoZeradoDTO[]>([])
+  const [jogosDaVidaTotal, setJogosDaVidaTotal] = useState(0)
   const [recentes, setRecentes] = useState<JogoZeradoDTO[]>([])
   const [desafios, setDesafios] = useState<ListaResumo[]>([])
   const [porAno, setPorAno] = useState<DashboardAno[]>([])
@@ -69,7 +71,11 @@ export function DashboardProvider({ children, token }: { children: ReactNode; to
           tempo_jogado: atual.game_do_ano.tempo_jogado,
         } : null)
       }
-      if (bloco === 'jogosDaVida') setJogosDaVida(await dashboardService.jogosDaVida(effectiveToken, signal))
+      if (bloco === 'jogosDaVida') {
+        const dados = await dashboardService.jogosDaVida(effectiveToken, signal)
+        setJogosDaVida(dados.jogos)
+        setJogosDaVidaTotal(dados.total)
+      }
       if (bloco === 'recentes') setRecentes(await dashboardService.recentes(effectiveToken, signal))
       if (bloco === 'desafios') setDesafios(await dashboardService.desafios(effectiveToken, signal))
       if (bloco === 'porAno') setPorAno(await dashboardService.porAno(effectiveToken, signal))
@@ -96,7 +102,7 @@ export function DashboardProvider({ children, token }: { children: ReactNode; to
   }, [carregarBloco])
 
   const recarregarBloco = useCallback((bloco: DashboardBloco) => carregarBloco(bloco), [carregarBloco])
-  const value = useMemo<DashboardStore>(() => ({ resumo, abandonados, jogoDoAno, jogosDaVida, recentes, desafios, porAno, plataformas, generos, tipos, notas, dificuldade, recordes, loading, errors, carregado, vazio: resumo?.total_jogos === 0, carregarDashboard, recarregarBloco }), [resumo, abandonados, jogoDoAno, jogosDaVida, recentes, desafios, porAno, plataformas, generos, tipos, notas, dificuldade, recordes, loading, errors, carregado, carregarDashboard, recarregarBloco])
+  const value = useMemo<DashboardStore>(() => ({ resumo, abandonados, jogoDoAno, jogosDaVida, jogosDaVidaTotal, recentes, desafios, porAno, plataformas, generos, tipos, notas, dificuldade, recordes, loading, errors, carregado, vazio: resumo?.total_jogos === 0, carregarDashboard, recarregarBloco }), [resumo, abandonados, jogoDoAno, jogosDaVida, jogosDaVidaTotal, recentes, desafios, porAno, plataformas, generos, tipos, notas, dificuldade, recordes, loading, errors, carregado, carregarDashboard, recarregarBloco])
   return createElement(DashboardContext.Provider, { value }, children)
 }
 

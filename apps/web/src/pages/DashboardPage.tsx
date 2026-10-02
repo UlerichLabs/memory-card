@@ -40,7 +40,7 @@ export function DashboardPage() {
   return <div className="dashboard-page min-h-svh overflow-x-hidden bg-[var(--bg-primary)] text-[var(--text-primary)]"><Topbar /><main className="mx-auto max-w-7xl space-y-8 px-4 py-6 sm:px-6 lg:px-8">
     {dashboard.carregado && dashboard.vazio ? <><JogandoAgora /><DashboardVazio onRegistrar={registrar} /></> : <>
     <Bloco erro={erroTotais} carregando={dashboard.loading.resumo || dashboard.loading.abandonados} pronto={Boolean(dashboard.resumo)} retry={retryTotais}>{dashboard.resumo && <PerfilJogador nome={nomeUsuario} resumo={dashboard.resumo} totalAbandonados={dashboard.abandonados} />}</Bloco>
-      <Bloco erro={dashboard.errors.jogoDoAno || dashboard.errors.jogosDaVida} carregando={dashboard.loading.jogoDoAno || dashboard.loading.jogosDaVida} pronto={dashboard.carregado} retry={() => void dashboard.recarregarBloco('jogoDoAno')}><EliteDoJogador jogoDoAno={dashboard.jogoDoAno} jogosDaVida={dashboard.jogosDaVida} /></Bloco>
+      <Bloco erro={dashboard.errors.jogoDoAno || dashboard.errors.jogosDaVida} carregando={dashboard.loading.jogoDoAno || dashboard.loading.jogosDaVida} pronto={dashboard.carregado} retry={() => void dashboard.recarregarBloco('jogoDoAno')}><EliteDoJogador jogoDoAno={dashboard.jogoDoAno} jogosDaVida={dashboard.jogosDaVida} jogosDaVidaTotal={dashboard.jogosDaVidaTotal} /></Bloco>
       <JogandoAgora />
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)]"><div className="space-y-8">
         <Bloco erro={dashboard.errors.recentes} carregando={dashboard.loading.recentes} pronto={dashboard.carregado} retry={() => void dashboard.recarregarBloco('recentes')}><RecentlyCompleted jogos={dashboard.recentes} /></Bloco>

@@ -28,6 +28,11 @@ export interface DashboardGameDoAno {
   tempo_jogado?: number
 }
 
+export interface DashboardJogosDaVida {
+  jogos: JogoZeradoDTO[]
+  total: number
+}
+
 export interface DashboardRankingPlataforma {
   console: string
   total_jogos: number
