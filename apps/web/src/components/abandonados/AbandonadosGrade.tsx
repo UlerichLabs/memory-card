@@ -12,7 +12,7 @@ export function AbandonadosGrade({ jogos, onRetomar, onEditar, onExcluir }: Aban
   return (
     <section
       aria-label="Jogos abandonados"
-      className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-4"
+      className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6"
     >
       {jogos.map((jogo) => (
         <AbandonadoCard

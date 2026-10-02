@@ -3,14 +3,28 @@ import { getConsoleTema } from './consoles'
 
 describe('getConsoleTema', () => {
   it.each([
+    ['Sega Mega Drive/Genesis', 'Sega', '#3B5BDB'],
+    ['Genesis', 'Sega', '#3B5BDB'],
+    ['Sega Game Gear', 'Sega', '#3B5BDB'],
+    ['Nintendo Entertainment System', 'Nintendo', '#E60012'],
     ['Nintendo Switch', 'Nintendo', '#E60012'],
+    ['Super Nintendo', 'Nintendo', '#E60012'],
+    ['Nintendo DS', 'Nintendo', '#E60012'],
+    ['Nintendo 3DS', 'Nintendo', '#E60012'],
+    ['Game Boy Advance', 'Nintendo', '#E60012'],
     ['PlayStation 5', 'PlayStation', '#0070D1'],
-    ['Xbox Series X', 'Xbox', '#107C10'],
-    ['Windows PC', 'PC', '#8FA8C8'],
-    ['Mega Drive', 'Sega', '#3B5BDB'],
+    ['PlayStation Vita', 'PlayStation', '#0070D1'],
+    ['PSP', 'PlayStation', '#0070D1'],
+    ['Xbox Series X|S', 'Xbox', '#107C10'],
+    ['Xbox One', 'Xbox', '#107C10'],
+    ['Xbox 360', 'Xbox', '#107C10'],
+    ['PC (Microsoft Windows)', 'PC', '#8FA8C8'],
+    ['Linux', 'PC', '#8FA8C8'],
+    ['Mac', 'PC', '#8FA8C8'],
+    ['Arcade', 'Arcade', '#D946EF'],
     ['Atari 2600', 'Atari', '#F28C28'],
-    ['Fliperama', 'Arcade', '#D946EF'],
     ['Android', 'Mobile', '#14B8A6'],
+    ['iOS', 'Mobile', '#14B8A6'],
   ])('classifica %s como %s', (nome, familia, cor) => {
     const tema = getConsoleTema(nome)
     expect(tema.familia).toBe(familia)
@@ -19,7 +33,9 @@ describe('getConsoleTema', () => {
 
   it('normaliza caixa e acentos e oferece fallback', () => {
     expect(getConsoleTema('SUPER NÍNTENDO').familia).toBe('Nintendo')
-    expect(getConsoleTema('Console desconhecido').familia).toBe('Outro')
+    for (const nome of ['Neo Geo', 'Amiga', '3DO', 'PC Engine']) {
+      expect(getConsoleTema(nome).familia).toBe('Outro')
+    }
     expect(getConsoleTema('Console desconhecido').cor).toBe('var(--text-secondary)')
   })
 })
