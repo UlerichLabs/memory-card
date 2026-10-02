@@ -1,183 +1,114 @@
-import { ChevronDown, ChevronUp, Trophy, List, Plus } from "lucide-react";
+import {
+  closestCenter,
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core";
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { ChevronDown, ChevronUp, List, Plus, Trophy } from "lucide-react";
 import { useState } from "react";
-import { formatarSubFila } from "./listas.utils";
-import type { ListaResumo } from "@/types/listas";
+import type { ListaResumo, ListaTipo } from "@/types/listas";
+import { ListaSidebarItem } from "./ListaSidebarItem";
 
 export interface ListasSidebarProps {
   listas: ListaResumo[];
   selectedId: number | null;
   onSelect: (id: number) => void;
   onNovaLista: () => void;
+  onReordenar?: (tipo: ListaTipo, listaIds: number[]) => Promise<void>;
 }
 
-export function ListasSidebar({ listas, selectedId, onSelect, onNovaLista }: ListasSidebarProps) {
+export function ListasSidebar({ listas, selectedId, onSelect, onNovaLista, onReordenar = async () => undefined }: ListasSidebarProps) {
   const [desafiosExpandidos, setDesafiosExpandidos] = useState(false);
   const [filasExpandidas, setFilasExpandidas] = useState(false);
-  const desafios = listas.filter((l) => l.tipo === "desafio");
-  const filas = listas.filter((l) => l.tipo === "fila");
-  const mostrarTodosDesafios = desafiosExpandidos || desafios.some((desafio) => desafio.id === selectedId && desafios.indexOf(desafio) >= 3);
-  const mostrarTodasFilas = filasExpandidas || filas.some((fila) => fila.id === selectedId && filas.indexOf(fila) >= 3);
-  const desafiosVisiveis = mostrarTodosDesafios ? desafios : desafios.slice(0, 3);
-  const filasVisiveis = mostrarTodasFilas ? filas : filas.slice(0, 3);
+  const desafios = listas.filter((lista) => lista.tipo === "desafio");
+  const filas = listas.filter((lista) => lista.tipo === "fila");
+  const mostrarTodosDesafios = desafiosExpandidos || selecionadoForaDaPrevia(desafios, selectedId);
+  const mostrarTodasFilas = filasExpandidas || selecionadoForaDaPrevia(filas, selectedId);
+  const sensores = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const handleDragStart = (event: DragStartEvent) => {
+    const tipo = event.active.data.current?.tipo as ListaTipo | undefined;
+    if (tipo === "desafio") setDesafiosExpandidos(true);
+    if (tipo === "fila") setFilasExpandidas(true);
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const tipo = active.data.current?.tipo as ListaTipo | undefined;
+    if (!tipo || over.data.current?.tipo !== tipo) return;
+    const grupo = tipo === "desafio" ? desafios : filas;
+    const origem = grupo.findIndex((lista) => lista.id === active.id);
+    const destino = grupo.findIndex((lista) => lista.id === over.id);
+    if (origem === -1 || destino === -1) return;
+    const reordenadas = arrayMove(grupo, origem, destino);
+    onReordenar(tipo, reordenadas.map((lista) => lista.id)).catch(() => undefined);
+  };
 
   return (
-    <aside className="flex flex-col gap-5 w-full">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-[28px] font-bold tracking-[-0.01em] text-[var(--text-primary)]">
-          Listas e Desafios
-        </h1>
-        <p className="text-[14px] text-[var(--lista-text-secondary)]">
-          O que jogar em seguida e as metas que você quer bater.
-        </p>
-      </div>
-
-      <button
-        type="button"
-        onClick={onNovaLista}
-        className="btn-primario flex h-11 w-full items-center justify-center gap-2 px-4 text-[14px]"
-      >
-        <Plus className="h-4 w-4" />
-        <span>Nova lista ou desafio</span>
-      </button>
-
-      <nav
-        aria-label="Seus desafios e listas"
-        className="flex flex-col gap-[18px]"
-      >
-        {desafios.length > 0 && (
-          <div className="flex flex-col gap-2">
-            <div className={["flex items-center gap-1.5 text-[12px] font-semibold uppercase",
-  "tracking-[0.04em] text-[var(--lista-text-muted)]"].join(" ")}>
-              <Trophy className="h-3.5 w-3.5 text-[var(--hall-ouro)]" />
-              <span>Desafios</span>
-            </div>
-
-            <div className="flex flex-row overflow-x-auto pb-1 gap-2 md:flex-col md:overflow-visible">
-              {desafiosVisiveis.map((desafio) => {
-                const ativo = desafio.id === selectedId;
-                const progresso = desafio.progresso;
-                const concluido = progresso?.concluido ?? false;
-                const quantidade = desafio.total_itens === 1 ? "jogo" : "jogos";
-                const nomeOrigem = desafio.origem
-                  ? ` · ${desafio.origem.tipo[0].toUpperCase()}${desafio.origem.tipo.slice(1)}`
-                  : "";
-                const subTexto = `${desafio.total_itens} ${quantidade}${nomeOrigem}`;
-                const pct = progresso?.percentual ?? 0;
-
-                return (
-                  <button
-                    key={desafio.id}
-                    type="button"
-                    aria-current={ativo ? "page" : undefined}
-                    onClick={() => onSelect(desafio.id)}
-                    className={`flex flex-col gap-1 rounded-xl p-[12px_14px] text-left transition-colors min-w-[240px]
-md:min-w-0 md:w-full shrink-0 ${
-                      ativo
-                        ? "border border-[var(--lista-item-selected-border)] bg-[var(--lista-item-selected-bg)]"
-                        :
-  "border border-[var(--lista-card-border)] bg-[var(--lista-card-bg)] hover:border-[var(--lista-text-dim)]"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="truncate text-[14px] font-semibold text-[var(--text-primary)]">
-                        {desafio.nome}
-                      </span>
-                      {concluido && (
-                        <Trophy
-                          aria-label="Concluído"
-                          className="h-4 w-4 fill-current text-[var(--hall-ouro)] shrink-0"
-                        />
-                      )}
-                    </div>
-
-                    <span className="text-[12px] text-[var(--lista-text-muted)]">{subTexto}</span>
-
-                    {progresso && (
-                      <div className="mt-1 flex flex-col gap-1.5">
-                        <div className="h-1 w-full overflow-hidden rounded-[2px] bg-[var(--lista-progress-track)]">
-                          <div
-                            style={{
-                              width: `${Math.min(100, Math.max(0, pct))}%`,
-                            }}
-                            className={`h-full ${
-                              concluido
-                                ? "bg-[var(--hall-ouro)]"
-                                : "bg-[var(--lista-progress-fill)]"
-                            }`}
-                          />
-                        </div>
-                        <span className="text-[12px] tabular-nums text-[var(--lista-text-secondary)]">
-                          {progresso.feitos} / {progresso.meta}
-                        </span>
-                      </div>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-            {desafios.length > 3 && (
-              <button
-                type="button"
-                aria-expanded={mostrarTodosDesafios}
-                onClick={() => setDesafiosExpandidos((expandido) => !expandido)}
-                className="flex items-center justify-center gap-1 rounded-lg py-1 text-[12px] font-semibold text-[var(--accent)] transition-colors hover:text-[var(--text-primary)]"
-              >
-                {mostrarTodosDesafios ? <ChevronUp className="h-3.5 w-3.5" aria-hidden="true" /> : <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />}
-                <span>{mostrarTodosDesafios ? "Mostrar menos" : `Mostrar mais (${desafios.length - 3})`}</span>
-              </button>
-            )}
-          </div>
-        )}
-
-        {filas.length > 0 && (
-          <div className="flex flex-col gap-2">
-            <div className={["flex items-center gap-1.5 text-[12px] font-semibold uppercase",
-  "tracking-[0.04em] text-[var(--lista-text-muted)]"].join(" ")}>
-              <List className="h-3.5 w-3.5 text-[var(--lista-icon-fila)]" />
-              <span>Filas</span>
-            </div>
-
-            <div className="flex flex-row overflow-x-auto pb-1 gap-2 md:flex-col md:overflow-visible">
-              {filasVisiveis.map((fila) => {
-                const ativo = fila.id === selectedId;
-                const subTexto = formatarSubFila(fila.itens_pendentes);
-
-                return (
-                  <button
-                    key={fila.id}
-                    type="button"
-                    aria-current={ativo ? "page" : undefined}
-                    onClick={() => onSelect(fila.id)}
-                    className={`flex flex-col gap-1 rounded-xl p-[12px_14px] text-left transition-colors min-w-[240px]
-md:min-w-0 md:w-full shrink-0 ${
-                      ativo
-                        ? "border border-[var(--lista-item-selected-border)] bg-[var(--lista-item-selected-bg)]"
-                        :
-  "border border-[var(--lista-card-border)] bg-[var(--lista-card-bg)] hover:border-[var(--lista-text-dim)]"
-                    }`}
-                  >
-                    <span className="truncate text-[14px] font-semibold text-[var(--text-primary)]">
-                      {fila.nome}
-                    </span>
-                    <span className="text-[12px] text-[var(--lista-text-muted)]">{subTexto}</span>
-                  </button>
-                );
-              })}
-            </div>
-            {filas.length > 3 && (
-              <button
-                type="button"
-                aria-expanded={mostrarTodasFilas}
-                onClick={() => setFilasExpandidas((expandida) => !expandida)}
-                className="flex items-center justify-center gap-1 rounded-lg py-1 text-[12px] font-semibold text-[var(--accent)] transition-colors hover:text-[var(--text-primary)]"
-              >
-                {mostrarTodasFilas ? <ChevronUp className="h-3.5 w-3.5" aria-hidden="true" /> : <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />}
-                <span>{mostrarTodasFilas ? "Mostrar menos" : `Mostrar mais (${filas.length - 3})`}</span>
-              </button>
-            )}
-          </div>
-        )}
-      </nav>
-    </aside>
+    <DndContext sensors={sensores} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+      <aside className="flex w-full flex-col gap-5">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-[28px] font-bold tracking-[-0.01em] text-[var(--text-primary)]">Listas e Desafios</h1>
+          <p className="text-[14px] text-[var(--lista-text-secondary)]">O que jogar em seguida e as metas que você quer bater.</p>
+        </div>
+        <button type="button" onClick={onNovaLista} className="btn-primario flex h-11 w-full items-center justify-center gap-2 px-4 text-[14px]">
+          <Plus className="h-4 w-4" />
+          <span>Nova lista ou desafio</span>
+        </button>
+        <nav aria-label="Seus desafios e listas" className="flex flex-col gap-[18px]">
+          <GrupoSidebar tipo="desafio" listas={desafios} visiveis={mostrarTodosDesafios ? desafios : desafios.slice(0, 3)} selectedId={selectedId} expandido={mostrarTodosDesafios} expandir={() => setDesafiosExpandidos((valor) => !valor)} onSelect={onSelect} />
+          <GrupoSidebar tipo="fila" listas={filas} visiveis={mostrarTodasFilas ? filas : filas.slice(0, 3)} selectedId={selectedId} expandido={mostrarTodasFilas} expandir={() => setFilasExpandidas((valor) => !valor)} onSelect={onSelect} />
+        </nav>
+      </aside>
+    </DndContext>
   );
+}
+
+interface GrupoSidebarProps {
+  tipo: ListaTipo;
+  listas: ListaResumo[];
+  visiveis: ListaResumo[];
+  selectedId: number | null;
+  expandido: boolean;
+  expandir: () => void;
+  onSelect: (id: number) => void;
+}
+
+function GrupoSidebar({ tipo, listas, visiveis, selectedId, expandido, expandir, onSelect }: GrupoSidebarProps) {
+  if (listas.length === 0) return null;
+  const ehDesafio = tipo === "desafio";
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-[0.04em] text-[var(--lista-text-muted)]">
+        {ehDesafio ? <Trophy className="h-3.5 w-3.5 text-[var(--hall-ouro)]" /> : <List className="h-3.5 w-3.5 text-[var(--lista-icon-fila)]" />}
+        <span>{ehDesafio ? "Desafios" : "Filas"}</span>
+      </div>
+      <SortableContext items={visiveis.map((lista) => lista.id)} strategy={verticalListSortingStrategy}>
+        <div className="flex flex-row gap-2 overflow-x-auto pb-1 md:flex-col md:overflow-visible">
+          {visiveis.map((lista) => <ListaSidebarItem key={lista.id} lista={lista} tipo={tipo} selecionada={lista.id === selectedId} onSelect={onSelect} />)}
+        </div>
+      </SortableContext>
+      {listas.length > 3 && (
+        <button type="button" aria-expanded={expandido} onClick={expandir} className="flex items-center justify-center gap-1 rounded-lg py-1 text-[12px] font-semibold text-[var(--accent)] transition-colors hover:text-[var(--text-primary)]">
+          {expandido ? <ChevronUp className="h-3.5 w-3.5" aria-hidden="true" /> : <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />}
+          <span>{expandido ? "Mostrar menos" : `Mostrar mais (${listas.length - 3})`}</span>
+        </button>
+      )}
+    </div>
+  );
+}
+
+function selecionadoForaDaPrevia(listas: ListaResumo[], selectedId: number | null): boolean {
+  return listas.findIndex((lista) => lista.id === selectedId) >= 3;
 }

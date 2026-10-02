@@ -48,7 +48,7 @@ SET nome = $3,
     descricao = $4,
     updated_at = now()
 WHERE id = $1 AND usuario_id = $2
-RETURNING id, usuario_id, tipo, nome, descricao, regra_tipo, regra_valor, regra_igdb_id, meta, created_at, updated_at
+RETURNING id, usuario_id, tipo, nome, descricao, regra_tipo, regra_valor, regra_igdb_id, meta, created_at, updated_at, posicao
 `
 
 type AtualizarListaParams struct {
@@ -78,6 +78,7 @@ func (q *Queries) AtualizarLista(ctx context.Context, arg AtualizarListaParams) 
 		&i.Meta,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Posicao,
 	)
 	return i, err
 }
@@ -170,7 +171,7 @@ func (q *Queries) BuscarJogoZeradoDoUsuario(ctx context.Context, arg BuscarJogoZ
 }
 
 const buscarListaPorID = `-- name: BuscarListaPorID :one
-SELECT id, usuario_id, tipo, nome, descricao, regra_tipo, regra_valor, regra_igdb_id, meta, created_at, updated_at FROM listas
+SELECT id, usuario_id, tipo, nome, descricao, regra_tipo, regra_valor, regra_igdb_id, meta, created_at, updated_at, posicao FROM listas
 WHERE id = $1 AND usuario_id = $2
 `
 
@@ -194,12 +195,13 @@ func (q *Queries) BuscarListaPorID(ctx context.Context, arg BuscarListaPorIDPara
 		&i.Meta,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Posicao,
 	)
 	return i, err
 }
 
 const buscarListaPorIDParaUpdate = `-- name: BuscarListaPorIDParaUpdate :one
-SELECT id, usuario_id, tipo, nome, descricao, regra_tipo, regra_valor, regra_igdb_id, meta, created_at, updated_at FROM listas
+SELECT id, usuario_id, tipo, nome, descricao, regra_tipo, regra_valor, regra_igdb_id, meta, created_at, updated_at, posicao FROM listas
 WHERE id = $1 AND usuario_id = $2
 FOR UPDATE
 `
@@ -224,6 +226,7 @@ func (q *Queries) BuscarListaPorIDParaUpdate(ctx context.Context, arg BuscarList
 		&i.Meta,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Posicao,
 	)
 	return i, err
 }
@@ -276,10 +279,11 @@ func (q *Queries) CriarItemLista(ctx context.Context, arg CriarItemListaParams) 
 
 const criarLista = `-- name: CriarLista :one
 INSERT INTO listas (
-    usuario_id, tipo, nome, descricao, regra_tipo, regra_valor, regra_igdb_id
+    usuario_id, tipo, nome, descricao, regra_tipo, regra_valor, regra_igdb_id, posicao
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7
-) RETURNING id, usuario_id, tipo, nome, descricao, regra_tipo, regra_valor, regra_igdb_id, meta, created_at, updated_at
+    $1, $2, $3, $4, $5, $6, $7,
+    COALESCE((SELECT MAX(posicao) + 1 FROM listas WHERE usuario_id = $1 AND tipo = $2), 1)
+) RETURNING id, usuario_id, tipo, nome, descricao, regra_tipo, regra_valor, regra_igdb_id, meta, created_at, updated_at, posicao
 `
 
 type CriarListaParams struct {
@@ -315,6 +319,7 @@ func (q *Queries) CriarLista(ctx context.Context, arg CriarListaParams) (Lista, 
 		&i.Meta,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Posicao,
 	)
 	return i, err
 }
@@ -473,9 +478,9 @@ func (q *Queries) ListarJogosZeradosUsuarioParaMatching(ctx context.Context, usu
 }
 
 const listarListasPorUsuario = `-- name: ListarListasPorUsuario :many
-SELECT id, usuario_id, tipo, nome, descricao, regra_tipo, regra_valor, regra_igdb_id, meta, created_at, updated_at FROM listas
+SELECT id, usuario_id, tipo, nome, descricao, regra_tipo, regra_valor, regra_igdb_id, meta, created_at, updated_at, posicao FROM listas
 WHERE usuario_id = $1
-ORDER BY created_at DESC, id DESC
+ORDER BY tipo, posicao ASC, id ASC
 `
 
 func (q *Queries) ListarListasPorUsuario(ctx context.Context, usuarioID int32) ([]Lista, error) {
@@ -499,6 +504,7 @@ func (q *Queries) ListarListasPorUsuario(ctx context.Context, usuarioID int32) (
 			&i.Meta,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Posicao,
 		); err != nil {
 			return nil, err
 		}

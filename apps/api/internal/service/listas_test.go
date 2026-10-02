@@ -21,6 +21,7 @@ type mockListasRepo struct {
 	criarComItensFn             func(ctx context.Context, params repository.CriarListaComItensParams) (*repository.Lista, []*repository.ListaItem, error)
 	buscarPorIDFn               func(ctx context.Context, id int64, usuarioID int32) (*repository.Lista, error)
 	listarPorUsuarioFn          func(ctx context.Context, usuarioID int32) ([]*repository.Lista, error)
+	reordenarListasFn           func(ctx context.Context, usuarioID int32, listaIDs []int64) error
 	atualizarFn                 func(ctx context.Context, params repository.AtualizarListaParams) (*repository.Lista, error)
 	excluirFn                   func(ctx context.Context, id int64, usuarioID int32) error
 	criarItemFn                 func(ctx context.Context, listaID int64, usuarioID int32, params repository.CriarItemParams) (*repository.ListaItem, error)
@@ -65,6 +66,13 @@ func (m *mockListasRepo) ListarPorUsuario(ctx context.Context, usuarioID int32) 
 		return m.listarPorUsuarioFn(ctx, usuarioID)
 	}
 	return []*repository.Lista{}, nil
+}
+
+func (m *mockListasRepo) ReordenarListas(ctx context.Context, usuarioID int32, listaIDs []int64) error {
+	if m.reordenarListasFn != nil {
+		return m.reordenarListasFn(ctx, usuarioID, listaIDs)
+	}
+	return nil
 }
 
 func (m *mockListasRepo) Atualizar(ctx context.Context, params repository.AtualizarListaParams) (*repository.Lista, error) {
@@ -617,6 +625,47 @@ func TestListasService_ReordenarItens_Validacao(t *testing.T) {
 			t.Fatalf("esperava ErrListaOrdemInvalida, obteve %v", err)
 		}
 	})
+}
+
+func TestListasService_ReordenarListas_ValidaGrupoEReordena(t *testing.T) {
+	chamado := false
+	repo := &mockListasRepo{
+		listarPorUsuarioFn: func(context.Context, int32) ([]*repository.Lista, error) {
+			return []*repository.Lista{
+				{ID: 1, Tipo: "desafio", Posicao: 1},
+				{ID: 2, Tipo: "desafio", Posicao: 2},
+				{ID: 3, Tipo: "fila", Posicao: 1},
+			}, nil
+		},
+		reordenarListasFn: func(_ context.Context, _ int32, ids []int64) error {
+			chamado = true
+			if len(ids) != 2 || ids[0] != 2 || ids[1] != 1 {
+				t.Fatalf("ordem inesperada: %v", ids)
+			}
+			return nil
+		},
+	}
+	svc := NewListasService(repo, &mockListasIGDB{})
+	listas, err := svc.ReordenarListas(context.Background(), 1, []int64{2, 1})
+	if err != nil {
+		t.Fatalf("reordenacao falhou: %v", err)
+	}
+	if !chamado || len(listas) != 3 {
+		t.Fatalf("esperava persistencia e resposta completa, chamado=%v listas=%d", chamado, len(listas))
+	}
+}
+
+func TestListasService_ReordenarListas_RejeitaTiposMisturados(t *testing.T) {
+	repo := &mockListasRepo{
+		listarPorUsuarioFn: func(context.Context, int32) ([]*repository.Lista, error) {
+			return []*repository.Lista{{ID: 1, Tipo: "desafio"}, {ID: 2, Tipo: "fila"}}, nil
+		},
+	}
+	svc := NewListasService(repo, &mockListasIGDB{})
+	_, err := svc.ReordenarListas(context.Background(), 1, []int64{1, 2})
+	if !errors.Is(err, ErrListaOrdemListasInvalida) {
+		t.Fatalf("esperava ordem inválida, obteve %v", err)
+	}
 }
 
 func TestListasService_SincronizarFranquia(t *testing.T) {

@@ -35,6 +35,12 @@ function queryCatalogo(filtro: FiltroCatalogo): string {
 export const listasService = {
   listar: (token?: string, signal?: AbortSignal) =>
     apiRequest<ListaResumo[]>("/listas", { method: "GET", signal }, token),
+  reordenarListas: (listaIds: number[], token?: string) =>
+    apiRequest<ListaResumo[]>(
+      "/listas/ordem",
+      { method: "PUT", body: JSON.stringify({ lista_ids: listaIds }) },
+      token,
+    ),
   obterPorId: (id: number, token?: string, signal?: AbortSignal) =>
     apiRequest<ListaDetalhada>(
       `/listas/${id}`,

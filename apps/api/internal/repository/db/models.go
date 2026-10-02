@@ -359,6 +359,7 @@ type Lista struct {
 	Meta        pgtype.Int4
 	CreatedAt   pgtype.Timestamptz
 	UpdatedAt   pgtype.Timestamptz
+	Posicao     int32
 }
 
 type ListaIten struct {

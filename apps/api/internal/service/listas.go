@@ -36,6 +36,7 @@ var (
 	ErrListaItensNaoPermitidos        = errors.New("listas.itens_nao_permitidos")
 	ErrListaItemDuplicado             = errors.New("listas.item_duplicado")
 	ErrListaOrdemInvalida             = errors.New("listas.ordem_invalida")
+	ErrListaOrdemListasInvalida       = errors.New("listas.ordem_listas_invalida")
 	ErrListaSincronizacaoNaoPermitida = errors.New("listas.sincronizacao_nao_permitida")
 	ErrListaIDInvalido                = errors.New("listas.id_invalido")
 	ErrListaCampoNaoPermitido         = errors.New("listas.campo_nao_permitido")
@@ -105,6 +106,7 @@ type ListaResumo struct {
 	Progresso      *ProgressoDetalhe `json:"progresso"`
 	CreatedAt      time.Time         `json:"created_at"`
 	UpdatedAt      time.Time         `json:"updated_at"`
+	Posicao        int               `json:"posicao"`
 }
 
 type ListaDetalhada struct {
@@ -597,6 +599,49 @@ func (s *ListasService) ListarListas(ctx context.Context, usuarioID int32) ([]*L
 	}
 
 	return res, nil
+}
+
+func (s *ListasService) ReordenarListas(ctx context.Context, usuarioID int32, listaIDs []int64) ([]*ListaResumo, error) {
+	if len(listaIDs) == 0 {
+		return nil, ErrListaOrdemListasInvalida
+	}
+	listas, err := s.repo.ListarPorUsuario(ctx, usuarioID)
+	if err != nil {
+		return nil, err
+	}
+
+	porID := make(map[int64]*repository.Lista, len(listas))
+	for _, lista := range listas {
+		porID[lista.ID] = lista
+	}
+	tipo := ""
+	vistos := make(map[int64]bool, len(listaIDs))
+	for _, id := range listaIDs {
+		lista, ok := porID[id]
+		if !ok || vistos[id] {
+			return nil, ErrListaOrdemListasInvalida
+		}
+		if tipo == "" {
+			tipo = lista.Tipo
+		} else if lista.Tipo != tipo {
+			return nil, ErrListaOrdemListasInvalida
+		}
+		vistos[id] = true
+	}
+
+	quantidadeDoTipo := 0
+	for _, lista := range listas {
+		if lista.Tipo == tipo {
+			quantidadeDoTipo++
+		}
+	}
+	if len(listaIDs) != quantidadeDoTipo {
+		return nil, ErrListaOrdemListasInvalida
+	}
+	if err := s.repo.ReordenarListas(ctx, usuarioID, listaIDs); err != nil {
+		return nil, err
+	}
+	return s.ListarListas(ctx, usuarioID)
 }
 
 func (s *ListasService) AtualizarLista(ctx context.Context, input AtualizarListaInput) (*ListaDetalhada, error) {
@@ -1279,6 +1324,7 @@ func (s *ListasService) calcularLista(lista *repository.Lista, jogos []*reposito
 			Progresso:      progresso,
 			CreatedAt:      lista.CreatedAt,
 			UpdatedAt:      lista.UpdatedAt,
+			Posicao:        lista.Posicao,
 		}
 
 		return resumo, itensDetalhe
@@ -1364,6 +1410,7 @@ func (s *ListasService) calcularLista(lista *repository.Lista, jogos []*reposito
 		Progresso:      progresso,
 		CreatedAt:      lista.CreatedAt,
 		UpdatedAt:      lista.UpdatedAt,
+		Posicao:        lista.Posicao,
 	}
 
 	return resumo, detalhesItens

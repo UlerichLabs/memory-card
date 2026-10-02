@@ -25,6 +25,7 @@ function ListasPageContent() {
     carregarListas,
     abrirLista,
     abrirModalCriar,
+    reordenarListas,
   } = useListasStore()
   useDocumentTitle(listaAberta?.nome ?? 'Listas e Desafios')
 
@@ -142,6 +143,7 @@ function ListasPageContent() {
           selectedId={listaAberta?.id ?? null}
           onSelect={handleSelectLista}
           onNovaLista={abrirModalCriar}
+          onReordenar={reordenarListas}
         />
         {renderPainel()}
       </main>

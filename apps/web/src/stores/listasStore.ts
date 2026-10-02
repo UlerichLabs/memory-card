@@ -13,6 +13,7 @@ import { resolverMensagemErro } from "@/components/listas/listas.constants";
 import { ApiError } from "@/lib/api";
 import type {
   ListaResumo,
+  ListaTipo,
   ListaDetalhada,
   ListaItem,
   CriarListaPayload,
@@ -230,6 +231,39 @@ export function ListasProvider({
     [listaAberta, effectiveToken],
   );
 
+  const reordenarListas = useCallback(
+    async (tipo: ListaTipo, listaIds: number[]): Promise<void> => {
+      setError(null);
+      const listasAnteriores = listas;
+      const posicoes = new Map(listaIds.map((id, index) => [id, index + 1]));
+      setListas((prev) =>
+        ordenarListas(
+          prev.map((lista) =>
+            lista.tipo === tipo && posicoes.has(lista.id)
+              ? { ...lista, posicao: posicoes.get(lista.id) }
+              : lista,
+          ),
+        ),
+      );
+      try {
+        const atualizadas = await listasService.reordenarListas(
+          listaIds,
+          effectiveToken,
+        );
+        setListas(ordenarListas(atualizadas));
+      } catch (err: unknown) {
+        setListas(listasAnteriores);
+        const msg =
+          err instanceof ApiError
+            ? resolverMensagemErro(err.codigo)
+            : "Não foi possível salvar a nova ordem das listas.";
+        setError(msg);
+        throw err;
+      }
+    },
+    [effectiveToken, listas],
+  );
+
   const associarZeramento = useCallback(
     async (itemId: number, jogoZeradoId: number): Promise<void> => {
       if (!listaAberta) throw new Error("Nenhuma lista aberta");
@@ -303,6 +337,7 @@ export function ListasProvider({
     adicionarItem,
     removerItem,
     reordenarItens,
+    reordenarListas,
     associarZeramento,
     adicionarItensLote,
   };
