@@ -8,6 +8,7 @@ import { GameDoAnoCard } from '@/components/hall/GameDoAnoCard'
 import { GameDoAnoVazio } from '@/components/hall/GameDoAnoVazio'
 import { GamesDaVidaGrade } from '@/components/hall/GamesDaVidaGrade'
 import { EscolherGameDoAnoDialog } from '@/components/hall/EscolherGameDoAnoDialog'
+import { useDocumentTitle } from '@/lib/useDocumentTitle'
 
 function HallDaFamaSkeletons() {
   return (
@@ -33,6 +34,7 @@ function HallDaFamaSkeletons() {
 }
 
 function HallDaFamaConteudo() {
+  useDocumentTitle('Hall da Fama')
   const { resumo, gamesDaVida, isLoading, error, carregarHallDaFama } = useHallDaFamaStore()
   const { abrirModalRegistro } = useJogosStore()
 
@@ -41,12 +43,10 @@ function HallDaFamaConteudo() {
   const [dialogJogoAtual, setDialogJogoAtual] = useState<JogoZeradoDTO | null>(null)
 
   useEffect(() => {
-    document.title = 'Hall da Fama'
     const ctrl = new AbortController()
     carregarHallDaFama(ctrl.signal).catch(() => {})
     return () => {
       ctrl.abort()
-      document.title = 'Memory Card'
     }
   }, [carregarHallDaFama])
 

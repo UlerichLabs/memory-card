@@ -11,6 +11,7 @@ import { NovaListaDialog } from '@/components/listas/NovaListaDialog'
 import { ExcluirListaDialog } from '@/components/listas/ExcluirListaDialog'
 import { ListasVazio } from '@/components/listas/ListasVazio'
 import { ListasSkeleton } from '@/components/listas/ListasSkeleton'
+import { useDocumentTitle } from '@/lib/useDocumentTitle'
 
 function ListasPageContent() {
   const { id } = useParams<{ id?: string }>()
@@ -25,6 +26,7 @@ function ListasPageContent() {
     abrirLista,
     abrirModalCriar,
   } = useListasStore()
+  useDocumentTitle(listaAberta?.nome ?? 'Listas e Desafios')
 
   const [naoEncontrada, setNaoEncontrada] = useState(false)
   const [inicializado, setInicializado] = useState(false)

@@ -4,6 +4,7 @@ import type { JogoZeradoDTO } from '@/types/jogos'
 import { formatarCapaIGDB, isoParaDataPt } from '@/lib/utils'
 import { NotaBadge } from './NotaBadge'
 import { DificuldadePill } from './DificuldadePill'
+import { ConsoleBadge } from './ConsoleBadge'
 
 export interface BibliotecaListItemProps {
   jogo: JogoZeradoDTO
@@ -76,9 +77,7 @@ export function BibliotecaListItem({ jogo, onEditar, onExcluir, onDetalhes }: Bi
       </div>
 
       <div className="flex shrink-0 items-center gap-3 sm:gap-4 md:gap-6">
-        <span className="rounded-[4px] border border-[var(--biblioteca-control-border)] bg-[var(--biblioteca-control-bg)] px-2 py-0.5 text-xs font-medium text-[var(--biblioteca-text-muted)]">
-          {jogo.console}
-        </span>
+        <ConsoleBadge nome={jogo.console} />
         {tempoFormatado && (
           <span className="hidden text-xs text-[var(--biblioteca-text-muted)] lg:inline-block">
             {tempoFormatado}

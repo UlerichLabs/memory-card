@@ -28,7 +28,7 @@ function calcularPaginas(paginaAtual: number, totalPaginas: number): (number | s
 }
 
 export function BibliotecaPaginacao({ meta, onMudarPagina }: BibliotecaPaginacaoProps) {
-  if (meta.total_paginas <= 1) return null
+  if (meta.total <= 0) return null
 
   const inicio = meta.total === 0 ? 0 : (meta.pagina - 1) * meta.por_pagina + 1
   const fim = Math.min(meta.pagina * meta.por_pagina, meta.total)
@@ -44,7 +44,7 @@ export function BibliotecaPaginacao({ meta, onMudarPagina }: BibliotecaPaginacao
         <span className="font-semibold text-[var(--biblioteca-text-primary)]">{meta.total}</span>
       </p>
 
-      <div className="flex items-center gap-1.5">
+      {meta.total_paginas > 1 && <div className="flex items-center gap-1.5">
         <button
           type="button"
           disabled={meta.pagina <= 1}
@@ -98,7 +98,7 @@ export function BibliotecaPaginacao({ meta, onMudarPagina }: BibliotecaPaginacao
           <span>Próxima</span>
           <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
         </button>
-      </div>
+      </div>}
     </nav>
   )
 }

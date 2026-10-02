@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
 import { Hammer } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
+import { useDocumentTitle } from '@/lib/useDocumentTitle'
 
 const pageTheme = {
   '--bg-primary': '#15161A',
@@ -22,6 +23,7 @@ export interface EmConstrucaoPageProps {
 }
 
 export function EmConstrucaoPage({ modulo }: EmConstrucaoPageProps) {
+  useDocumentTitle(modulo)
   return (
     <div style={pageTheme} className="min-h-full">
       <Topbar />

@@ -13,6 +13,7 @@ import { JogoDetalheStats } from '@/components/jogos/detalhe/JogoDetalheStats'
 import { JogoDetalheReview } from '@/components/jogos/detalhe/JogoDetalheReview'
 import { JogoDetalheSobre } from '@/components/jogos/detalhe/JogoDetalheSobre'
 import { JogoDetalheSkeleton } from '@/components/jogos/detalhe/JogoDetalheSkeleton'
+import { useDocumentTitle } from '@/lib/useDocumentTitle'
 
 export function JogoDetalhePage() {
   const { id } = useParams<{ id: string }>()
@@ -25,6 +26,7 @@ export function JogoDetalhePage() {
   const [erroStatus, setErroStatus] = useState<'notFound' | 'network' | null>(null)
   const [excluindoAberto, setExcluindoAberto] = useState(false)
   const [isExcluindo, setIsExcluindo] = useState(false)
+  useDocumentTitle(jogo?.nome ?? 'Jogo')
 
   const fromSearch = (location.state as { from?: string } | null)?.from || ''
   const handleVoltar = () => navigate(`/biblioteca${fromSearch}`)
@@ -64,11 +66,6 @@ export function JogoDetalhePage() {
     if (prevModalRef.current && !isModalOpen) carregarDetalhe()
     prevModalRef.current = isModalOpen
   }, [isModalOpen, carregarDetalhe])
-
-  useEffect(() => {
-    if (jogo?.nome) document.title = jogo.nome
-    return () => { document.title = 'Memory Card' }
-  }, [jogo?.nome])
 
   async function handleConfirmarExclusao() {
     if (!jogo) return

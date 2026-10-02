@@ -13,6 +13,7 @@ import { DashboardVazio } from '@/components/dashboard/DashboardVazio'
 import { DashboardSecaoErro } from '@/components/dashboard/DashboardSecaoErro'
 import { JogandoAgora } from '@/components/jogando/JogandoAgora'
 import { useJogandoStore } from '@/stores/jogandoStore'
+import { useDocumentTitle } from '@/lib/useDocumentTitle'
 
 function Bloco({ erro, carregando, pronto, retry, children }: { erro?: string; carregando: boolean; pronto: boolean; retry: () => void; children: ReactNode }) {
   if (erro) return <DashboardSecaoErro onRetry={retry} />
@@ -21,13 +22,14 @@ function Bloco({ erro, carregando, pronto, retry, children }: { erro?: string; c
 }
 
 export function DashboardPage() {
+  useDocumentTitle('Dashboard')
   const { sessao } = useAuthStore()
   const { abrirModalRegistro } = useJogosStore()
   const dashboard = useDashboardStore()
   const { carregar: carregarJogando } = useJogandoStore()
   const { carregarDashboard } = dashboard
   const nomeUsuario = sessao?.usuario?.nome ?? 'Jogador'
-  useEffect(() => { document.title = 'Dashboard'; const controller = new AbortController(); void carregarDashboard(controller.signal); void carregarJogando(controller.signal); return () => { controller.abort(); document.title = 'Memory Card' } }, [carregarDashboard, carregarJogando])
+  useEffect(() => { const controller = new AbortController(); void carregarDashboard(controller.signal); void carregarJogando(controller.signal); return () => { controller.abort() } }, [carregarDashboard, carregarJogando])
 
   const registrar = () => abrirModalRegistro({ onSalvo: () => dashboard.carregarDashboard() })
   const erroTotais = dashboard.errors.resumo ?? dashboard.errors.abandonados

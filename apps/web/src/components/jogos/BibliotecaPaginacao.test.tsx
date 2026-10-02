@@ -4,15 +4,16 @@ import userEvent from '@testing-library/user-event'
 import { BibliotecaPaginacao } from './BibliotecaPaginacao'
 
 describe('BibliotecaPaginacao', () => {
-  it('não renderiza nada quando há apenas uma página', () => {
+  it('exibe o resumo mesmo quando há apenas uma página', () => {
     const onMudarPagina = vi.fn()
-    const { container } = render(
+    render(
       <BibliotecaPaginacao
         meta={{ pagina: 1, por_pagina: 24, total: 10, total_paginas: 1 }}
         onMudarPagina={onMudarPagina}
       />
     )
-    expect(container.firstChild).toBeNull()
+    expect(screen.getByRole('navigation')).toHaveTextContent('Mostrando 1–10 de 10')
+    expect(screen.queryByRole('button', { name: 'Próxima página' })).not.toBeInTheDocument()
   })
 
   it('desabilita botão Anterior na primeira página e Próxima na última página', () => {

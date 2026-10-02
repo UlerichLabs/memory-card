@@ -11,8 +11,10 @@ import { BibliotecaVazia } from '@/components/jogos/BibliotecaVazia'
 import { BibliotecaSkeletons } from '@/components/jogos/BibliotecaSkeletons'
 import { ExcluirJogoDialog } from '@/components/jogos/ExcluirJogoDialog'
 import type { Dificuldade, JogoZeradoDTO, ListarJogosParams } from '@/types/jogos'
+import { useDocumentTitle } from '@/lib/useDocumentTitle'
 
 export function BibliotecaPage() {
+  useDocumentTitle('Biblioteca')
   const navigate = useNavigate()
   const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()

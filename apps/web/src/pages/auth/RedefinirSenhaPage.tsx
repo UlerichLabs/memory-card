@@ -4,6 +4,7 @@ import { RedefinirSenhaForm } from '@/components/auth/RedefinirSenhaForm'
 import { mensagemTokenReset, RECUPERACAO_SENHA_MENSAGENS, type EstadoTokenReset } from '@/components/auth/recuperacaoSenhaConstants'
 import { useValidacaoTokenReset } from '@/hooks/useValidacaoTokenReset'
 import { authTheme } from './authTheme'
+import { useDocumentTitle } from '@/lib/useDocumentTitle'
 
 function ErroTokenReset({ estado }: { estado: EstadoTokenReset | 'erro' }) {
   const mensagem = estado === 'erro' ? RECUPERACAO_SENHA_MENSAGENS.falhaValidacao : mensagemTokenReset(estado)
@@ -17,6 +18,7 @@ function ErroTokenReset({ estado }: { estado: EstadoTokenReset | 'erro' }) {
 }
 
 export function RedefinirSenhaPage() {
+  useDocumentTitle('Redefinir senha')
   const [searchParams] = useSearchParams()
   const token = searchParams.get('token') || ''
   const [estadoSubmissao, setEstadoSubmissao] = useState<EstadoTokenReset | null>(null)
