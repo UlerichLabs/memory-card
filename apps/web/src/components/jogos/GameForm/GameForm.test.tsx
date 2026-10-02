@@ -23,6 +23,12 @@ describe('GameForm', () => {
     expect(screen.getByRole('button', { name: 'Salvar registro' })).toBeInTheDocument()
   })
 
+  it('usa a capa normalizada no preview quando o preenchimento inicial vem da IGDB', () => {
+    render(<GameForm initialData={{ nome: 'Chrono Trigger', igdb_capa_url: '//images.igdb.com/t_thumb/co1abc.jpg' }} onSubmit={vi.fn()} />)
+
+    expect(screen.getByAltText('Capa do jogo')).toHaveAttribute('src', 'https://images.igdb.com/t_cover_big/co1abc.jpg')
+  })
+
   it('selecionar uma versão fecha a lista e não refaz a busca', async () => {
     vi.spyOn(jogosService, 'buscarIGDB').mockResolvedValue([sugestao])
     vi.spyOn(jogosService, 'obterDetalhesIGDB').mockResolvedValue({ ...sugestao, summary: 'Resumo' })

@@ -3,8 +3,7 @@ import { abandonarJogoSchema, type AbandonarJogoFormData } from './abandonarJogo
 import { ABANDONADOS_CAMPO_ERRO_MENSAGENS, ABANDONADOS_ERRO_GENERICO } from './abandonados.constants'
 import { hojeIso } from './abandonados.utils'
 import { AbandonadosApiError } from '@/lib/services/abandonadosService'
-import type { JogoAbandonado } from '@/types/abandonados'
-
+import type { JogoAbandonado } from '@/types/abandonados'; import { formatarCapaIGDB } from '@/lib/utils'
 export interface UseAbandonarJogoFormProps {
   initialData?: Partial<JogoAbandonado> | null
   onSubmit: (data: AbandonarJogoFormData) => Promise<void>
@@ -20,11 +19,10 @@ export function useAbandonarJogoForm({ initialData, onSubmit }: UseAbandonarJogo
   const [segundos, setSegundos] = useState('')
   const [motivo, setMotivo] = useState(initialData?.motivo ?? '')
   const [igdbId, setIgdbId] = useState<number | null>(initialData?.igdb_id ?? null)
-  const [igdbCapaUrl, setIgdbCapaUrl] = useState(initialData?.igdb_capa_url ?? '')
+  const [igdbCapaUrl, setIgdbCapaUrl] = useState(formatarCapaIGDB(initialData?.igdb_capa_url ?? undefined))
   const [plataformas, setPlataformas] = useState<string[]>([])
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
-
   useEffect(() => {
     const s = initialData?.tempo_jogado ?? 0
     setNome(initialData?.nome ?? ''); setConsoleName(initialData?.console ?? '')
@@ -34,9 +32,8 @@ export function useAbandonarJogoForm({ initialData, onSubmit }: UseAbandonarJogo
     setMinutos((s % 3600) >= 60 ? String(Math.floor((s % 3600) / 60)) : '')
     setSegundos((s % 60) > 0 ? String(s % 60) : '')
     setMotivo(initialData?.motivo ?? ''); setIgdbId(initialData?.igdb_id ?? null)
-    setIgdbCapaUrl(initialData?.igdb_capa_url ?? ''); setErrors({})
+    setIgdbCapaUrl(formatarCapaIGDB(initialData?.igdb_capa_url ?? undefined)); setErrors({})
   }, [initialData])
-
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setErrors({})
