@@ -4,16 +4,25 @@ import userEvent from '@testing-library/user-event'
 import { BibliotecaPaginacao } from './BibliotecaPaginacao'
 
 describe('BibliotecaPaginacao', () => {
-  it('exibe o resumo mesmo quando há apenas uma página', () => {
+  it('exibe todos os controles desabilitados quando há apenas uma página', async () => {
+    const user = userEvent.setup()
     const onMudarPagina = vi.fn()
     render(
       <BibliotecaPaginacao
-        meta={{ pagina: 1, por_pagina: 24, total: 10, total_paginas: 1 }}
+        meta={{ pagina: 1, por_pagina: 100, total: 10, total_paginas: 1 }}
         onMudarPagina={onMudarPagina}
       />
     )
-    expect(screen.getByRole('navigation')).toHaveTextContent('Mostrando 1–10 de 10')
-    expect(screen.queryByRole('button', { name: 'Próxima página' })).not.toBeInTheDocument()
+    expect(screen.getByRole('navigation')).toHaveTextContent('Mostrando 1–10 de 10 jogos')
+    expect(screen.getByRole('button', { name: 'Página 1' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('button', { name: 'Página anterior' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Página anterior' })).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getByRole('button', { name: 'Próxima página' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Próxima página' })).toHaveAttribute('aria-disabled', 'true')
+    await user.click(screen.getByRole('button', { name: 'Página 1' }))
+    await user.click(screen.getByRole('button', { name: 'Página anterior' }))
+    await user.click(screen.getByRole('button', { name: 'Próxima página' }))
+    expect(onMudarPagina).not.toHaveBeenCalled()
   })
 
   it('desabilita botão Anterior na primeira página e Próxima na última página', () => {

@@ -29,6 +29,23 @@ describe('getConsoleTema', () => {
     const tema = getConsoleTema(nome)
     expect(tema.familia).toBe(familia)
     expect(tema.cor).toBe(cor)
+    expect(['function', 'object']).toContain(typeof tema.Icone)
+  })
+
+  it.each([
+    ['Nintendo Switch', '#E60012', '#fff'],
+    ['PlayStation 5', '#0070D1', '#fff'],
+    ['Xbox Series X|S', '#107C10', '#fff'],
+    ['PC', '#4B5563', '#fff'],
+    ['Sega Genesis', '#1D4ED8', '#fff'],
+    ['Atari 2600', '#F28C28', '#1A1B20'],
+    ['Arcade', '#A21CAF', '#fff'],
+    ['Android', '#0F9D8A', '#fff'],
+    ['Neo Geo', '#4B5563', '#fff'],
+  ])('expõe cores sólidas acessíveis para %s', (nome, cor, corTexto) => {
+    const tema = getConsoleTema(nome)
+    expect(tema.corSolida).toBe(cor)
+    expect(tema.corTextoSolida).toBe(corTexto)
   })
 
   it('normaliza caixa e acentos e oferece fallback', () => {

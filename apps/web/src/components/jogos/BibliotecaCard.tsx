@@ -108,7 +108,7 @@ export function BibliotecaCard({ jogo, onEditar, onExcluir, onDetalhes }: Biblio
         <h3 className="line-clamp-2 min-h-[38px] text-[14px] font-semibold leading-[1.35] text-[var(--biblioteca-text-primary)]" title={jogo.nome}>
           {jogo.nome}
         </h3>
-        <ConsoleBadge nome={jogo.console} />
+        <ConsoleBadge nome={jogo.console} variante="solido" />
         {metaTexto && (
           <p className="truncate text-[12px] tabular-nums text-[var(--biblioteca-card-meta)]">
             {metaTexto}

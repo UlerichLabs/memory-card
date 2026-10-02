@@ -1,16 +1,45 @@
 import { Gamepad2, Joystick, Monitor, Smartphone, CircleX } from 'lucide-react'
-import type { LucideProps } from 'lucide-react'
-import { createElement, type ComponentType } from 'react'
+import { siAndroid, siApple, siAtari, siPlaystation, siSega, siSteam } from 'simple-icons'
+import { createElement, type ComponentType, type CSSProperties } from 'react'
+
+interface ConsoleIconProps {
+  className?: string
+  style?: CSSProperties
+  'aria-hidden'?: boolean | 'true' | 'false'
+}
 
 export interface ConsoleTema {
   familia: string
   cor: string
   corFundo: string
   corBorda: string
-  Icone: ComponentType<LucideProps>
+  Icone: ComponentType<ConsoleIconProps>
+  IconeSuave: ComponentType<ConsoleIconProps>
+  corSolida: string
+  corTextoSolida: string
 }
 
-function PlayStationIcon(props: LucideProps) {
+function SimpleIcon({ icon, props }: { icon: { path: string }; props: ConsoleIconProps }) {
+  return createElement('svg', { ...props, viewBox: '0 0 24 24', fill: 'currentColor' }, createElement('path', { d: icon.path }))
+}
+
+function NintendoIcon(props: ConsoleIconProps) {
+  return createElement('svg', { ...props, viewBox: '0 0 24 24', fill: 'currentColor' },
+    createElement('rect', { x: '4', y: '7', width: '16', height: '10', rx: '4' }),
+    createElement('path', { d: 'M8 10v4m-2-2h4m6-1h.01M18 13h.01' }),
+  )
+}
+
+function NintendoSwitchIcon(props: ConsoleIconProps) {
+  return createElement('svg', { ...props, viewBox: '0 0 24 24', fill: 'currentColor' },
+    createElement('rect', { x: '4', y: '3', width: '6', height: '18', rx: '3' }),
+    createElement('rect', { x: '14', y: '3', width: '6', height: '18', rx: '3' }),
+    createElement('circle', { cx: '7', cy: '8', r: '1' }),
+    createElement('circle', { cx: '17', cy: '16', r: '1' }),
+  )
+}
+
+function PlayStationOutlineIcon(props: ConsoleIconProps) {
   const svgProps = { ...props, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' }
   return createElement('svg', svgProps,
     createElement('path', { d: 'm7 4 2 4-2 3-2-3 2-4Z' }),
@@ -20,16 +49,16 @@ function PlayStationIcon(props: LucideProps) {
   )
 }
 
-const temas: Record<string, { cor: string; Icone: ComponentType<LucideProps> }> = {
-  Nintendo: { cor: '#E60012', Icone: Gamepad2 },
-  PlayStation: { cor: '#0070D1', Icone: PlayStationIcon },
-  Xbox: { cor: '#107C10', Icone: CircleX },
-  PC: { cor: '#8FA8C8', Icone: Monitor },
-  Sega: { cor: '#3B5BDB', Icone: Joystick },
-  Atari: { cor: '#F28C28', Icone: Joystick },
-  Arcade: { cor: '#D946EF', Icone: Joystick },
-  Mobile: { cor: '#14B8A6', Icone: Smartphone },
-  Outro: { cor: 'var(--text-secondary)', Icone: Gamepad2 },
+const temas: Record<string, { cor: string; corSolida: string; corTextoSolida: string; Icone: ComponentType<ConsoleIconProps>; IconeSuave: ComponentType<ConsoleIconProps> }> = {
+  Nintendo: { cor: '#E60012', corSolida: '#E60012', corTextoSolida: '#fff', Icone: NintendoIcon, IconeSuave: Gamepad2 },
+  PlayStation: { cor: '#0070D1', corSolida: '#0070D1', corTextoSolida: '#fff', Icone: (props) => SimpleIcon({ icon: siPlaystation, props }), IconeSuave: PlayStationOutlineIcon },
+  Xbox: { cor: '#107C10', corSolida: '#107C10', corTextoSolida: '#fff', Icone: CircleX, IconeSuave: CircleX },
+  PC: { cor: '#8FA8C8', corSolida: '#4B5563', corTextoSolida: '#fff', Icone: (props) => SimpleIcon({ icon: siSteam, props }), IconeSuave: Monitor },
+  Sega: { cor: '#3B5BDB', corSolida: '#1D4ED8', corTextoSolida: '#fff', Icone: (props) => SimpleIcon({ icon: siSega, props }), IconeSuave: Joystick },
+  Atari: { cor: '#F28C28', corSolida: '#F28C28', corTextoSolida: '#1A1B20', Icone: (props) => SimpleIcon({ icon: siAtari, props }), IconeSuave: Joystick },
+  Arcade: { cor: '#D946EF', corSolida: '#A21CAF', corTextoSolida: '#fff', Icone: Joystick, IconeSuave: Joystick },
+  Mobile: { cor: '#14B8A6', corSolida: '#0F9D8A', corTextoSolida: '#fff', Icone: Smartphone, IconeSuave: Smartphone },
+  Outro: { cor: 'var(--text-secondary)', corSolida: '#4B5563', corTextoSolida: '#fff', Icone: Gamepad2, IconeSuave: Gamepad2 },
 }
 
 function normalizar(nome: string): string {
@@ -62,13 +91,27 @@ function obterFamilia(nome: string): string {
 }
 
 export function getConsoleTema(nome: string): ConsoleTema {
-  const familia = obterFamilia(normalizar(nome))
+  const nomeNormalizado = normalizar(nome)
+  const familia = obterFamilia(nomeNormalizado)
   const tema = temas[familia]
+  const tokens = obterTokens(nomeNormalizado)
+  const icone = familia === 'Nintendo' && contemTermo(tokens, 'switch')
+    ? NintendoSwitchIcon
+    : familia === 'Mobile' && contemTermo(tokens, 'ios')
+      ? (props: ConsoleIconProps) => SimpleIcon({ icon: siApple, props })
+      : familia === 'Mobile' && contemTermo(tokens, 'android')
+        ? (props: ConsoleIconProps) => SimpleIcon({ icon: siAndroid, props })
+        : familia === 'PC' && contemTermo(tokens, 'mac')
+          ? (props: ConsoleIconProps) => SimpleIcon({ icon: siApple, props })
+          : tema.Icone
   return {
     familia,
     cor: tema.cor,
     corFundo: `color-mix(in srgb, ${tema.cor} 14%, transparent)`,
     corBorda: `color-mix(in srgb, ${tema.cor} 40%, transparent)`,
-    Icone: tema.Icone,
+    Icone: icone,
+    IconeSuave: tema.IconeSuave,
+    corSolida: tema.corSolida,
+    corTextoSolida: tema.corTextoSolida,
   }
 }

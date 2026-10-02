@@ -77,7 +77,7 @@ export function BibliotecaListItem({ jogo, onEditar, onExcluir, onDetalhes }: Bi
       </div>
 
       <div className="flex shrink-0 items-center gap-3 sm:gap-4 md:gap-6">
-        <ConsoleBadge nome={jogo.console} />
+        <ConsoleBadge nome={jogo.console} variante="solido" />
         {tempoFormatado && (
           <span className="hidden text-xs text-[var(--biblioteca-text-muted)] lg:inline-block">
             {tempoFormatado}

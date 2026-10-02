@@ -15,4 +15,12 @@ describe('ConsoleBadge', () => {
     rerender(<ConsoleBadge nome="Sega Genesis" />)
     expect(container.querySelector('svg')).toBeInTheDocument()
   })
+
+  it('usa cor sólida e texto adequado na variante da Biblioteca', () => {
+    render(<ConsoleBadge nome="Atari 2600" variante="solido" />)
+    const badge = screen.getByTitle('Atari 2600')
+    expect(badge).toHaveStyle({ backgroundColor: '#F28C28', borderColor: '#F28C28', color: '#1A1B20' })
+    expect(badge).toHaveClass('text-xs', 'font-semibold')
+  })
+
 })
