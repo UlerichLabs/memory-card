@@ -57,7 +57,7 @@ describe('BibliotecaPage', () => {
     vi.restoreAllMocks()
   })
 
-  it('carregamento inicial chama api com pagina=1 e por_pagina=24 e filtros', async () => {
+  it('carregamento inicial chama api com pagina=1 e por_pagina=100 e filtros', async () => {
     const spyListar = vi.spyOn(jogosService, 'listar').mockResolvedValue({
       data: [jogoMock],
       meta: { pagina: 1, por_pagina: 24, total: 1, total_paginas: 1 },
@@ -67,7 +67,7 @@ describe('BibliotecaPage', () => {
 
     await waitFor(() => {
       expect(spyListar).toHaveBeenCalledWith(
-        expect.objectContaining({ pagina: 1, por_pagina: 24 }),
+        expect.objectContaining({ pagina: 1, por_pagina: 100 }),
         undefined,
         expect.any(AbortSignal)
       )

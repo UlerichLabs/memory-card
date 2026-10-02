@@ -23,6 +23,7 @@ type Lista struct {
 	RegraValor  *string
 	RegraIgdbID *int32
 	Meta        *int
+	Posicao     int
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 }
@@ -98,6 +99,7 @@ type ListasRepository interface {
 	CriarComItens(ctx context.Context, params CriarListaComItensParams) (*Lista, []*ListaItem, error)
 	BuscarPorID(ctx context.Context, id int64, usuarioID int32) (*Lista, error)
 	ListarPorUsuario(ctx context.Context, usuarioID int32) ([]*Lista, error)
+	ReordenarListas(ctx context.Context, usuarioID int32, listaIDs []int64) error
 	Atualizar(ctx context.Context, params AtualizarListaParams) (*Lista, error)
 	Excluir(ctx context.Context, id int64, usuarioID int32) error
 
@@ -252,6 +254,53 @@ func (r *SQLListasRepository) ListarPorUsuario(ctx context.Context, usuarioID in
 		res = append(res, mapearLista(row))
 	}
 	return res, nil
+}
+
+func (r *SQLListasRepository) ReordenarListas(ctx context.Context, usuarioID int32, listaIDs []int64) error {
+	if r.pool == nil {
+		return errors.New("pool nao configurado")
+	}
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("iniciar transacao: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	rows, err := tx.Query(ctx, `
+		SELECT id FROM listas
+		WHERE usuario_id = $1 AND id = ANY($2::bigint[])
+		FOR UPDATE`, usuarioID, listaIDs)
+	if err != nil {
+		return fmt.Errorf("bloquear listas: %w", err)
+	}
+	idsEncontrados := make(map[int64]bool, len(listaIDs))
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			rows.Close()
+			return fmt.Errorf("ler lista bloqueada: %w", err)
+		}
+		idsEncontrados[id] = true
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("listar listas bloqueadas: %w", err)
+	}
+	if len(idsEncontrados) != len(listaIDs) {
+		return errors.New("lista ausente na reordenacao")
+	}
+
+	for posicao, id := range listaIDs {
+		if _, err := tx.Exec(ctx, `
+			UPDATE listas SET posicao = $1, updated_at = now()
+			WHERE id = $2 AND usuario_id = $3`, posicao+1, id, usuarioID); err != nil {
+			return fmt.Errorf("atualizar posicao da lista %d: %w", id, err)
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit transacao: %w", err)
+	}
+	return nil
 }
 
 func (r *SQLListasRepository) Atualizar(ctx context.Context, params AtualizarListaParams) (*Lista, error) {
@@ -775,6 +824,7 @@ func mapearLista(row db.Lista) *Lista {
 		Nome:      row.Nome,
 		CreatedAt: row.CreatedAt.Time,
 		UpdatedAt: row.UpdatedAt.Time,
+		Posicao:   int(row.Posicao),
 	}
 	if row.Descricao.Valid {
 		l.Descricao = &row.Descricao.String

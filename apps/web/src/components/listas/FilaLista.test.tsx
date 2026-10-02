@@ -90,6 +90,7 @@ function renderFilaLista(
     adicionarItensLote: vi.fn(),
     removerItem: vi.fn(),
     reordenarItens: vi.fn(),
+    reordenarListas: vi.fn(),
     associarZeramento: vi.fn(),
     ...storeOverrides,
   };

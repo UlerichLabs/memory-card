@@ -14,13 +14,15 @@ import { useRetomarAbandonado } from '@/components/abandonados/useRetomarAbandon
 import { AbandonadosApiError } from '@/lib/services/abandonadosService'
 import { ERRO_JOGO_NAO_ENCONTRADO } from '@/components/abandonados/abandonados.constants'
 import type { JogoAbandonado, OrdenarAbandonados } from '@/types/abandonados'
+import { useDocumentTitle } from '@/lib/useDocumentTitle'
 
 export function AbandonadosPage() {
+  useDocumentTitle('Abandonados')
   const [searchParams, setSearchParams] = useSearchParams()
   const {
     jogos, meta, filtros, totalGeral, isLoading, carregado, aviso, limparAviso,
     isExcluirModalOpen, jogoParaExcluir,
-    abrirModalCriacao, abrirModalEdicao, abrirModalExcluir, fecharModalExcluir,
+    abrirModalEdicao, abrirModalExcluir, fecharModalExcluir,
     carregarJogos, carregarFiltros, carregarTotal, excluirJogo,
   } = useAbandonadosStore()
 
@@ -121,12 +123,11 @@ export function AbandonadosPage() {
   const totalExibicao = totalGeral || meta.total
 
   return (
-    <div className="flex min-h-screen flex-col bg-[var(--bg-primary)]">
+    <div className="flex min-h-full flex-col bg-[var(--bg-primary)]">
       <Topbar />
       <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6 lg:px-8">
         <AbandonadosCabecalho
           total={totalExibicao}
-          onAbandonar={() => abrirModalCriacao()}
         />
 
         {aviso && (
@@ -166,7 +167,6 @@ export function AbandonadosPage() {
           <AbandonadosVazio
             possuiFiltrosAtivos={temFiltrosAtivos}
             onLimparFiltros={handleLimparFiltros}
-            onAbandonarJogo={() => abrirModalCriacao()}
           />
         ) : (
           <div className="flex flex-col gap-6">

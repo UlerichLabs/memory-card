@@ -1,8 +1,9 @@
 -- name: CriarLista :one
 INSERT INTO listas (
-    usuario_id, tipo, nome, descricao, regra_tipo, regra_valor, regra_igdb_id
+    usuario_id, tipo, nome, descricao, regra_tipo, regra_valor, regra_igdb_id, posicao
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7
+    $1, $2, $3, $4, $5, $6, $7,
+    COALESCE((SELECT MAX(posicao) + 1 FROM listas WHERE usuario_id = $1 AND tipo = $2), 1)
 ) RETURNING *;
 
 -- name: BuscarListaPorID :one
@@ -17,7 +18,7 @@ FOR UPDATE;
 -- name: ListarListasPorUsuario :many
 SELECT * FROM listas
 WHERE usuario_id = $1
-ORDER BY created_at DESC, id DESC;
+ORDER BY tipo, posicao ASC, id ASC;
 
 -- name: AtualizarLista :one
 UPDATE listas

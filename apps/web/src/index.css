@@ -76,6 +76,9 @@
     --text-faint: #52545C;
     --accent: #4F7CFF;
     --accent-foreground: #0E0F12;
+    --novo-gradient-start: #6A95FF;
+    --novo-gradient-mid: #4A6CF5;
+    --novo-gradient-end: #3B54E8;
     --highlight-gold: #E8C15C;
     --difficulty-c: #52545C;
     --difficulty-b: #6B7280;
@@ -404,6 +407,46 @@
 
 @utility bg-primary {
     background-color: var(--bg-primary);
+}
+
+@utility btn-primario {
+    border-radius: 9999px;
+    background-image: linear-gradient(135deg, var(--novo-gradient-start), var(--novo-gradient-mid) 55%, var(--novo-gradient-end));
+    color: white;
+    font-weight: 700;
+    --btn-primario-shadow: 0 6px 18px rgba(79,124,255,0.33), inset 0 1px 0 rgba(255,255,255,0.25);
+    box-shadow: var(--btn-primario-shadow);
+    transition: filter 150ms ease;
+}
+
+@utility btn-primario-sm {
+    --btn-primario-shadow: 0 3px 10px rgba(79,124,255,0.28);
+}
+
+@utility btn-primario-ativo {
+    --btn-primario-shadow: none;
+}
+
+@utility btn-primario-disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+    box-shadow: none;
+}
+
+.btn-primario:hover:not(:disabled) {
+    filter: brightness(1.1);
+}
+
+.btn-primario:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.btn-primario:disabled,
+.btn-primario-disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+    box-shadow: none;
 }
 
 @utility border-border-subtle {

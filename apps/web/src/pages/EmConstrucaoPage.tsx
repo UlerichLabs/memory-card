@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
 import { Hammer } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
+import { useDocumentTitle } from '@/lib/useDocumentTitle'
 
 const pageTheme = {
   '--bg-primary': '#15161A',
@@ -22,8 +23,9 @@ export interface EmConstrucaoPageProps {
 }
 
 export function EmConstrucaoPage({ modulo }: EmConstrucaoPageProps) {
+  useDocumentTitle(modulo)
   return (
-    <div style={pageTheme} className="min-h-svh">
+    <div style={pageTheme} className="min-h-full">
       <Topbar />
 
       <main className="mx-auto max-w-lg px-4 py-16 sm:px-6 text-center">
@@ -41,7 +43,7 @@ export function EmConstrucaoPage({ modulo }: EmConstrucaoPageProps) {
 
           <Link
             to="/biblioteca"
-            className="inline-block rounded-[7px] bg-[var(--accent)] px-4 py-2 text-[13px] font-bold text-[#0E0F12] transition-opacity hover:opacity-90"
+            className="btn-primario inline-block px-4 py-2 text-[13px]"
           >
             Ir para a Biblioteca
           </Link>

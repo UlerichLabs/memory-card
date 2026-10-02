@@ -1,7 +1,6 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { gameFormSchema } from './GameForm.schema'
-import { JOGOS_CAMPO_ERRO_MENSAGENS, JOGOS_ERRO_GENERICO, JogosApiError, type Dificuldade, type JogoZeradoDTO, type SalvarJogoPayload } from '@/lib/services/jogosService'
-
+import { JOGOS_CAMPO_ERRO_MENSAGENS, JOGOS_ERRO_GENERICO, JogosApiError, type Dificuldade, type JogoZeradoDTO, type SalvarJogoPayload } from '@/lib/services/jogosService'; import { formatarCapaIGDB } from '@/lib/utils'
 export interface UseGameFormProps {
   initialData?: Partial<JogoZeradoDTO>
   onSubmit: (payload: SalvarJogoPayload) => Promise<void>
@@ -23,13 +22,13 @@ export function useGameForm({ initialData, onSubmit }: UseGameFormProps) {
   const [review, setReview] = useState(initialData?.review ?? '')
   const [destaque, setDestaque] = useState(initialData?.destaque ?? false)
   const [igdbId, setIgdbId] = useState<number | null>(initialData?.igdb_id ?? null)
-  const [igdbCapaUrl, setIgdbCapaUrl] = useState(initialData?.igdb_capa_url ?? '')
+  const [igdbCapaUrl, setIgdbCapaUrl] = useState(formatarCapaIGDB(initialData?.igdb_capa_url ?? undefined))
   const [igdbDescricao, setIgdbDescricao] = useState(initialData?.igdb_descricao ?? '')
   const [plataformas, setPlataformas] = useState<string[]>([])
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [destaqueError, setDestaqueError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
-
+  useEffect(() => { setIgdbCapaUrl(formatarCapaIGDB(initialData?.igdb_capa_url ?? undefined)) }, [initialData])
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setErrors({}); setDestaqueError(null)

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { ListasPage } from "./ListasPage";
 import { listasService } from "@/lib/services/listasService";
 import { AuthProvider } from "@/store/authStore";
@@ -45,13 +45,18 @@ function renderListasPage(initialPath = "/listas") {
       <AuthProvider>
         <JogosProvider>
           <Routes>
-            <Route path="/listas" element={<ListasPage />} />
+            <Route path="/listas" element={<><LocationEcho /><ListasPage /></>} />
             <Route path="/listas/:id" element={<ListasPage />} />
           </Routes>
         </JogosProvider>
       </AuthProvider>
     </MemoryRouter>,
   );
+}
+
+function LocationEcho() {
+  const location = useLocation();
+  return <output data-testid="location">{location.pathname}{location.search}</output>;
 }
 
 describe("ListasPage", () => {
@@ -72,6 +77,15 @@ describe("ListasPage", () => {
         "Crie uma fila do que jogar em seguida ou um desafio como zerar uma franquia inteira.",
       ),
     ).toBeInTheDocument();
+  });
+
+  it("abre o modal uma vez e limpa o parâmetro novo", async () => {
+    vi.spyOn(listasService, "listar").mockResolvedValue([]);
+
+    renderListasPage("/listas?novo=1");
+
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByTestId("location")).toHaveTextContent("/listas");
   });
 
   it("carrega e seleciona lista via rota /listas/:id", async () => {

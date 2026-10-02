@@ -8,14 +8,15 @@ import { GameDoAnoCard } from '@/components/hall/GameDoAnoCard'
 import { GameDoAnoVazio } from '@/components/hall/GameDoAnoVazio'
 import { GamesDaVidaGrade } from '@/components/hall/GamesDaVidaGrade'
 import { EscolherGameDoAnoDialog } from '@/components/hall/EscolherGameDoAnoDialog'
+import { useDocumentTitle } from '@/lib/useDocumentTitle'
 
 function HallDaFamaSkeletons() {
   return (
     <div className="flex flex-col gap-10">
       <section className="flex flex-col gap-[18px]">
         <div className="h-6 w-48 animate-pulse rounded-[6px] bg-[var(--bg-surface-alt)]" />
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
-          {[1, 2, 3, 4].map((i) => (
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-5">
+          {[1, 2, 3, 4, 5].map((i) => (
             <div key={i} className="h-[230px] animate-pulse rounded-[16px] bg-[var(--bg-surface)]" />
           ))}
         </div>
@@ -33,6 +34,7 @@ function HallDaFamaSkeletons() {
 }
 
 function HallDaFamaConteudo() {
+  useDocumentTitle('Hall da Fama')
   const { resumo, gamesDaVida, isLoading, error, carregarHallDaFama } = useHallDaFamaStore()
   const { abrirModalRegistro } = useJogosStore()
 
@@ -41,12 +43,10 @@ function HallDaFamaConteudo() {
   const [dialogJogoAtual, setDialogJogoAtual] = useState<JogoZeradoDTO | null>(null)
 
   useEffect(() => {
-    document.title = 'Hall da Fama'
     const ctrl = new AbortController()
     carregarHallDaFama(ctrl.signal).catch(() => {})
     return () => {
       ctrl.abort()
-      document.title = 'Memory Card'
     }
   }, [carregarHallDaFama])
 
@@ -65,10 +65,10 @@ function HallDaFamaConteudo() {
   const hallVazio = !isLoading && !error && resumo.length === 0
 
   return (
-    <div className="min-h-svh w-full overflow-x-hidden bg-[var(--bg-primary)]">
+    <div className="min-h-full w-full overflow-x-hidden bg-[var(--bg-primary)]">
       <Topbar />
 
-      <main className="mx-auto flex max-w-7xl flex-col gap-10 p-[20px_16px_32px] sm:p-[32px_40px_48px]">
+        <main className="mx-auto flex max-w-7xl flex-col gap-10 p-[20px_16px_32px] sm:p-[32px_40px_48px]">
         <header className="flex flex-col gap-1.5">
           <h1 className="text-[24px] font-bold tracking-[-0.01em] text-[var(--text-primary)] sm:text-[28px]">
             Hall da Fama
@@ -87,7 +87,7 @@ function HallDaFamaConteudo() {
             <button
               type="button"
               onClick={() => carregarHallDaFama()}
-              className="rounded-[10px] bg-[var(--accent)] px-4 py-2 text-sm font-bold text-[var(--accent-foreground)] transition-opacity hover:opacity-90"
+              className="btn-primario px-4 py-2 text-sm"
             >
               Tentar novamente
             </button>
@@ -103,7 +103,7 @@ function HallDaFamaConteudo() {
             <button
               type="button"
               onClick={() => abrirModalRegistro()}
-              className="mt-2 inline-flex items-center justify-center rounded-[7px] bg-[var(--accent)] px-4 py-2 text-[13px] font-bold text-[var(--accent-foreground)] transition-opacity hover:opacity-90"
+              className="btn-primario mt-2 inline-flex items-center justify-center px-4 py-2 text-[13px]"
             >
               + Registrar jogo
             </button>
@@ -121,7 +121,7 @@ function HallDaFamaConteudo() {
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
                 {resumo.map((item) =>
                   item.game_do_ano ? (
                     <GameDoAnoCard

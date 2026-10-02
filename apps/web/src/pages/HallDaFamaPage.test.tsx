@@ -54,7 +54,7 @@ describe('HallDaFamaPage', () => {
     renderPage()
 
     await waitFor(() => {
-      expect(document.title).toBe('Hall da Fama')
+      expect(document.title).toBe('Hall da Fama · Memory Card')
     })
   })
 

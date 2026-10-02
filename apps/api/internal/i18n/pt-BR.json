@@ -64,6 +64,7 @@
   "listas.item_nao_encontrado": "Item não encontrado.",
   "listas.item_duplicado": "Este jogo já está na lista.",
   "listas.ordem_invalida": "Ordem dos itens inválida.",
+  "listas.ordem_listas_invalida": "Ordem das listas inválida.",
   "listas.id_invalido": "Identificador inválido.",
   "catalogo.parametro_invalido": "Parâmetro de catálogo inválido.",
   "catalogo.paginacao_invalida": "Paginação do catálogo inválida.",

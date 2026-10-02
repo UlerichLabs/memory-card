@@ -1,0 +1,39 @@
+import { render, screen } from '@testing-library/react'
+import { describe, expect, it } from 'vitest'
+import { faXbox } from '@fortawesome/free-brands-svg-icons'
+import { ConsoleBadge } from './ConsoleBadge'
+
+describe('ConsoleBadge', () => {
+  it('renderiza o nome do console', () => {
+    render(<ConsoleBadge nome="PlayStation 5" />)
+    expect(screen.getByText('PlayStation 5')).toBeInTheDocument()
+    expect(screen.getByText('PlayStation 5').previousElementSibling?.tagName).toBe('svg')
+  })
+
+  it('renderiza ícones distintos para computador e console', () => {
+    const { rerender, container } = render(<ConsoleBadge nome="PC" />)
+    expect(container.querySelector('svg')).toBeInTheDocument()
+    rerender(<ConsoleBadge nome="Sega Genesis" />)
+    expect(container.querySelector('svg')).toBeInTheDocument()
+  })
+
+  it('renderiza o path real de Xbox e mantém Nintendo universal', () => {
+    const { container, rerender } = render(<ConsoleBadge nome="Xbox One" variante="solido" />)
+    const path = container.querySelector('path')
+    const xboxPath = Array.isArray(faXbox.icon[4]) ? faXbox.icon[4].join(' ') : faXbox.icon[4]
+    expect(path).toHaveAttribute('d', xboxPath)
+
+    rerender(<ConsoleBadge nome="Nintendo Switch" variante="solido" />)
+    const nintendoPath = container.querySelector('svg')?.innerHTML
+    rerender(<ConsoleBadge nome="Game Boy Color" variante="solido" />)
+    expect(container.querySelector('svg')?.innerHTML).toBe(nintendoPath)
+  })
+
+  it('usa cor sólida e texto adequado na variante da Biblioteca', () => {
+    render(<ConsoleBadge nome="Atari 2600" variante="solido" />)
+    const badge = screen.getByTitle('Atari 2600')
+    expect(badge).toHaveStyle({ backgroundColor: '#F28C28', borderColor: '#F28C28', color: '#1A1B20' })
+    expect(badge).toHaveClass('text-xs', 'font-semibold')
+  })
+
+})

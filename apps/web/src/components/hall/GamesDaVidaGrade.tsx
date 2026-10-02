@@ -2,7 +2,6 @@ import { Link } from 'react-router-dom'
 import { Crown, Gamepad2 } from 'lucide-react'
 import type { JogoZeradoDTO } from '@/types/jogos'
 import { formatarCapaIGDB } from '@/lib/utils'
-import { NotaBadge } from '@/components/jogos/NotaBadge'
 
 export interface GamesDaVidaGradeProps {
   jogos: JogoZeradoDTO[]
@@ -49,7 +48,7 @@ export function GamesDaVidaGrade({ jogos }: GamesDaVidaGradeProps) {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-x-[14px] gap-y-[20px] sm:grid-cols-4 md:grid-cols-4 xl:grid-cols-6 xl:gap-x-5 xl:gap-y-6">
+        <div className="grid grid-cols-2 gap-x-3 gap-y-5 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8">
           {jogos.map((jogo) => {
             const capaUrl = formatarCapaIGDB(jogo.igdb_capa_url, 't_cover_big')
             const anoZerado = jogo.finalizado_em ? new Date(jogo.finalizado_em).getUTCFullYear() : null
@@ -61,7 +60,7 @@ export function GamesDaVidaGrade({ jogos }: GamesDaVidaGradeProps) {
                 to={`/biblioteca/${jogo.id}`}
                 className="group flex flex-col overflow-hidden transition-transform duration-150 hover:-translate-y-0.5"
               >
-                <div className="relative aspect-[3/4] w-full overflow-hidden rounded-[12px] border border-[var(--hall-ouro)] bg-[var(--biblioteca-card-cover-bg)] shadow-[0_0_18px_2px_rgba(240,190,80,0.18)]">
+                <div className="relative aspect-[3/4] w-full overflow-hidden rounded-[8px] border border-[var(--hall-ouro)] bg-[var(--biblioteca-card-cover-bg)] shadow-[0_0_10px_1px_var(--hall-ouro)]">
                   {capaUrl ? (
                     <img
                       src={capaUrl}
@@ -79,25 +78,26 @@ export function GamesDaVidaGrade({ jogos }: GamesDaVidaGradeProps) {
                   )}
 
                   <div className="absolute right-1.5 top-1.5 z-10">
-                    <NotaBadge nota={11} tamanho="sm" />
+                    <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-[var(--hall-ouro)] px-1.5 text-[10px] font-bold text-[var(--hall-dark-icon)]">11</span>
                   </div>
 
                   {jogo.destaque && (
-                    <div className="absolute bottom-1.5 left-1.5 flex items-center gap-1 rounded-[4px] bg-[var(--ouro-jogo-ano)] px-2 py-1 text-[11px] font-bold text-[var(--ouro-jogo-ano-text)]">
+                    <div className="absolute bottom-1.5 left-1.5 rounded-[4px] bg-[var(--ouro-jogo-ano)] px-1.5 py-0.5 text-[9.5px] font-bold text-[var(--ouro-jogo-ano-text)]">
                       <Crown className="h-3 w-3" aria-hidden="true" />
-                      <span>{anoZerado ? `Jogo do ano ${anoZerado}` : 'Jogo do ano'}</span>
+                      <span>{anoZerado ? `GOTY ${anoZerado}` : 'GOTY'}</span>
+                      {anoZerado && <span className="sr-only">Jogo do ano {anoZerado}</span>}
                     </div>
                   )}
                 </div>
 
                 <div className="flex flex-col gap-0.5 pt-2.5">
                   <h3
-                    className="line-clamp-2 min-h-[38px] text-[14px] font-semibold leading-[1.35] text-[var(--biblioteca-text-primary)] transition-colors group-hover:text-[var(--hall-ano-ouro)]"
+                    className="line-clamp-2 min-h-[32px] text-[12px] font-semibold leading-[1.35] text-[var(--biblioteca-text-primary)] transition-colors group-hover:text-[var(--hall-ano-ouro)]"
                     title={jogo.nome}
                   >
                     {jogo.nome}
                   </h3>
-                  <p className="truncate text-[12px] text-[var(--hall-plataforma)]">
+                  <p className="truncate text-[10px] text-[var(--hall-plataforma)]">
                     {metaTexto}
                   </p>
                 </div>

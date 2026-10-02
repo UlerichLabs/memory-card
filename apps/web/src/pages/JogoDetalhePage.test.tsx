@@ -76,6 +76,7 @@ describe("JogoDetalhePage", () => {
         name: "The Legend of Zelda: Ocarina of Time",
       }),
     ).toBeInTheDocument();
+    expect(document.title).toBe("The Legend of Zelda: Ocarina of Time · Memory Card");
     expect(screen.getAllByText("Registro #3").length).toBeGreaterThanOrEqual(1);
     expect(
       screen.getAllByText(/Criado em 11\/01\/2026 · atualizado em 12\/01\/2026/).length,
@@ -146,6 +147,7 @@ describe("JogoDetalhePage", () => {
     renderDetalhe();
 
     expect(await screen.findByText("Erro ao carregar registro")).toBeInTheDocument();
+    expect(document.title).toBe("Jogo · Memory Card");
     const btnTentar = screen.getByRole("button", { name: "Tentar novamente" });
     await user.click(btnTentar);
 

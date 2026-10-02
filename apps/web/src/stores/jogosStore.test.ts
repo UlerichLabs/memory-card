@@ -27,7 +27,7 @@ describe('jogosStore', () => {
   it('inicia com estado padrão', () => {
     const { result } = renderHook(() => useJogosStore(), { wrapper: JogosProvider })
     expect(result.current.jogos).toEqual([])
-    expect(result.current.meta).toEqual({ pagina: 1, por_pagina: 24, total: 0, total_paginas: 0 })
+    expect(result.current.meta).toEqual({ pagina: 1, por_pagina: 100, total: 0, total_paginas: 0 })
     expect(result.current.filtros).toEqual({ consoles: [], generos: [], tipos: [], anos: [] })
     expect(result.current.isLoading).toBe(false)
     expect(result.current.error).toBeNull()

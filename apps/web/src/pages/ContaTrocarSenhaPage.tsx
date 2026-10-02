@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
 import { Topbar } from '@/components/layout/Topbar'
 import { TrocarSenhaForm } from '@/components/auth/TrocarSenhaForm'
+import { useDocumentTitle } from '@/lib/useDocumentTitle'
 
 const contaTheme = {
   '--bg-primary': '#15161A',
@@ -16,8 +17,9 @@ const contaTheme = {
 } as CSSProperties
 
 export function ContaTrocarSenhaPage() {
+  useDocumentTitle('Conta')
   return (
-    <div style={contaTheme} className="min-h-svh">
+    <div style={contaTheme} className="min-h-full">
       <Topbar />
       <main className="mx-auto max-w-xl px-4 py-8 sm:px-6 lg:px-8">
         <section className="space-y-6 rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] p-5 sm:p-8">

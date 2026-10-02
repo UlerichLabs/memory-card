@@ -8,6 +8,7 @@ export const LISTAS_ERROS: Record<string, string> = {
   "listas.item_nao_encontrado": "Jogo não encontrado na lista.",
   "listas.nao_encontrada": "Lista não encontrada.",
   "listas.ordem_invalida": "Não foi possível salvar a nova ordem dos jogos.",
+  "listas.ordem_listas_invalida": "Não foi possível salvar a nova ordem das listas.",
   "listas.desafio_sem_jogos": "Escolha pelo menos um jogo.",
   "listas.itens_demais": "Máximo de 1.000 jogos por desafio.",
   "listas.campo_nao_permitido": "Este campo não é permitido.",

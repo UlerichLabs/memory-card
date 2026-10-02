@@ -1,5 +1,6 @@
-import { ArrowLeft, Crown, Gamepad2, Pencil, Trash2 } from 'lucide-react'
+import { ArrowLeft, Crown, Pencil, Trash2 } from 'lucide-react'
 import type { JogoZeradoDTO } from '@/types/jogos'
+import { ConsoleBadge } from '@/components/jogos/ConsoleBadge'
 
 export interface JogoDetalheCabecalhoProps {
   jogo: JogoZeradoDTO
@@ -67,10 +68,7 @@ export function JogoDetalheCabecalho({
 
         <div className="flex flex-wrap items-center gap-2">
           {jogo.console && (
-            <span className="inline-flex h-[28px] sm:h-[30px] items-center gap-1.5 rounded-full border border-[var(--detalhe-chip-plataforma-border)] bg-[var(--detalhe-chip-plataforma-bg)] px-3 text-[12px] sm:text-[13px] font-semibold text-[var(--detalhe-chip-plataforma-text)]">
-              <Gamepad2 className="h-3.5 w-3.5" aria-hidden="true" />
-              <span>{jogo.console}</span>
-            </span>
+            <ConsoleBadge nome={jogo.console} tamanho="md" />
           )}
 
           {generos.map((gen) => (

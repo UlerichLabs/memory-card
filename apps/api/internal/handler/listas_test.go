@@ -23,6 +23,7 @@ type mockListasService struct {
 	criarListaFn            func(ctx context.Context, input service.CriarListaInput) (*service.ListaDetalhada, error)
 	obterListaFn            func(ctx context.Context, id int64, usuarioID int32) (*service.ListaDetalhada, error)
 	listarListasFn          func(ctx context.Context, usuarioID int32) ([]*service.ListaResumo, error)
+	reordenarListasFn       func(ctx context.Context, usuarioID int32, listaIDs []int64) ([]*service.ListaResumo, error)
 	atualizarListaFn        func(ctx context.Context, input service.AtualizarListaInput) (*service.ListaDetalhada, error)
 	excluirListaFn          func(ctx context.Context, id int64, usuarioID int32) error
 	adicionarItemFn         func(ctx context.Context, input service.AdicionarItemInput) (*service.ListaItemDetalhe, error)
@@ -53,6 +54,13 @@ func (m *mockListasService) ObterLista(ctx context.Context, id int64, usuarioID 
 func (m *mockListasService) ListarListas(ctx context.Context, usuarioID int32) ([]*service.ListaResumo, error) {
 	if m.listarListasFn != nil {
 		return m.listarListasFn(ctx, usuarioID)
+	}
+	return []*service.ListaResumo{}, nil
+}
+
+func (m *mockListasService) ReordenarListas(ctx context.Context, usuarioID int32, listaIDs []int64) ([]*service.ListaResumo, error) {
+	if m.reordenarListasFn != nil {
+		return m.reordenarListasFn(ctx, usuarioID, listaIDs)
 	}
 	return []*service.ListaResumo{}, nil
 }
@@ -149,6 +157,7 @@ func setupListasTestRouter(t *testing.T, svc ListasServicer) (*gin.Engine, strin
 
 	privadas.GET("/listas", handler.ListarListas)
 	privadas.POST("/listas", handler.CriarLista)
+	privadas.PUT("/listas/ordem", handler.ReordenarListas)
 	privadas.GET("/listas/:id", handler.ObterLista)
 	privadas.PUT("/listas/:id", handler.AtualizarLista)
 	privadas.DELETE("/listas/:id", handler.ExcluirLista)
@@ -195,6 +204,7 @@ func TestListasHandler_Autenticacao_401(t *testing.T) {
 	}{
 		{"GET", "/api/v1/listas"},
 		{"POST", "/api/v1/listas"},
+		{"PUT", "/api/v1/listas/ordem"},
 		{"GET", "/api/v1/listas/1"},
 		{"PUT", "/api/v1/listas/1"},
 		{"DELETE", "/api/v1/listas/1"},

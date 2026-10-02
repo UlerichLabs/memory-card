@@ -109,7 +109,7 @@ export function AbandonarJogoForm({
         <Button
           type="submit"
           disabled={isSubmitting}
-          className="bg-[var(--accent)] font-bold text-[var(--accent-foreground)]"
+          className="btn-primario"
         >
           {isSubmitting ? 'Salvando...' : isEditing ? 'Salvar alterações' : 'Salvar abandono'}
         </Button>

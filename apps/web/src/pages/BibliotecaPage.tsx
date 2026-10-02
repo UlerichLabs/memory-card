@@ -11,8 +11,10 @@ import { BibliotecaVazia } from '@/components/jogos/BibliotecaVazia'
 import { BibliotecaSkeletons } from '@/components/jogos/BibliotecaSkeletons'
 import { ExcluirJogoDialog } from '@/components/jogos/ExcluirJogoDialog'
 import type { Dificuldade, JogoZeradoDTO, ListarJogosParams } from '@/types/jogos'
+import { useDocumentTitle } from '@/lib/useDocumentTitle'
 
 export function BibliotecaPage() {
+  useDocumentTitle('Biblioteca')
   const navigate = useNavigate()
   const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -50,7 +52,7 @@ export function BibliotecaPage() {
     const controller = new AbortController()
     abortControllerRef.current = controller
 
-    const params: ListarJogosParams = { pagina, por_pagina: 24 }
+    const params: ListarJogosParams = { pagina, por_pagina: 100 }
     if (busca) params.busca = busca
     if (consoleVal) params.console = consoleVal
     if (generoVal) params.genero = generoVal
@@ -95,7 +97,7 @@ export function BibliotecaPage() {
   }
 
   return (
-    <div className="min-h-svh bg-[var(--bg-primary)]">
+    <div className="min-h-full bg-[var(--bg-primary)]">
       <Topbar />
       <main className="mx-auto max-w-7xl space-y-5 px-4 py-8 sm:px-6 lg:px-8">
         <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">

@@ -52,7 +52,7 @@ export interface JogosProviderProps {
   initialFiltros?: OpcoesFiltrosDTO
 }
 
-const META_PADRAO: ListagemMeta = { pagina: 1, por_pagina: 24, total: 0, total_paginas: 0 }
+const META_PADRAO: ListagemMeta = { pagina: 1, por_pagina: 100, total: 0, total_paginas: 0 }
 const FILTROS_PADRAO: OpcoesFiltrosDTO = { consoles: [], generos: [], tipos: [], anos: [] }
 
 export function JogosProvider({
