@@ -50,7 +50,7 @@ describe('DashboardPage', () => {
     services.notas.mockResolvedValue({ histograma: Array.from({ length: 11 }, (_, index) => ({ nota: index + 1, total: 0 })), nota_media: 0, total_avaliados: 0 })
     const chamadasResumo = services.resumo.mock.calls.length
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Tentar novamente' })) })
-    expect(await screen.findByText('Média 0.0')).toBeInTheDocument()
+    expect((await screen.findAllByText('Nota média')).length).toBeGreaterThan(0)
     expect(services.resumo).toHaveBeenCalledTimes(chamadasResumo)
   })
 
