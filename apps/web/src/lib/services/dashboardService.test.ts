@@ -15,11 +15,11 @@ describe('dashboardService', () => {
     expect(globalThis.fetch).toHaveBeenCalledWith(expect.stringContaining('genero=A%C3%A7%C3%A3o%20e%20RPG'), expect.anything())
   })
 
-  it('busca seis recentes e sete Jogos da Vida, preservando o total', async () => {
-    const listar = vi.spyOn(jogosService, 'listar').mockResolvedValue({ data: [], meta: { pagina: 1, por_pagina: 7, total: 11, total_paginas: 2 } })
+  it('busca seis recentes e cinco Jogos da Vida, preservando o total', async () => {
+    const listar = vi.spyOn(jogosService, 'listar').mockResolvedValue({ data: [], meta: { pagina: 1, por_pagina: 5, total: 11, total_paginas: 3 } })
     await expect(dashboardService.recentes()).resolves.toEqual([])
     await expect(dashboardService.jogosDaVida()).resolves.toEqual({ jogos: [], total: 11 })
     expect(listar).toHaveBeenNthCalledWith(1, { por_pagina: 6, ordenar: 'recentes' }, undefined, undefined)
-    expect(listar).toHaveBeenNthCalledWith(2, { nota_min: 11, por_pagina: 7, ordenar: 'nota' }, undefined, undefined)
+    expect(listar).toHaveBeenNthCalledWith(2, { nota_min: 11, por_pagina: 5, ordenar: 'nota' }, undefined, undefined)
   })
 })

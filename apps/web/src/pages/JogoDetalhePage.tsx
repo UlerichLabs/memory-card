@@ -125,7 +125,7 @@ export function JogoDetalhePage() {
         )}
       </div>
 
-      <main className="mx-auto max-w-7xl px-4 py-5 sm:px-10 sm:py-7 lg:py-12">
+      <main className="mx-auto max-w-7xl px-4 py-5 pb-24 sm:px-10 sm:py-7 lg:py-12 md:pb-0">
         {carregando ? (
           <JogoDetalheSkeleton />
         ) : erroStatus === 'notFound' ? (

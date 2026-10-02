@@ -97,7 +97,7 @@ export function BibliotecaPage() {
   return (
     <div className="min-h-svh bg-[var(--bg-primary)]">
       <Topbar />
-      <main className="mx-auto max-w-7xl space-y-5 px-4 py-8 sm:px-6 lg:px-8">
+      <main className="mx-auto max-w-7xl space-y-5 px-4 py-8 pb-24 sm:px-6 lg:px-8 md:pb-0">
         <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div className="flex flex-col gap-1">
             <div className="flex items-center gap-3">

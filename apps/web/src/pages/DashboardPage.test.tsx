@@ -45,6 +45,7 @@ describe('DashboardPage', () => {
     services.notas.mockRejectedValue(new Error('falha de notas'))
     renderPage()
     expect(await screen.findByText('Jogos zerados')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('tab', { name: 'Notas' }))
     expect(screen.getByRole('alert')).toHaveTextContent('Não foi possível carregar este bloco.')
     services.notas.mockResolvedValue({ histograma: Array.from({ length: 11 }, (_, index) => ({ nota: index + 1, total: 0 })), nota_media: 0, total_avaliados: 0 })
     const chamadasResumo = services.resumo.mock.calls.length

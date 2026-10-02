@@ -1,5 +1,6 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
+import { BottomNav } from '@/components/layout/BottomNav'
 
 export function PrivateRoute() {
   const { sessao, isCarregandoSessao } = useAuthStore()
@@ -17,5 +18,5 @@ export function PrivateRoute() {
     )
   }
 
-  return sessao ? <Outlet /> : <Navigate to="/login" state={{ from: location }} replace />
+  return sessao ? <><Outlet /><BottomNav /></> : <Navigate to="/login" state={{ from: location }} replace />
 }

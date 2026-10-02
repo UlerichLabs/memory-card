@@ -28,4 +28,11 @@ describe('EliteDoJogador', () => {
     render(<MemoryRouter><EliteDoJogador jogoDoAno={{ ...jogo, ano: 2025 }} jogosDaVida={[]} jogosDaVidaTotal={0} /></MemoryRouter>)
     expect(screen.getByText('Jogo do Ano 2025')).toBeInTheDocument()
   })
+
+  it('exibe cinco capas de Jogos da Vida', () => {
+    const jogos = Array.from({ length: 5 }, (_, index) => ({ ...jogo, id: index + 1, nome: `Jogo ${index + 1}` }))
+    render(<MemoryRouter><EliteDoJogador jogoDoAno={null} jogosDaVida={jogos} jogosDaVidaTotal={11} /></MemoryRouter>)
+    expect(screen.getAllByRole('link').filter((link) => link.getAttribute('href')?.startsWith('/biblioteca/'))).toHaveLength(5)
+    expect(screen.getByText('5 de 11')).toBeInTheDocument()
+  })
 })

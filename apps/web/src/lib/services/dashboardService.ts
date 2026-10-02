@@ -38,7 +38,7 @@ export const dashboardService = {
   dificuldade: (token?: string, signal?: AbortSignal) => direto<DashboardDificuldade[]>('/dashboard/dificuldade', token, signal),
   abandonados: (token?: string, signal?: AbortSignal) => abandonadosService.obterTotal(token, signal).then((res) => res.total),
   jogoDoAno: (token?: string, signal?: AbortSignal) => jogosService.obterResumoGameDoAno(token, signal),
-  jogosDaVida: (token?: string, signal?: AbortSignal): Promise<DashboardJogosDaVida> => jogosService.listar({ nota_min: 11, por_pagina: 7, ordenar: 'nota' }, token, signal).then((res) => ({ jogos: res.data, total: res.meta.total })),
+  jogosDaVida: (token?: string, signal?: AbortSignal): Promise<DashboardJogosDaVida> => jogosService.listar({ nota_min: 11, por_pagina: 5, ordenar: 'nota' }, token, signal).then((res) => ({ jogos: res.data, total: res.meta.total })),
   recentes: (token?: string, signal?: AbortSignal) => jogosService.listar({ por_pagina: 6, ordenar: 'recentes' }, token, signal).then((res) => res.data),
   desafios: (token?: string, signal?: AbortSignal) => listasService.listar(token, signal).then((listas) => listas.filter((lista) => lista.tipo === 'desafio' && lista.progresso && !lista.progresso.concluido).slice(0, 3)),
 }
