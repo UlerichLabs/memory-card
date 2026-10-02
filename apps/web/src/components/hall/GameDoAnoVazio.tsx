@@ -10,14 +10,14 @@ export function GameDoAnoVazio({ ano, totalJogos, onEscolher }: GameDoAnoVazioPr
   const textoJogos = totalJogos === 1 ? `1 jogo zerado em ${ano}` : `${totalJogos} jogos zerados em ${ano}`
 
   return (
-    <article className="flex min-h-[184px] flex-col justify-between gap-3 rounded-[10px] border border-dashed border-[var(--hall-card-vazio-border)] bg-transparent p-3">
+    <article className="flex min-h-[210px] flex-col justify-between gap-3 rounded-[10px] border border-dashed border-[var(--hall-card-vazio-border)] bg-transparent p-3">
       <div>
         <span className="text-[20px] font-bold tabular-nums text-[var(--hall-ano-vazio)]">
           {ano}
         </span>
       </div>
 
-      <div className="flex min-h-[70px] flex-col items-center justify-center gap-1 py-2 text-center">
+      <div className="flex min-h-[102px] flex-col items-center justify-center gap-1 py-2 text-center">
         <Crown className="h-5 w-5 text-[var(--hall-coroa-vazio)]" aria-hidden="true" />
         <span className="text-[12px] font-semibold text-[var(--hall-vazio-titulo)]">
           Sem Game do Ano

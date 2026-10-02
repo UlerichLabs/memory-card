@@ -18,7 +18,7 @@ export function GameDoAnoCard({ ano, totalJogos, jogo, onTrocar }: GameDoAnoCard
   const textoJogos = totalJogos === 1 ? '1 jogo' : `${totalJogos} jogos`
 
   return (
-    <article className="flex min-h-[184px] flex-col justify-between gap-3 rounded-[10px] border border-[var(--hall-card-border)] bg-[var(--hall-card-bg)] p-3">
+    <article className="flex min-h-[210px] flex-col justify-between gap-3 rounded-[10px] border border-[var(--hall-card-border)] bg-[var(--hall-card-bg)] p-3">
       <div className="flex items-center justify-between">
         <span className="text-[20px] font-bold tabular-nums text-[var(--hall-ano-ouro)]">
           {ano}
@@ -35,7 +35,7 @@ export function GameDoAnoCard({ ano, totalJogos, jogo, onTrocar }: GameDoAnoCard
         aria-label={`Ver detalhes de ${jogo.nome}`}
         className="group flex min-w-0 items-start gap-2 transition-transform hover:-translate-y-0.5"
       >
-        <div className="relative h-[86px] w-[64px] shrink-0 overflow-visible">
+        <div className="relative h-[102px] w-[76px] shrink-0 overflow-visible">
           <div className="h-full w-full overflow-hidden rounded-[6px] border border-[var(--hall-ouro)] bg-[var(--bg-surface-alt)] shadow-[0_0_8px_1px_var(--hall-ouro)]">
             {capaUrl ? (
               <img

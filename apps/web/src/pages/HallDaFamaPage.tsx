@@ -15,8 +15,8 @@ function HallDaFamaSkeletons() {
     <div className="flex flex-col gap-10">
       <section className="flex flex-col gap-[18px]">
         <div className="h-6 w-48 animate-pulse rounded-[6px] bg-[var(--bg-surface-alt)]" />
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
-          {[1, 2, 3, 4].map((i) => (
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-5">
+          {[1, 2, 3, 4, 5].map((i) => (
             <div key={i} className="h-[230px] animate-pulse rounded-[16px] bg-[var(--bg-surface)]" />
           ))}
         </div>
@@ -121,7 +121,7 @@ function HallDaFamaConteudo() {
                 </span>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
                 {resumo.map((item) =>
                   item.game_do_ano ? (
                     <GameDoAnoCard
