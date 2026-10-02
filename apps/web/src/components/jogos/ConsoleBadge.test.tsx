@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
+import { faXbox } from '@fortawesome/free-brands-svg-icons'
 import { ConsoleBadge } from './ConsoleBadge'
 
 describe('ConsoleBadge', () => {
@@ -14,6 +15,18 @@ describe('ConsoleBadge', () => {
     expect(container.querySelector('svg')).toBeInTheDocument()
     rerender(<ConsoleBadge nome="Sega Genesis" />)
     expect(container.querySelector('svg')).toBeInTheDocument()
+  })
+
+  it('renderiza o path real de Xbox e mantém Nintendo universal', () => {
+    const { container, rerender } = render(<ConsoleBadge nome="Xbox One" variante="solido" />)
+    const path = container.querySelector('path')
+    const xboxPath = Array.isArray(faXbox.icon[4]) ? faXbox.icon[4].join(' ') : faXbox.icon[4]
+    expect(path).toHaveAttribute('d', xboxPath)
+
+    rerender(<ConsoleBadge nome="Nintendo Switch" variante="solido" />)
+    const nintendoPath = container.querySelector('svg')?.innerHTML
+    rerender(<ConsoleBadge nome="Game Boy Color" variante="solido" />)
+    expect(container.querySelector('svg')?.innerHTML).toBe(nintendoPath)
   })
 
   it('usa cor sólida e texto adequado na variante da Biblioteca', () => {

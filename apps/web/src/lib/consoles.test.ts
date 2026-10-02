@@ -55,4 +55,12 @@ describe('getConsoleTema', () => {
     }
     expect(getConsoleTema('Console desconhecido').cor).toBe('var(--text-secondary)')
   })
+
+  it('usa o mesmo ícone universal para toda a família Nintendo', () => {
+    expect(getConsoleTema('Nintendo Switch').Icone).toBe(getConsoleTema('Game Boy Color').Icone)
+  })
+
+  it('usa o logo de Xbox para todas as plataformas Xbox', () => {
+    expect(getConsoleTema('Xbox One').Icone).toBe(getConsoleTema('Xbox Series X').Icone)
+  })
 })
