@@ -17,9 +17,9 @@ const contaTheme = {
 
 export function ContaTrocarSenhaPage() {
   return (
-    <div style={contaTheme} className="min-h-svh">
+    <div style={contaTheme} className="min-h-full">
       <Topbar />
-      <main className="mx-auto max-w-xl px-4 py-8 pb-24 sm:px-6 lg:px-8 md:pb-0">
+      <main className="mx-auto max-w-xl px-4 py-8 sm:px-6 lg:px-8">
         <section className="space-y-6 rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] p-5 sm:p-8">
           <header className="space-y-2">
             <p className="text-xs font-medium text-[var(--text-secondary)]">Conta</p>

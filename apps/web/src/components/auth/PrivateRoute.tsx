@@ -1,6 +1,7 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import { BottomNav } from '@/components/layout/BottomNav'
+import { Footer } from '@/components/layout/Footer'
 
 export function PrivateRoute() {
   const { sessao, isCarregandoSessao } = useAuthStore()
@@ -18,5 +19,5 @@ export function PrivateRoute() {
     )
   }
 
-  return sessao ? <><Outlet /><BottomNav /></> : <Navigate to="/login" state={{ from: location }} replace />
+  return sessao ? <div className="flex min-h-svh flex-col bg-[var(--bg-primary)]"><div className="min-w-0 flex-1"><Outlet /></div><Footer /><BottomNav /></div> : <Navigate to="/login" state={{ from: location }} replace />
 }

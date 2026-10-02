@@ -88,7 +88,7 @@ export function JogoDetalhePage() {
     : `Criado em ${dataCriacao} · atualizado em ${dataAtualizacao}`
 
   return (
-    <div className="min-h-svh w-full bg-[var(--bg-primary)] overflow-x-hidden">
+    <div className="min-h-full w-full bg-[var(--bg-primary)] overflow-x-hidden">
       <Topbar />
 
       <div className="flex h-[56px] items-center justify-between border-b border-[var(--detalhe-mobile-header-border)] bg-[var(--detalhe-mobile-header-bg)] px-3 sm:hidden">
@@ -125,7 +125,7 @@ export function JogoDetalhePage() {
         )}
       </div>
 
-      <main className="mx-auto max-w-7xl px-4 py-5 pb-24 sm:px-10 sm:py-7 lg:py-12 md:pb-0">
+      <main className="mx-auto max-w-7xl px-4 py-5 sm:px-10 sm:py-7 lg:py-12">
         {carregando ? (
           <JogoDetalheSkeleton />
         ) : erroStatus === 'notFound' ? (

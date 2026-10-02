@@ -65,10 +65,10 @@ function HallDaFamaConteudo() {
   const hallVazio = !isLoading && !error && resumo.length === 0
 
   return (
-    <div className="min-h-svh w-full overflow-x-hidden bg-[var(--bg-primary)]">
+    <div className="min-h-full w-full overflow-x-hidden bg-[var(--bg-primary)]">
       <Topbar />
 
-        <main className="mx-auto flex max-w-7xl flex-col gap-10 p-[20px_16px_32px] pb-24 sm:p-[32px_40px_48px] md:pb-0">
+        <main className="mx-auto flex max-w-7xl flex-col gap-10 p-[20px_16px_32px] sm:p-[32px_40px_48px]">
         <header className="flex flex-col gap-1.5">
           <h1 className="text-[24px] font-bold tracking-[-0.01em] text-[var(--text-primary)] sm:text-[28px]">
             Hall da Fama

@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { Topbar } from '@/components/layout/Topbar'
 import { ListasProvider, useListasStore } from '@/stores/listasStore'
 import { ListasSidebar } from '@/components/listas/ListasSidebar'
@@ -15,6 +15,7 @@ import { ListasSkeleton } from '@/components/listas/ListasSkeleton'
 function ListasPageContent() {
   const { id } = useParams<{ id?: string }>()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const {
     listas,
     listaAberta,
@@ -31,6 +32,14 @@ function ListasPageContent() {
 
   const idInvalido = Boolean(id && isNaN(parseInt(id, 10)))
   const estaNaoEncontrada = naoEncontrada || idInvalido
+
+  useEffect(() => {
+    if (searchParams.get('novo') !== '1') return
+    abrirModalCriar()
+    const novos = new URLSearchParams(searchParams)
+    novos.delete('novo')
+    setSearchParams(novos, { replace: true })
+  }, [abrirModalCriar, searchParams, setSearchParams])
 
   useEffect(() => {
     let cancelado = false
@@ -65,7 +74,7 @@ function ListasPageContent() {
 
   if (!inicializado && isLoading) {
     return (
-      <div className="min-h-screen bg-[var(--bg-primary)]">
+      <div className="min-h-full bg-[var(--bg-primary)]">
         <Topbar />
         <ListasSkeleton />
       </div>
@@ -123,9 +132,9 @@ function ListasPageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-[var(--bg-primary)]">
+    <div className="min-h-full bg-[var(--bg-primary)]">
       <Topbar />
-      <main className="mx-auto grid max-w-7xl grid-cols-1 items-start gap-8 px-4 py-8 pb-24 sm:px-6 md:grid-cols-[300px_minmax(0,1fr)] md:pb-0 lg:px-8 xl:p-[32px_40px_48px]">
+      <main className="mx-auto grid max-w-7xl grid-cols-1 items-start gap-8 px-4 py-8 sm:px-6 md:grid-cols-[300px_minmax(0,1fr)] lg:px-8 xl:p-[32px_40px_48px]">
         <ListasSidebar
           listas={listas}
           selectedId={listaAberta?.id ?? null}

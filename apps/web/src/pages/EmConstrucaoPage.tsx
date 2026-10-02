@@ -23,10 +23,10 @@ export interface EmConstrucaoPageProps {
 
 export function EmConstrucaoPage({ modulo }: EmConstrucaoPageProps) {
   return (
-    <div style={pageTheme} className="min-h-svh">
+    <div style={pageTheme} className="min-h-full">
       <Topbar />
 
-      <main className="mx-auto max-w-lg px-4 py-16 pb-24 sm:px-6 text-center md:pb-0">
+      <main className="mx-auto max-w-lg px-4 py-16 sm:px-6 text-center">
         <div className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-surface)] p-8 space-y-4">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface-alt)] text-[var(--accent)]">
             <Hammer className="h-6 w-6" aria-hidden="true" />

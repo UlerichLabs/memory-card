@@ -32,7 +32,7 @@ export function DashboardPage() {
   const registrar = () => abrirModalRegistro({ onSalvo: () => dashboard.carregarDashboard() })
   const erroTotais = dashboard.errors.resumo ?? dashboard.errors.abandonados
   const retryTotais = dashboard.errors.resumo ? () => void dashboard.recarregarBloco('resumo') : () => void dashboard.recarregarBloco('abandonados')
-  return <div className="dashboard-page min-h-svh overflow-x-hidden bg-[var(--bg-primary)] text-[var(--text-primary)]"><Topbar /><main className="mx-auto max-w-7xl space-y-8 px-4 py-6 pb-24 sm:px-6 lg:px-8 md:pb-0">
+  return <div className="dashboard-page min-h-full overflow-x-hidden bg-[var(--bg-primary)] text-[var(--text-primary)]"><Topbar /><main className="mx-auto max-w-7xl space-y-8 px-4 py-6 sm:px-6 lg:px-8">
     {dashboard.carregado && dashboard.vazio ? <><JogandoAgora /><DashboardVazio onRegistrar={registrar} /></> : <>
     <Bloco erro={erroTotais} carregando={dashboard.loading.resumo || dashboard.loading.abandonados} pronto={Boolean(dashboard.resumo)} retry={retryTotais}>{dashboard.resumo && <PerfilJogador nome={nomeUsuario} resumo={dashboard.resumo} totalAbandonados={dashboard.abandonados} />}</Bloco>
       <Bloco erro={dashboard.errors.jogoDoAno || dashboard.errors.jogosDaVida} carregando={dashboard.loading.jogoDoAno || dashboard.loading.jogosDaVida} pronto={dashboard.carregado} retry={() => void dashboard.recarregarBloco('jogoDoAno')}><EliteDoJogador jogoDoAno={dashboard.jogoDoAno} jogosDaVida={dashboard.jogosDaVida} jogosDaVidaTotal={dashboard.jogosDaVidaTotal} /></Bloco>
