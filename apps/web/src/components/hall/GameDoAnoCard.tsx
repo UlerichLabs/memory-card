@@ -35,7 +35,7 @@ export function GameDoAnoCard({ ano, totalJogos, jogo, onTrocar }: GameDoAnoCard
         aria-label={`Ver detalhes de ${jogo.nome}`}
         className="group flex min-w-0 items-start gap-2 transition-transform hover:-translate-y-0.5"
       >
-        <div className="relative h-[70px] w-[52px] shrink-0 overflow-visible">
+        <div className="relative h-[86px] w-[64px] shrink-0 overflow-visible">
           <div className="h-full w-full overflow-hidden rounded-[6px] border border-[var(--hall-ouro)] bg-[var(--bg-surface-alt)] shadow-[0_0_8px_1px_var(--hall-ouro)]">
             {capaUrl ? (
               <img
