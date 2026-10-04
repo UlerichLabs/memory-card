@@ -145,7 +145,7 @@ func run() error {
 	privadas.PUT("/jogos/:id/game-do-ano", jogosHandler.DefinirGameDoAno)
 	privadas.DELETE("/jogos/:id", jogosHandler.ExcluirJogo)
 	privadas.DELETE("/jogos/:id/game-do-ano", jogosHandler.RemoverGameDoAno)
-	abandonadosRepo := repository.NewJogosAbandonadosRepository(queries)
+	abandonadosRepo := repository.NewJogosAbandonadosRepository(pool, queries)
 	abandonadosService := service.NewJogosAbandonadosService(abandonadosRepo)
 	abandonadosHandler := handler.NewJogosAbandonadosHandler(abandonadosService)
 	privadas.GET("/jogos-abandonados", abandonadosHandler.Listar)

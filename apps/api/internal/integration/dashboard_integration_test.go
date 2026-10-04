@@ -111,7 +111,7 @@ func setupDashboardIntegrationEnv(t *testing.T) *dashboardIntegrationEnv {
 	dashRepo := repository.NewDashboardRepository(queries)
 	dashSvc := service.NewDashboardService(dashRepo)
 	dashH := handler.NewDashboardHandler(dashSvc)
-	abandonadosRepo := repository.NewJogosAbandonadosRepository(queries)
+	abandonadosRepo := repository.NewJogosAbandonadosRepository(pool, queries)
 	abandonadosSvc := service.NewJogosAbandonadosService(abandonadosRepo)
 	abandonadosH := handler.NewJogosAbandonadosHandler(abandonadosSvc)
 
