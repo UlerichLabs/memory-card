@@ -11,11 +11,12 @@ import (
 
 // Config armazena as variáveis de ambiente necessárias para inicialização da API.
 type Config struct {
-	DatabaseURL      string
-	Port             string
-	JWTSecret        string
-	IGDBClientID     string
-	IGDBClientSecret string
+	DatabaseURL         string
+	Port                string
+	JWTSecret           string
+	IGDBClientID        string
+	IGDBClientSecret    string
+	RegistrationEnabled bool
 }
 
 type EmailConfig struct {
@@ -63,17 +64,28 @@ func LoadEmail() (EmailConfig, error) {
 // Load lê e valida as variáveis de ambiente necessárias para a aplicação.
 func Load() (Config, error) {
 	cfg := Config{
-		DatabaseURL:      os.Getenv("DATABASE_URL"),
-		Port:             os.Getenv("PORT"),
-		JWTSecret:        os.Getenv("JWT_SECRET"),
-		IGDBClientID:     os.Getenv("IGDB_CLIENT_ID"),
-		IGDBClientSecret: os.Getenv("IGDB_CLIENT_SECRET"),
+		DatabaseURL:         os.Getenv("DATABASE_URL"),
+		Port:                os.Getenv("PORT"),
+		JWTSecret:           os.Getenv("JWT_SECRET"),
+		IGDBClientID:        os.Getenv("IGDB_CLIENT_ID"),
+		IGDBClientSecret:    os.Getenv("IGDB_CLIENT_SECRET"),
+		RegistrationEnabled: true,
 	}
 	if cfg.DatabaseURL == "" {
 		return Config{}, fmt.Errorf("DATABASE_URL é obrigatória")
 	}
 	if cfg.Port == "" {
 		cfg.Port = "8080"
+	}
+	registrationEnabled := strings.ToLower(strings.TrimSpace(os.Getenv("REGISTRATION_ENABLED")))
+	switch registrationEnabled {
+	case "":
+	case "true":
+		cfg.RegistrationEnabled = true
+	case "false":
+		cfg.RegistrationEnabled = false
+	default:
+		return Config{}, fmt.Errorf("REGISTRATION_ENABLED deve ser true ou false")
 	}
 	port, err := strconv.Atoi(cfg.Port)
 	if err != nil {

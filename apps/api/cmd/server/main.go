@@ -36,6 +36,7 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("carregar configuração: %w", err)
 	}
+	slog.Info("cadastro de usuários", "habilitado", cfg.RegistrationEnabled)
 	authCfg, err := config.LoadAuth()
 	if err != nil {
 		return fmt.Errorf("carregar auth: %w", err)
@@ -86,7 +87,7 @@ func run() error {
 	usuarioRepo := repository.NewUsuarioRepository(queries)
 	resetRepo := repository.NewRecuperacaoSenhaRepository(queries)
 	cadastroService := service.NewCadastroService(usuarioRepo)
-	authHandler := handler.NewAuthHandler(cadastroService)
+	authHandler := handler.NewAuthHandler(cadastroService, cfg.RegistrationEnabled)
 
 	revogadosRepo := repository.NewTokenRevogadoRepository(queries)
 	loginService, err := service.NewLoginService(usuarioRepo, tokens, revogadosRepo, resetRepo)

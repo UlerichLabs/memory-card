@@ -19,15 +19,16 @@ type CadastroServicer interface {
 }
 
 type AuthHandler struct {
-	service CadastroServicer
-	login   LoginServicer
-	logout  LogoutServicer
-	reset   ResetSenhaServicer
-	troca   TrocaSenhaServicer
+	service             CadastroServicer
+	login               LoginServicer
+	logout              LogoutServicer
+	reset               ResetSenhaServicer
+	troca               TrocaSenhaServicer
+	registrationEnabled bool
 }
 
-func NewAuthHandler(service CadastroServicer) *AuthHandler {
-	return &AuthHandler{service: service}
+func NewAuthHandler(service CadastroServicer, registrationEnabled bool) *AuthHandler {
+	return &AuthHandler{service: service, registrationEnabled: registrationEnabled}
 }
 
 type registerRequest struct {
@@ -37,6 +38,17 @@ type registerRequest struct {
 }
 
 func (h *AuthHandler) Register(c *gin.Context) {
+	if !h.registrationEnabled {
+		lang := c.GetHeader("Accept-Language")
+		c.JSON(http.StatusForbidden, gin.H{
+			"error": gin.H{
+				"codigo":   "auth.register.disabled",
+				"mensagem": i18n.T(lang, "auth.register.disabled"),
+			},
+		})
+		return
+	}
+
 	var req registerRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		lang := c.GetHeader("Accept-Language")
