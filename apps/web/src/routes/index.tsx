@@ -25,9 +25,9 @@ export function AppRoutes() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <JogosProvider>
-          <AbandonadosProvider>
-            <JogandoProvider>
+        <JogandoProvider>
+          <JogosProvider>
+            <AbandonadosProvider>
               <GameFormDialog />
               <AbandonarJogoDialog />
               <IniciarJogoDialog />
@@ -52,9 +52,9 @@ export function AppRoutes() {
               <Route path="/redefinir-senha" element={<RedefinirSenhaPage />} />
               <Route path="*" element={<main className="p-8">Página não encontrada.</main>} />
               </Routes>
-            </JogandoProvider>
-          </AbandonadosProvider>
-        </JogosProvider>
+            </AbandonadosProvider>
+          </JogosProvider>
+        </JogandoProvider>
       </AuthProvider>
     </BrowserRouter>
   )
