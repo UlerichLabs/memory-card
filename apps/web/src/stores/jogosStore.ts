@@ -9,6 +9,7 @@ import {
   type OpcoesFiltrosDTO,
 } from '@/lib/services/jogosService'
 import { AuthContext } from '@/store/authStore'
+import { JogandoContext } from './jogandoStore'
 
 export interface ModalRegistroOpcoes {
   valoresIniciais?: Partial<JogoZeradoDTO>
@@ -63,6 +64,7 @@ export function JogosProvider({
   initialFiltros = FILTROS_PADRAO,
 }: JogosProviderProps) {
   const auth = useContext(AuthContext)
+  const jogando = useContext(JogandoContext)
   const effectiveToken = token ?? auth?.sessao?.access_token
   const [jogos, setJogos] = useState<JogoZeradoDTO[]>(initialJogos)
   const [meta, setMeta] = useState<ListagemMeta>(initialMeta ?? { ...META_PADRAO, total: initialJogos.length })
@@ -142,6 +144,7 @@ export function JogosProvider({
       try {
         const criado = await jogosService.criar(payload, effectiveToken)
         await recarregarAposMutacao()
+        try { await jogando?.carregar() } catch {}
         return criado
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Erro ao criar jogo')
