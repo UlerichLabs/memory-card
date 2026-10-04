@@ -19,7 +19,7 @@ export function GameDoAnoCard({ ano, totalJogos, jogo, onTrocar }: GameDoAnoCard
   const textoJogos = totalJogos === 1 ? '1 jogo' : `${totalJogos} jogos`
 
   return (
-    <article className="flex flex-col gap-3 rounded-[12px] border border-[var(--hall-card-border)] bg-[var(--hall-card-bg)] p-3">
+    <article className="flex h-full flex-col gap-3 rounded-[12px] border border-[var(--hall-card-border)] bg-[var(--hall-card-bg)] p-3">
       <div className="flex items-center justify-between">
         <span className="text-[20px] font-bold tabular-nums text-[var(--hall-ano-ouro)]">
           {ano}
@@ -56,7 +56,7 @@ export function GameDoAnoCard({ ano, totalJogos, jogo, onTrocar }: GameDoAnoCard
         </div>
 
         <h3
-          className="line-clamp-2 text-[13px] font-bold leading-[1.3] text-[var(--text-primary)] transition-colors group-hover:text-[var(--hall-ano-ouro)]"
+          className="min-h-[2.6em] line-clamp-2 text-[13px] font-bold leading-[1.3] text-[var(--text-primary)] transition-colors group-hover:text-[var(--hall-ano-ouro)]"
           title={jogo.nome}
         >
           {jogo.nome}
@@ -64,7 +64,7 @@ export function GameDoAnoCard({ ano, totalJogos, jogo, onTrocar }: GameDoAnoCard
         <ConsoleBadge nome={jogo.console} variante="solido" />
       </Link>
 
-      <div className="flex items-center justify-between border-t border-[var(--hall-divider)] pt-2">
+      <div className="mt-auto flex items-center justify-between border-t border-[var(--hall-divider)] pt-2">
         <span className="text-[10px] text-[var(--hall-muted)]">
           {textoJogos}
         </span>
