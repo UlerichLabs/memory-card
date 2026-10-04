@@ -21,11 +21,12 @@ func TestLoad_ValoresValidos(t *testing.T) {
 				"IGDB_CLIENT_SECRET": "",
 			},
 			wantConfig: Config{
-				DatabaseURL:      "postgres://user:pass@localhost:5432/memorycard?sslmode=disable",
-				Port:             "8080",
-				JWTSecret:        "",
-				IGDBClientID:     "",
-				IGDBClientSecret: "",
+				DatabaseURL:         "postgres://user:pass@localhost:5432/memorycard?sslmode=disable",
+				Port:                "8080",
+				JWTSecret:           "",
+				IGDBClientID:        "",
+				IGDBClientSecret:    "",
+				RegistrationEnabled: true,
 			},
 		},
 		{
@@ -38,11 +39,12 @@ func TestLoad_ValoresValidos(t *testing.T) {
 				"IGDB_CLIENT_SECRET": "secret_456",
 			},
 			wantConfig: Config{
-				DatabaseURL:      "postgres://user:pass@localhost:5432/memorycard?sslmode=disable",
-				Port:             "3000",
-				JWTSecret:        "supersecretkey123",
-				IGDBClientID:     "client_123",
-				IGDBClientSecret: "secret_456",
+				DatabaseURL:         "postgres://user:pass@localhost:5432/memorycard?sslmode=disable",
+				Port:                "3000",
+				JWTSecret:           "supersecretkey123",
+				IGDBClientID:        "client_123",
+				IGDBClientSecret:    "secret_456",
+				RegistrationEnabled: true,
 			},
 		},
 		{
@@ -52,8 +54,9 @@ func TestLoad_ValoresValidos(t *testing.T) {
 				"PORT":         "1",
 			},
 			wantConfig: Config{
-				DatabaseURL: "postgres://user:pass@localhost:5432/memorycard",
-				Port:        "1",
+				DatabaseURL:         "postgres://user:pass@localhost:5432/memorycard",
+				Port:                "1",
+				RegistrationEnabled: true,
 			},
 		},
 		{
@@ -63,8 +66,9 @@ func TestLoad_ValoresValidos(t *testing.T) {
 				"PORT":         "65535",
 			},
 			wantConfig: Config{
-				DatabaseURL: "postgres://user:pass@localhost:5432/memorycard",
-				Port:        "65535",
+				DatabaseURL:         "postgres://user:pass@localhost:5432/memorycard",
+				Port:                "65535",
+				RegistrationEnabled: true,
 			},
 		},
 	}
@@ -101,6 +105,43 @@ func TestLoad_ValoresAusentes(t *testing.T) {
 			t.Errorf("mensagem de erro = %q; esperava conter %q", err.Error(), "DATABASE_URL é obrigatória")
 		}
 	})
+}
+
+func TestLoad_RegistrationEnabled(t *testing.T) {
+	tests := []struct {
+		name          string
+		value         string
+		wantEnabled   bool
+		wantErrSubstr string
+	}{
+		{name: "ausente", value: "", wantEnabled: true},
+		{name: "true", value: "true", wantEnabled: true},
+		{name: "TRUE com espacos", value: " TRUE ", wantEnabled: true},
+		{name: "false com espacos", value: " false ", wantEnabled: false},
+		{name: "valor invalido", value: "talvez", wantErrSubstr: "REGISTRATION_ENABLED deve ser true ou false"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("DATABASE_URL", "postgres://localhost:5432/memorycard")
+			t.Setenv("PORT", "8080")
+			t.Setenv("REGISTRATION_ENABLED", tc.value)
+
+			got, err := Load()
+			if tc.wantErrSubstr != "" {
+				if err == nil || !strings.Contains(err.Error(), tc.wantErrSubstr) {
+					t.Fatalf("Load() erro = %v; esperado conter %q", err, tc.wantErrSubstr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("Load() retornou erro inesperado: %v", err)
+			}
+			if got.RegistrationEnabled != tc.wantEnabled {
+				t.Errorf("RegistrationEnabled = %t; esperado %t", got.RegistrationEnabled, tc.wantEnabled)
+			}
+		})
+	}
 }
 
 func TestLoad_ValoresInvalidos(t *testing.T) {
