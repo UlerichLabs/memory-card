@@ -232,7 +232,7 @@ describe('HallDaFamaPage', () => {
       expect(screen.queryByText('Game do Ano de 2024')).not.toBeInTheDocument()
     })
 
-    expect(await screen.findByText('Super Mario 64')).toBeInTheDocument()
+    expect((await screen.findAllByText('Super Mario 64')).length).toBeGreaterThan(0)
     expect(screen.queryByText('Jogo do ano 2024')).not.toBeInTheDocument()
   })
 })

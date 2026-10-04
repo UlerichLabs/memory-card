@@ -81,4 +81,21 @@ describe('GameDoAnoCard', () => {
     const link = screen.getByRole('link', { name: /ver detalhes de chrono trigger/i })
     expect(link).toHaveAttribute('href', '/biblioteca/42')
   })
+
+  it('exibe placeholder com ícone e nome quando o jogo não tem capa', () => {
+    render(
+      <MemoryRouter>
+        <GameDoAnoCard
+          ano={2024}
+          totalJogos={1}
+          jogo={{ ...jogoMock, igdb_capa_url: undefined }}
+          onTrocar={vi.fn()}
+        />
+      </MemoryRouter>
+    )
+
+    expect(screen.getByLabelText('Ver detalhes de Chrono Trigger')).toBeInTheDocument()
+    expect(screen.getAllByText('Chrono Trigger')).toHaveLength(2)
+    expect(screen.queryByRole('img')).not.toBeInTheDocument()
+  })
 })
