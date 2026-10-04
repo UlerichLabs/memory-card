@@ -39,6 +39,7 @@ type Querier interface {
 	CriarLista(ctx context.Context, arg CriarListaParams) (Lista, error)
 	CriarTokenResetSenha(ctx context.Context, arg CriarTokenResetSenhaParams) error
 	CriarUsuario(ctx context.Context, arg CriarUsuarioParams) (CriarUsuarioRow, error)
+	DarBaixaJogoEmAndamento(ctx context.Context, arg DarBaixaJogoEmAndamentoParams) (int64, error)
 	DesassociarJogoZeradoItem(ctx context.Context, arg DesassociarJogoZeradoItemParams) (ListaIten, error)
 	DesmarcarGameDoAnoAtual(ctx context.Context, arg DesmarcarGameDoAnoAtualParams) (int32, error)
 	DesmarcarGameDoAnoPorID(ctx context.Context, arg DesmarcarGameDoAnoPorIDParams) (int64, error)

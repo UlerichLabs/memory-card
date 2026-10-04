@@ -118,7 +118,7 @@ func setupAbandonadosIntegrationEnv(t *testing.T) *abandonadosIntegrationEnv {
 	jogosSvc := service.NewJogosService(jogosRepo)
 	jogosH := handler.NewJogosHandler(jogosSvc)
 
-	abandonadosRepo := repository.NewJogosAbandonadosRepository(queries)
+	abandonadosRepo := repository.NewJogosAbandonadosRepository(pool, queries)
 	abandonadosSvc := service.NewJogosAbandonadosService(abandonadosRepo)
 	abandonadosH := handler.NewJogosAbandonadosHandler(abandonadosSvc)
 
