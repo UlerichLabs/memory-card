@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { createElement, type ReactNode } from 'react'
 import { AbandonarJogoDialog } from './AbandonarJogoDialog'
 import { AbandonadosContext, type AbandonadosStore } from '@/stores/abandonadosStore'
+import { JogandoContext, type JogandoStore } from '@/stores/jogandoStore'
 import { AbandonadosApiError } from '@/lib/services/abandonadosService'
 import { ERRO_FALHA_REMOCAO_FILA } from './abandonados.constants'
 import type { JogoAbandonado } from '@/types/abandonados'
@@ -174,5 +175,32 @@ describe('AbandonarJogoDialog', () => {
     expect(store.criarJogo).toHaveBeenCalledTimes(1)
     expect(onSalvo).toHaveBeenCalledTimes(2)
     expect(store.fecharModal).toHaveBeenCalledTimes(1)
+  })
+
+  it('carrega lista de Jogando agora ao abrir no modo de criação se ainda não carregou', () => {
+    const mockCarregar = vi.fn().mockResolvedValue(undefined)
+    const storeJogando: JogandoStore = {
+      jogos: [], isLoading: false, carregado: false, error: null, aviso: null, isModalOpen: false,
+      carregar: mockCarregar, criar: vi.fn(), remover: vi.fn(), abrirModalIniciar: vi.fn(),
+      fecharModal: vi.fn(), definirAviso: vi.fn(), limparAviso: vi.fn(),
+    }
+    const storeAbandonados: AbandonadosStore = {
+      jogos: [], meta: { pagina: 1, por_pagina: 12, total: 0, total_paginas: 0 }, filtros: { consoles: [] },
+      totalGeral: 0, isLoading: false, carregado: true, error: null, aviso: null, isModalOpen: true,
+      jogoEmEdicao: null, modalOpcoes: null, isExcluirModalOpen: false, jogoParaExcluir: null,
+      abrirModalCriacao: vi.fn(), abrirModalEdicao: vi.fn(), fecharModal: vi.fn(), abrirModalExcluir: vi.fn(),
+      fecharModalExcluir: vi.fn(), carregarJogos: vi.fn(), carregarFiltros: vi.fn(), carregarTotal: vi.fn(),
+      criarJogo: vi.fn().mockResolvedValue({ id: 99, nome: 'Novo', console: 'PC', tempo_jogado: 0 }),
+      atualizarJogo: vi.fn().mockResolvedValue(mockJogoEdicao), excluirJogo: vi.fn(), limparErro: vi.fn(),
+      definirAviso: vi.fn(), limparAviso: vi.fn(),
+    }
+    render(
+      <JogandoContext.Provider value={storeJogando}>
+        <AbandonadosContext.Provider value={storeAbandonados}>
+          <AbandonarJogoDialog />
+        </AbandonadosContext.Provider>
+      </JogandoContext.Provider>
+    )
+    expect(mockCarregar).toHaveBeenCalledTimes(1)
   })
 })

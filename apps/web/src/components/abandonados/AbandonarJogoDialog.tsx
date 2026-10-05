@@ -1,17 +1,25 @@
-import { useState } from 'react'
+import { useContext, useEffect, useState } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useAbandonadosStore } from '@/stores/abandonadosStore'
+import { JogandoContext } from '@/stores/jogandoStore'
 import { AbandonarJogoForm } from './AbandonarJogoForm'
 import { ERRO_FALHA_REMOCAO_FILA } from './abandonados.constants'
 import type { AbandonarJogoFormData } from './abandonarJogo.schema'
 
 export function AbandonarJogoDialog() {
   const { isModalOpen, fecharModal, jogoEmEdicao, modalOpcoes, criarJogo, atualizarJogo } = useAbandonadosStore()
+  const jogando = useContext(JogandoContext)
   const [jogoCriadoId, setJogoCriadoId] = useState<number | null>(null)
   const [prevModalOpen, setPrevModalOpen] = useState(isModalOpen)
   const initialData = jogoEmEdicao ?? modalOpcoes?.valoresIniciais
   const origemFila = modalOpcoes?.origemFila
   const aviso = modalOpcoes?.aviso
+
+  useEffect(() => {
+    if (isModalOpen && !jogoEmEdicao && jogando && !jogando.carregado && !jogando.isLoading) {
+      jogando.carregar().catch(() => undefined)
+    }
+  }, [isModalOpen, jogoEmEdicao, jogando])
 
   const formKey = jogoEmEdicao ? `edit-${jogoEmEdicao.id}` : modalOpcoes?.valoresIniciais?.nome ?? 'novo-abandono'
 
