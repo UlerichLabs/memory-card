@@ -395,14 +395,17 @@ type TokensRevogado struct {
 }
 
 type Usuario struct {
-	ID           int32
-	Nome         string
-	Email        string
-	SenhaHash    string
-	Username     pgtype.Text
-	AvatarUrl    pgtype.Text
-	Bio          pgtype.Text
-	RedesSociais []byte
-	CreatedAt    pgtype.Timestamp
-	Idioma       string
+	ID              int32
+	Nome            string
+	Email           string
+	SenhaHash       string
+	Username        pgtype.Text
+	AvatarUrl       pgtype.Text
+	Bio             pgtype.Text
+	RedesSociais    []byte
+	CreatedAt       pgtype.Timestamp
+	Idioma          string
+	JogoFavoritoID  pgtype.Int4
+	ConsoleFavorito pgtype.Text
+	JogandoDesde    pgtype.Int2
 }

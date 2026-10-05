@@ -84,7 +84,7 @@ func run() error {
 	}
 
 	queries := db.New(pool)
-	usuarioRepo := repository.NewUsuarioRepository(queries)
+	usuarioRepo := repository.NewUsuarioRepository(queries, pool)
 	resetRepo := repository.NewRecuperacaoSenhaRepository(queries)
 	cadastroService := service.NewCadastroService(usuarioRepo)
 	authHandler := handler.NewAuthHandler(cadastroService, cfg.RegistrationEnabled)
@@ -114,9 +114,13 @@ func run() error {
 	publicas.POST("/solicitar-reset", resetHandler.SolicitarReset)
 	publicas.GET("/validar-token-reset", resetHandler.ValidarTokenReset)
 	publicas.POST("/redefinir-senha", resetHandler.RedefinirSenha)
-	meHandler := handler.NewMeHandler(service.NewPerfilService(usuarioRepo))
+	perfilService := service.NewPerfilService(usuarioRepo)
+	meHandler := handler.NewMeHandler(perfilService)
+	perfilHandler := handler.NewPerfilHandler(perfilService)
 	privadas := middleware.GrupoPrivado(router, tokens)
 	privadas.GET("/me", meHandler.Me)
+	privadas.GET("/me/perfil", perfilHandler.ObterPerfil)
+	privadas.PUT("/me/perfil", perfilHandler.AtualizarPerfil)
 	logoutHandler := handler.NewLogoutHandler(service.NewLogoutService(tokens, revogadosRepo))
 	privadas.POST("/auth/logout", logoutHandler.Logout)
 	trocaSenhaHandler := handler.NewTrocaSenhaHandler(service.NewTrocaSenhaService(usuarioRepo, resetRepo, revogadosRepo))

@@ -94,5 +94,14 @@
   "jogando.id_invalido": "Identificador inválido.",
   "jogando.nao_encontrado": "Jogo em andamento não encontrado.",
   "dashboard.limite_invalido": "Limite inválido. Informe um número inteiro entre 1 e 20.",
-  "dashboard.genero_obrigatorio": "O gênero é obrigatório."
+  "dashboard.genero_obrigatorio": "O gênero é obrigatório.",
+  "perfil.nome_obrigatorio": "O nome é obrigatório.",
+  "perfil.nome_invalido": "O nome deve ter no máximo 100 caracteres.",
+  "perfil.username_invalido": "O nome de usuário deve ter entre 3 e 30 caracteres e conter apenas letras, números e sublinhado (_).",
+  "perfil.username_em_uso": "Este nome de usuário já está em uso.",
+  "perfil.bio_muito_longa": "A bio deve ter no máximo 280 caracteres.",
+  "perfil.jogo_favorito_nao_encontrado": "Jogo favorito não encontrado.",
+  "perfil.console_invalido": "O console favorito deve ter no máximo 100 caracteres.",
+  "perfil.jogando_desde_invalido": "O ano informado em jogando desde é inválido.",
+  "perfil.entrada_invalida": "Dados de entrada inválidos."
 }

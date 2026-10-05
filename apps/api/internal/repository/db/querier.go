@@ -15,6 +15,7 @@ type Querier interface {
 	AtualizarJogoAbandonado(ctx context.Context, arg AtualizarJogoAbandonadoParams) (JogosAbandonado, error)
 	AtualizarJogoZerado(ctx context.Context, arg AtualizarJogoZeradoParams) (JogosZerado, error)
 	AtualizarLista(ctx context.Context, arg AtualizarListaParams) (Lista, error)
+	AtualizarPerfilUsuario(ctx context.Context, arg AtualizarPerfilUsuarioParams) (int64, error)
 	AtualizarPosicaoItem(ctx context.Context, arg AtualizarPosicaoItemParams) error
 	AtualizarSenhaUsuario(ctx context.Context, arg AtualizarSenhaUsuarioParams) error
 	BuscarCredenciaisUsuarioPorID(ctx context.Context, id int32) (BuscarCredenciaisUsuarioPorIDRow, error)
@@ -25,6 +26,7 @@ type Querier interface {
 	BuscarJogoZeradoDoUsuario(ctx context.Context, arg BuscarJogoZeradoDoUsuarioParams) (BuscarJogoZeradoDoUsuarioRow, error)
 	BuscarListaPorID(ctx context.Context, arg BuscarListaPorIDParams) (Lista, error)
 	BuscarListaPorIDParaUpdate(ctx context.Context, arg BuscarListaPorIDParaUpdateParams) (Lista, error)
+	BuscarPerfilCompletoPorID(ctx context.Context, id int32) (BuscarPerfilCompletoPorIDRow, error)
 	BuscarSnapshotIGDB(ctx context.Context, chave string) ([]byte, error)
 	BuscarTokenResetSenha(ctx context.Context, tokenHash string) (TokensResetSenha, error)
 	BuscarUsuarioPorEmail(ctx context.Context, email string) (BuscarUsuarioPorEmailRow, error)
@@ -48,6 +50,7 @@ type Querier interface {
 	ExcluirJogoEmAndamento(ctx context.Context, arg ExcluirJogoEmAndamentoParams) (int64, error)
 	ExcluirJogoZerado(ctx context.Context, arg ExcluirJogoZeradoParams) (int64, error)
 	ExcluirLista(ctx context.Context, arg ExcluirListaParams) (int64, error)
+	ExisteJogoZeradoDoUsuario(ctx context.Context, arg ExisteJogoZeradoDoUsuarioParams) (bool, error)
 	ExisteUsuarioComEmail(ctx context.Context, email string) (bool, error)
 	LimparTokensRevogadosExpirados(ctx context.Context) error
 	ListarEstatisticasPorAno(ctx context.Context, usuarioID int32) ([]ListarEstatisticasPorAnoRow, error)
