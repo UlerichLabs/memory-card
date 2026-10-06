@@ -17,6 +17,7 @@ type Config struct {
 	IGDBClientID        string
 	IGDBClientSecret    string
 	RegistrationEnabled bool
+	AvatarDir           string
 }
 
 type EmailConfig struct {
@@ -71,6 +72,11 @@ func Load() (Config, error) {
 		IGDBClientSecret:    os.Getenv("IGDB_CLIENT_SECRET"),
 		RegistrationEnabled: true,
 	}
+	avatarDir := strings.TrimSpace(os.Getenv("AVATAR_DIR"))
+	if avatarDir == "" {
+		avatarDir = "./data/avatares"
+	}
+	cfg.AvatarDir = avatarDir
 	if cfg.DatabaseURL == "" {
 		return Config{}, fmt.Errorf("DATABASE_URL é obrigatória")
 	}

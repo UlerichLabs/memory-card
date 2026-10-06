@@ -28,6 +28,9 @@ services:
       CORS_ALLOWED_ORIGINS: "${CORS_ALLOWED_ORIGINS:-http://localhost:5180}"
       REGISTRATION_ENABLED: "${REGISTRATION_ENABLED:-true}"
       PORT: 8080
+      AVATAR_DIR: "/data/avatares"
+    volumes:
+      - avatares_data:/data/avatares
     ports:
       # 8080 no host está ocupada pelo FlowLoop.
       - "18080:8080"
@@ -55,3 +58,4 @@ services:
 
 volumes:
   postgres_data:
+  avatares_data:

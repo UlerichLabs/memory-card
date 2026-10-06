@@ -12,18 +12,22 @@ import (
 
 type Querier interface {
 	AssociarJogoZeradoItem(ctx context.Context, arg AssociarJogoZeradoItemParams) (ListaIten, error)
+	AtualizarAvatarCapa(ctx context.Context, arg AtualizarAvatarCapaParams) (int64, error)
+	AtualizarAvatarUpload(ctx context.Context, arg AtualizarAvatarUploadParams) (int64, error)
 	AtualizarJogoAbandonado(ctx context.Context, arg AtualizarJogoAbandonadoParams) (JogosAbandonado, error)
 	AtualizarJogoZerado(ctx context.Context, arg AtualizarJogoZeradoParams) (JogosZerado, error)
 	AtualizarLista(ctx context.Context, arg AtualizarListaParams) (Lista, error)
 	AtualizarPerfilUsuario(ctx context.Context, arg AtualizarPerfilUsuarioParams) (int64, error)
 	AtualizarPosicaoItem(ctx context.Context, arg AtualizarPosicaoItemParams) error
 	AtualizarSenhaUsuario(ctx context.Context, arg AtualizarSenhaUsuarioParams) error
+	BuscarAvatarUsuario(ctx context.Context, id int32) (BuscarAvatarUsuarioRow, error)
 	BuscarCredenciaisUsuarioPorID(ctx context.Context, id int32) (BuscarCredenciaisUsuarioPorIDRow, error)
 	BuscarItemPorID(ctx context.Context, arg BuscarItemPorIDParams) (ListaIten, error)
 	BuscarJogoAbandonadoPorID(ctx context.Context, arg BuscarJogoAbandonadoPorIDParams) (JogosAbandonado, error)
 	BuscarJogoPorID(ctx context.Context, arg BuscarJogoPorIDParams) (JogosZerado, error)
 	BuscarJogoPorIDParaUpdate(ctx context.Context, arg BuscarJogoPorIDParaUpdateParams) (JogosZerado, error)
 	BuscarJogoZeradoDoUsuario(ctx context.Context, arg BuscarJogoZeradoDoUsuarioParams) (BuscarJogoZeradoDoUsuarioRow, error)
+	BuscarJogoZeradoParaCapa(ctx context.Context, arg BuscarJogoZeradoParaCapaParams) (BuscarJogoZeradoParaCapaRow, error)
 	BuscarListaPorID(ctx context.Context, arg BuscarListaPorIDParams) (Lista, error)
 	BuscarListaPorIDParaUpdate(ctx context.Context, arg BuscarListaPorIDParaUpdateParams) (Lista, error)
 	BuscarPerfilCompletoPorID(ctx context.Context, id int32) (BuscarPerfilCompletoPorIDRow, error)
@@ -86,6 +90,7 @@ type Querier interface {
 	ObterTotalAbandonadosUsuario(ctx context.Context, usuarioID int32) (int64, error)
 	RegistrarRefreshTokenAtivo(ctx context.Context, arg RegistrarRefreshTokenAtivoParams) error
 	RegistrarSolicitacaoResetSenha(ctx context.Context, email string) (int16, error)
+	RemoverAvatar(ctx context.Context, id int32) (int64, error)
 	RemoverRefreshTokensAtivosPorUsuario(ctx context.Context, usuarioID int32) error
 	RevogarToken(ctx context.Context, arg RevogarTokenParams) error
 	SalvarSnapshotIGDB(ctx context.Context, arg SalvarSnapshotIGDBParams) error

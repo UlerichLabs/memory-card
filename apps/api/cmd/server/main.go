@@ -22,6 +22,7 @@ import (
 	"github.com/UlerichLabs/memory-card/apps/api/internal/repository"
 	"github.com/UlerichLabs/memory-card/apps/api/internal/repository/db"
 	"github.com/UlerichLabs/memory-card/apps/api/internal/service"
+	"github.com/UlerichLabs/memory-card/apps/api/internal/storage"
 )
 
 func main() {
@@ -117,10 +118,22 @@ func run() error {
 	perfilService := service.NewPerfilService(usuarioRepo)
 	meHandler := handler.NewMeHandler(perfilService)
 	perfilHandler := handler.NewPerfilHandler(perfilService)
+	avatarStorage, err := storage.NewAvatarFS(cfg.AvatarDir)
+	if err != nil {
+		return fmt.Errorf("configurar armazenamento de avatares: %w", err)
+	}
+	fotoService := service.NewFotoPerfilService(usuarioRepo, avatarStorage)
+	fotoHandler := handler.NewFotoPerfilHandler(fotoService)
+	router.GET("/api/v1/avatares/:arquivo", fotoHandler.ServirArquivo)
+	router.HEAD("/api/v1/avatares/:arquivo", fotoHandler.ServirArquivo)
+
 	privadas := middleware.GrupoPrivado(router, tokens)
 	privadas.GET("/me", meHandler.Me)
 	privadas.GET("/me/perfil", perfilHandler.ObterPerfil)
 	privadas.PUT("/me/perfil", perfilHandler.AtualizarPerfil)
+	privadas.PUT("/me/foto", fotoHandler.Upload)
+	privadas.PUT("/me/foto/capa", fotoHandler.DefinirCapa)
+	privadas.DELETE("/me/foto", fotoHandler.RemoverFoto)
 	logoutHandler := handler.NewLogoutHandler(service.NewLogoutService(tokens, revogadosRepo))
 	privadas.POST("/auth/logout", logoutHandler.Logout)
 	trocaSenhaHandler := handler.NewTrocaSenhaHandler(service.NewTrocaSenhaService(usuarioRepo, resetRepo, revogadosRepo))
