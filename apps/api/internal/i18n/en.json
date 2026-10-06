@@ -94,5 +94,14 @@
   "jogando.id_invalido": "Invalid identifier.",
   "jogando.nao_encontrado": "Game in progress not found.",
   "dashboard.limite_invalido": "Invalid limit. Provide an integer between 1 and 20.",
-  "dashboard.genero_obrigatorio": "Genre is required."
+  "dashboard.genero_obrigatorio": "Genre is required.",
+  "perfil.nome_obrigatorio": "Name is required.",
+  "perfil.nome_invalido": "Name must be 100 characters or fewer.",
+  "perfil.username_invalido": "Username must be between 3 and 30 characters and contain only letters, numbers, and underscores (_).",
+  "perfil.username_em_uso": "This username is already taken.",
+  "perfil.bio_muito_longa": "Bio must be 280 characters or fewer.",
+  "perfil.jogo_favorito_nao_encontrado": "Favorite game not found.",
+  "perfil.console_invalido": "Favorite console must be 100 characters or fewer.",
+  "perfil.jogando_desde_invalido": "Invalid year provided for playing since.",
+  "perfil.entrada_invalida": "Invalid input data."
 }
