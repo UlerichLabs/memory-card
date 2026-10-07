@@ -19,6 +19,7 @@ var (
 
 type LoginRepository interface {
 	BuscarPorEmail(ctx context.Context, email string) (*repository.CredenciaisUsuario, error)
+	BuscarPorID(ctx context.Context, id int32) (*repository.Usuario, error)
 }
 
 type LoginService struct {
@@ -101,7 +102,18 @@ func (svc *LoginService) Refresh(ctx context.Context, raw string) (*RefreshResul
 	if revogado {
 		return nil, ErrSessaoExpirada
 	}
-	access, err := svc.tokens.emitir(claims.Subject, claims.Idioma, "access", svc.tokens.accessTTL)
+	id, err := strconv.ParseInt(claims.Subject, 10, 32)
+	if err != nil || id <= 0 {
+		return nil, ErrSessaoExpirada
+	}
+	usuario, err := svc.repo.BuscarPorID(ctx, int32(id))
+	if err != nil {
+		return nil, fmt.Errorf("buscar usuario por id: %w", err)
+	}
+	if usuario == nil {
+		return nil, ErrSessaoExpirada
+	}
+	access, err := svc.tokens.emitir(claims.Subject, usuario.Idioma, "access", svc.tokens.accessTTL)
 	if err != nil {
 		return nil, fmt.Errorf("renovar access token: %w", err)
 	}

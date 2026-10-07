@@ -17,12 +17,26 @@ import (
 )
 
 type loginRepositoryMock struct {
-	usuario *repository.CredenciaisUsuario
-	err     error
+	usuario      *repository.CredenciaisUsuario
+	err          error
+	usuarioPorID *repository.Usuario
 }
 
 func (mock loginRepositoryMock) BuscarPorEmail(context.Context, string) (*repository.CredenciaisUsuario, error) {
 	return mock.usuario, mock.err
+}
+
+func (mock loginRepositoryMock) BuscarPorID(context.Context, int32) (*repository.Usuario, error) {
+	if mock.err != nil {
+		return nil, mock.err
+	}
+	if mock.usuarioPorID != nil {
+		return mock.usuarioPorID, nil
+	}
+	if mock.usuario == nil {
+		return nil, nil
+	}
+	return &mock.usuario.Usuario, nil
 }
 
 func TestAuthHandler_LoginRefresh(t *testing.T) {
@@ -53,7 +67,7 @@ func TestAuthHandler_LoginRefresh(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			svc, err := service.NewLoginService(loginRepositoryMock{tc.usuario, tc.repoErr}, tokens, revogacaoRepositoryMock{consultar: func(context.Context, string) (bool, error) {
+			svc, err := service.NewLoginService(loginRepositoryMock{usuario: tc.usuario, err: tc.repoErr}, tokens, revogacaoRepositoryMock{consultar: func(context.Context, string) (bool, error) {
 				return false, nil
 			}}, revogacaoRepositoryMock{})
 			if err != nil {
@@ -106,4 +120,105 @@ func TestAuthHandler_LoginRefresh(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestAuthHandler_Refresh_IdiomaAtualizadoEUsuarioRemovido(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	hash, err := bcrypt.GenerateFromPassword([]byte("SenhaForte@123"), bcrypt.DefaultCost)
+	if err != nil {
+		t.Fatal(err)
+	}
+	usuarioBase := &repository.CredenciaisUsuario{
+		Usuario:   repository.Usuario{ID: 1, Nome: "Lucas", Email: "lucas@example.com", Idioma: "pt-BR"},
+		SenhaHash: string(hash),
+	}
+	tokens, err := service.NewAuthToken(uuid.NewString(), 15*time.Minute, 168*time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	repoInicial := loginRepositoryMock{usuario: usuarioBase}
+	svcInicial, err := service.NewLoginService(repoInicial, tokens, revogacaoRepositoryMock{consultar: func(context.Context, string) (bool, error) {
+		return false, nil
+	}}, revogacaoRepositoryMock{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	loginRes, err := svcInicial.Login(context.Background(), "lucas@example.com", "SenhaForte@123")
+	if err != nil {
+		t.Fatal(err)
+	}
+	refresh := loginRes.RefreshToken
+
+	t.Run("200 com idioma atualizado", func(t *testing.T) {
+		repo := loginRepositoryMock{
+			usuarioPorID: &repository.Usuario{ID: 1, Nome: "Lucas", Email: "lucas@example.com", Idioma: "en"},
+		}
+		svc, err := service.NewLoginService(repo, tokens, revogacaoRepositoryMock{consultar: func(context.Context, string) (bool, error) {
+			return false, nil
+		}}, revogacaoRepositoryMock{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		h := NewLoginHandler(svc)
+		router := gin.New()
+		router.POST("/refresh", h.Refresh)
+
+		req := httptest.NewRequest("POST", "/refresh", strings.NewReader(`{"refresh_token":"`+refresh+`"}`))
+		req.Header.Set("Content-Type", "application/json")
+		res := httptest.NewRecorder()
+		router.ServeHTTP(res, req)
+
+		if res.Code != 200 {
+			t.Fatalf("status %d: %s", res.Code, res.Body.String())
+		}
+		var body struct {
+			Data service.RefreshResult `json:"data"`
+		}
+		if err := json.Unmarshal(res.Body.Bytes(), &body); err != nil {
+			t.Fatal(err)
+		}
+		claims, err := tokens.ValidarAccess(body.Data.AccessToken)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if claims.Idioma != "en" {
+			t.Fatalf("idioma esperado 'en', obtido '%s'", claims.Idioma)
+		}
+	})
+
+	t.Run("401 para usuario removido", func(t *testing.T) {
+		repo := loginRepositoryMock{
+			usuarioPorID: nil,
+		}
+		svc, err := service.NewLoginService(repo, tokens, revogacaoRepositoryMock{consultar: func(context.Context, string) (bool, error) {
+			return false, nil
+		}}, revogacaoRepositoryMock{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		h := NewLoginHandler(svc)
+		router := gin.New()
+		router.POST("/refresh", h.Refresh)
+
+		req := httptest.NewRequest("POST", "/refresh", strings.NewReader(`{"refresh_token":"`+refresh+`"}`))
+		req.Header.Set("Content-Type", "application/json")
+		res := httptest.NewRecorder()
+		router.ServeHTTP(res, req)
+
+		if res.Code != 401 {
+			t.Fatalf("status esperado 401, obtido %d: %s", res.Code, res.Body.String())
+		}
+		var errBody struct {
+			Error struct {
+				Codigo   string `json:"codigo"`
+				Mensagem string `json:"mensagem"`
+			} `json:"error"`
+		}
+		if err := json.Unmarshal(res.Body.Bytes(), &errBody); err != nil {
+			t.Fatal(err)
+		}
+		if errBody.Error.Codigo != "auth.session.expired" {
+			t.Fatalf("codigo esperado 'auth.session.expired', obtido '%s'", errBody.Error.Codigo)
+		}
+	})
 }
