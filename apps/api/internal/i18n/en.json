@@ -112,5 +112,13 @@
   "foto.jogo_nao_encontrado": "Game not found.",
   "foto.jogo_sem_capa": "The selected game does not have a cover.",
   "foto.arquivo_nao_encontrado": "File not found.",
-  "foto.jogo_id_invalido": "Invalid game identifier."
+  "foto.jogo_id_invalido": "Invalid game identifier.",
+  "preferencias.idioma_invalido": "Invalid language. Select pt-BR or en.",
+  "preferencias.formato_data_invalido": "Invalid date format. Select dmy, mdy, or ymd.",
+  "preferencias.fuso_horario_invalido": "Invalid timezone.",
+  "preferencias.visual_biblioteca_invalido": "Invalid library layout. Select grade or lista.",
+  "preferencias.itens_por_pagina_invalido": "Invalid items per page. Select 24, 50, or 100.",
+  "preferencias.modo_tema_invalido": "Invalid theme mode. Select claro, escuro, or automatico.",
+  "preferencias.estilo_tema_invalido": "Invalid theme style. Select padrao, playstation, nintendo, xbox, or steam.",
+  "preferencias.entrada_invalida": "Invalid input data."
 }

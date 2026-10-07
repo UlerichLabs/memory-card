@@ -240,7 +240,7 @@ func TestIntegration_FotoPerfil(t *testing.T) {
 		}
 		defer func() { _, _ = mig.Close() }()
 
-		if err := mig.Steps(-1); err != nil {
+		if err := mig.Migrate(16); err != nil {
 			t.Fatalf("migracao down 0017 falhou: %v", err)
 		}
 
@@ -258,7 +258,7 @@ func TestIntegration_FotoPerfil(t *testing.T) {
 			t.Fatalf("coluna avatar_jogo_id ainda existe apos down da 0017")
 		}
 
-		if err := mig.Steps(1); err != nil {
+		if err := mig.Up(); err != nil {
 			t.Fatalf("migracao up 0017 falhou: %v", err)
 		}
 

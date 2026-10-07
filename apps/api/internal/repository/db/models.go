@@ -375,6 +375,18 @@ type ListaIten struct {
 	CreatedAt     pgtype.Timestamptz
 }
 
+type PreferenciasUsuario struct {
+	UsuarioID        int32
+	FormatoData      string
+	FusoHorario      string
+	VisualBiblioteca string
+	ItensPorPagina   int32
+	ReduzirAnimacoes bool
+	ModoTema         string
+	EstiloTema       string
+	UpdatedAt        pgtype.Timestamptz
+}
+
 type TokensRefreshAtivo struct {
 	Jti       string
 	UsuarioID int32
