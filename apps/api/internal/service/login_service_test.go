@@ -13,11 +13,22 @@ import (
 )
 
 type loginRepoMock struct {
-	buscar func(context.Context, string) (*repository.CredenciaisUsuario, error)
+	buscar      func(context.Context, string) (*repository.CredenciaisUsuario, error)
+	buscarPorID func(context.Context, int32) (*repository.Usuario, error)
 }
 
 func (mock loginRepoMock) BuscarPorEmail(ctx context.Context, email string) (*repository.CredenciaisUsuario, error) {
+	if mock.buscar == nil {
+		return nil, nil
+	}
 	return mock.buscar(ctx, email)
+}
+
+func (mock loginRepoMock) BuscarPorID(ctx context.Context, id int32) (*repository.Usuario, error) {
+	if mock.buscarPorID == nil {
+		return nil, nil
+	}
+	return mock.buscarPorID(ctx, id)
 }
 
 func setupLogin(t *testing.T, repo LoginRepository) (*LoginService, *AuthToken) {
@@ -88,7 +99,10 @@ func TestLogin_Cenarios(t *testing.T) {
 }
 
 func TestRefresh_Cenarios(t *testing.T) {
-	svc, tokens := setupLogin(t, nil)
+	repo := loginRepoMock{buscarPorID: func(ctx context.Context, id int32) (*repository.Usuario, error) {
+		return &repository.Usuario{ID: id, Idioma: "en"}, nil
+	}}
+	svc, tokens := setupLogin(t, repo)
 	now := time.Now().Truncate(time.Second)
 	tokens.now = func() time.Time { return now }
 	refresh, err := tokens.emitir("1", "en", "refresh", tokens.refreshTTL)
@@ -127,6 +141,115 @@ func TestRefresh_Cenarios(t *testing.T) {
 				t.Fatalf("refresh incorreto: %v", err)
 			}
 		})
+	}
+}
+
+func TestRefresh_IdiomaDoBanco(t *testing.T) {
+	repo := loginRepoMock{buscarPorID: func(ctx context.Context, id int32) (*repository.Usuario, error) {
+		return &repository.Usuario{ID: 1, Idioma: "en"}, nil
+	}}
+	svc, tokens := setupLogin(t, repo)
+	refresh, err := tokens.emitir("1", "pt-BR", "refresh", tokens.refreshTTL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := svc.Refresh(context.Background(), refresh)
+	if err != nil {
+		t.Fatal(err)
+	}
+	claims, err := tokens.ValidarAccess(result.AccessToken)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if claims.Idioma != "en" {
+		t.Fatalf("idioma esperado en, obtido %s", claims.Idioma)
+	}
+}
+
+func TestRefresh_UsuarioInexistente(t *testing.T) {
+	repo := loginRepoMock{buscarPorID: func(ctx context.Context, id int32) (*repository.Usuario, error) {
+		return nil, nil
+	}}
+	svc, tokens := setupLogin(t, repo)
+	refresh, err := tokens.emitir("1", "pt-BR", "refresh", tokens.refreshTTL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = svc.Refresh(context.Background(), refresh)
+	if !errors.Is(err, ErrSessaoExpirada) {
+		t.Fatalf("esperado ErrSessaoExpirada, obtido %v", err)
+	}
+}
+
+func TestRefresh_SubjectInvalido(t *testing.T) {
+	repo := loginRepoMock{buscarPorID: func(ctx context.Context, id int32) (*repository.Usuario, error) {
+		t.Fatal("repository nao deveria ser chamado para subject invalido")
+		return nil, nil
+	}}
+	svc, tokens := setupLogin(t, repo)
+	for _, subject := range []string{"invalido", "0", "-1", "99999999999999999"} {
+		token, err := tokens.emitir(subject, "pt-BR", "refresh", tokens.refreshTTL)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = svc.Refresh(context.Background(), token)
+		if !errors.Is(err, ErrSessaoExpirada) {
+			t.Fatalf("subject %s: esperado ErrSessaoExpirada, obtido %v", subject, err)
+		}
+	}
+}
+
+func TestRefresh_ErroBanco(t *testing.T) {
+	dbErr := errors.New("database connection failed")
+	repo := loginRepoMock{buscarPorID: func(ctx context.Context, id int32) (*repository.Usuario, error) {
+		return nil, dbErr
+	}}
+	svc, tokens := setupLogin(t, repo)
+	refresh, err := tokens.emitir("1", "pt-BR", "refresh", tokens.refreshTTL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = svc.Refresh(context.Background(), refresh)
+	if errors.Is(err, ErrSessaoExpirada) {
+		t.Fatal("erro de banco nao deve se transformar em ErrSessaoExpirada")
+	}
+	if !errors.Is(err, dbErr) {
+		t.Fatalf("erro de banco nao propagado: %v", err)
+	}
+}
+
+func TestRefresh_RevogadoEExpiradoSemChamarBanco(t *testing.T) {
+	tokens, err := NewAuthToken(uuid.NewString(), 15*time.Minute, 168*time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	repo := loginRepoMock{buscarPorID: func(ctx context.Context, id int32) (*repository.Usuario, error) {
+		t.Fatal("repository nao deveria ser chamado")
+		return nil, nil
+	}}
+	revogados := tokenRevogadoRepoMock{consultar: func(ctx context.Context, jti string) (bool, error) {
+		return true, nil
+	}}
+	svc, err := NewLoginService(repo, tokens, revogados, revogados)
+	if err != nil {
+		t.Fatal(err)
+	}
+	refresh, err := tokens.emitir("1", "pt-BR", "refresh", tokens.refreshTTL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = svc.Refresh(context.Background(), refresh)
+	if !errors.Is(err, ErrSessaoExpirada) {
+		t.Fatalf("esperado ErrSessaoExpirada para token revogado, obtido %v", err)
+	}
+
+	expirado, err := tokens.emitir("1", "pt-BR", "refresh", -time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = svc.Refresh(context.Background(), expirado)
+	if !errors.Is(err, ErrSessaoExpirada) {
+		t.Fatalf("esperado ErrSessaoExpirada para token expirado, obtido %v", err)
 	}
 }
 

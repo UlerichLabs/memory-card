@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/UlerichLabs/memory-card/apps/api/internal/repository"
 	"github.com/google/uuid"
 )
 
@@ -131,7 +132,10 @@ func TestRefresh_Revogacao(t *testing.T) {
 				}
 				return tc.revogado, tc.repoErr
 			}}
-			svc, err := NewLoginService(nil, tokens, repo, repo)
+			loginRepo := loginRepoMock{buscarPorID: func(context.Context, int32) (*repository.Usuario, error) {
+				return &repository.Usuario{ID: 42, Idioma: "en"}, nil
+			}}
+			svc, err := NewLoginService(loginRepo, tokens, repo, repo)
 			if err != nil {
 				t.Fatal(err)
 			}

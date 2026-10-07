@@ -245,9 +245,12 @@ func TestE2E_LoginSessao(t *testing.T) {
 	loginHandler := handler.NewLoginHandler(login)
 	router.POST("/api/v1/auth/login", loginHandler.Login)
 	router.POST("/api/v1/auth/refresh", loginHandler.Refresh)
-	meHandler := handler.NewMeHandler(service.NewPerfilService(repo))
+	perfilService := service.NewPerfilService(repo)
+	meHandler := handler.NewMeHandler(perfilService)
+	perfilHandler := handler.NewPerfilHandler(perfilService)
 	privadas := middleware.GrupoPrivado(router, tokens)
 	privadas.GET("/me", meHandler.Me)
+	privadas.PUT("/me/perfil", perfilHandler.AtualizarPerfil)
 	privadas.POST("/auth/logout", handler.NewLogoutHandler(service.NewLogoutService(tokens, revogados)).Logout)
 	server := httptest.NewServer(router)
 	t.Cleanup(server.Close)
@@ -392,6 +395,34 @@ func TestE2E_LoginSessao(t *testing.T) {
 			assertAuthError(t, result, "auth.session.expired", "Sessão expirada. Faça login novamente.")
 		})
 	}
+
+	t.Run("refresh le idioma atual do banco e emite novo access token", func(t *testing.T) {
+		payloadRefresh := map[string]string{"nome": "Usuario Refresh Idioma", "email": "refresh-idioma@example.com", "senha": "SenhaForte@123"}
+		cad := authRequest[authDataResponse[repository.Usuario]](t, server, http.MethodPost, "/api/v1/auth/register", payloadRefresh, "", http.StatusCreated).Data
+		loginSess := authRequest[authDataResponse[service.LoginResult]](t, server, http.MethodPost, "/api/v1/auth/login", payloadRefresh, "", http.StatusOK).Data
+
+		if _, err := pg.Pool.Exec(context.Background(), "UPDATE usuarios SET idioma = 'en' WHERE id = $1", cad.ID); err != nil {
+			t.Fatal(err)
+		}
+
+		refreshResp := authRequest[authDataResponse[service.RefreshResult]](t, server, http.MethodPost, "/api/v1/auth/refresh", map[string]string{"refresh_token": loginSess.RefreshToken}, "", http.StatusOK).Data
+		claims := validarTokenE2E(t, refreshResp.AccessToken, secret, "access")
+		if claims.Idioma != "en" {
+			t.Fatalf("idioma esperado 'en', obtido '%s'", claims.Idioma)
+		}
+
+		errResp := authRequest[apiErrorResponse](t, server, http.MethodPut, "/api/v1/me/perfil", map[string]string{"nome": ""}, refreshResp.AccessToken, http.StatusBadRequest)
+		assertAuthError(t, errResp, "perfil.nome_obrigatorio", "Name is required.")
+
+		if _, err := pg.Pool.Exec(context.Background(), "DELETE FROM tokens_refresh_ativos WHERE usuario_id = $1", cad.ID); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := pg.Pool.Exec(context.Background(), "DELETE FROM usuarios WHERE id = $1", cad.ID); err != nil {
+			t.Fatal(err)
+		}
+		delResp := authRequest[apiErrorResponse](t, server, http.MethodPost, "/api/v1/auth/refresh", map[string]string{"refresh_token": loginSess.RefreshToken}, "", http.StatusUnauthorized)
+		assertAuthError(t, delResp, "auth.session.expired", "Sessão expirada. Faça login novamente.")
+	})
 }
 
 func authRequest[T any](t *testing.T, server *httptest.Server, method, path string, payload any, token string, status int) T {
