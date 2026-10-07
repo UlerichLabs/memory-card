@@ -14,6 +14,7 @@ type Querier interface {
 	AssociarJogoZeradoItem(ctx context.Context, arg AssociarJogoZeradoItemParams) (ListaIten, error)
 	AtualizarAvatarCapa(ctx context.Context, arg AtualizarAvatarCapaParams) (int64, error)
 	AtualizarAvatarUpload(ctx context.Context, arg AtualizarAvatarUploadParams) (int64, error)
+	AtualizarIdiomaUsuario(ctx context.Context, arg AtualizarIdiomaUsuarioParams) (int64, error)
 	AtualizarJogoAbandonado(ctx context.Context, arg AtualizarJogoAbandonadoParams) (JogosAbandonado, error)
 	AtualizarJogoZerado(ctx context.Context, arg AtualizarJogoZeradoParams) (JogosZerado, error)
 	AtualizarLista(ctx context.Context, arg AtualizarListaParams) (Lista, error)
@@ -31,6 +32,7 @@ type Querier interface {
 	BuscarListaPorID(ctx context.Context, arg BuscarListaPorIDParams) (Lista, error)
 	BuscarListaPorIDParaUpdate(ctx context.Context, arg BuscarListaPorIDParaUpdateParams) (Lista, error)
 	BuscarPerfilCompletoPorID(ctx context.Context, id int32) (BuscarPerfilCompletoPorIDRow, error)
+	BuscarPreferenciasPorUsuarioID(ctx context.Context, id int32) (BuscarPreferenciasPorUsuarioIDRow, error)
 	BuscarSnapshotIGDB(ctx context.Context, chave string) ([]byte, error)
 	BuscarTokenResetSenha(ctx context.Context, tokenHash string) (TokensResetSenha, error)
 	BuscarUsuarioPorEmail(ctx context.Context, email string) (BuscarUsuarioPorEmailRow, error)
@@ -95,6 +97,7 @@ type Querier interface {
 	RevogarToken(ctx context.Context, arg RevogarTokenParams) error
 	SalvarSnapshotIGDB(ctx context.Context, arg SalvarSnapshotIGDBParams) error
 	TokenEstaRevogado(ctx context.Context, jti string) (bool, error)
+	UpsertPreferenciasUsuario(ctx context.Context, arg UpsertPreferenciasUsuarioParams) (PreferenciasUsuario, error)
 }
 
 var _ Querier = (*Queries)(nil)

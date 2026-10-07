@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+	_ "time/tzdata"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -126,11 +127,16 @@ func run() error {
 	fotoHandler := handler.NewFotoPerfilHandler(fotoService)
 	router.GET("/api/v1/avatares/:arquivo", fotoHandler.ServirArquivo)
 	router.HEAD("/api/v1/avatares/:arquivo", fotoHandler.ServirArquivo)
+	preferenciasRepo := repository.NewPreferenciasRepository(queries, pool)
+	preferenciasService := service.NewPreferenciasService(preferenciasRepo)
+	preferenciasHandler := handler.NewPreferenciasHandler(preferenciasService)
 
 	privadas := middleware.GrupoPrivado(router, tokens)
 	privadas.GET("/me", meHandler.Me)
 	privadas.GET("/me/perfil", perfilHandler.ObterPerfil)
 	privadas.PUT("/me/perfil", perfilHandler.AtualizarPerfil)
+	privadas.GET("/me/preferencias", preferenciasHandler.ObterPreferencias)
+	privadas.PUT("/me/preferencias", preferenciasHandler.AtualizarPreferencias)
 	privadas.PUT("/me/foto", fotoHandler.Upload)
 	privadas.PUT("/me/foto/capa", fotoHandler.DefinirCapa)
 	privadas.DELETE("/me/foto", fotoHandler.RemoverFoto)

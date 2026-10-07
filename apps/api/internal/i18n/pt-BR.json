@@ -112,5 +112,13 @@
   "foto.jogo_nao_encontrado": "Jogo não encontrado.",
   "foto.jogo_sem_capa": "O jogo selecionado não possui capa.",
   "foto.arquivo_nao_encontrado": "Arquivo não encontrado.",
-  "foto.jogo_id_invalido": "Identificador de jogo inválido."
+  "foto.jogo_id_invalido": "Identificador de jogo inválido.",
+  "preferencias.idioma_invalido": "Idioma inválido. Selecione pt-BR ou en.",
+  "preferencias.formato_data_invalido": "Formato de data inválido. Selecione dmy, mdy ou ymd.",
+  "preferencias.fuso_horario_invalido": "Fuso horário inválido.",
+  "preferencias.visual_biblioteca_invalido": "Visualização da biblioteca inválida. Selecione grade ou lista.",
+  "preferencias.itens_por_pagina_invalido": "Quantidade de itens por página inválida. Selecione 24, 50 ou 100.",
+  "preferencias.modo_tema_invalido": "Modo de tema inválido. Selecione claro, escuro ou automatico.",
+  "preferencias.estilo_tema_invalido": "Estilo de tema inválido. Selecione padrao, playstation, nintendo, xbox ou steam.",
+  "preferencias.entrada_invalida": "Dados de entrada inválidos."
 }
