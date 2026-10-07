@@ -1,6 +1,7 @@
 import { createContext, createElement, useContext, useRef, useState, type ReactNode } from 'react'
 import { abandonadosService } from '@/lib/services/abandonadosService'
 import { AuthContext } from '@/store/authStore'
+import { JogandoContext } from './jogandoStore'
 import type {
   AbandonadosListagemMeta,
   JogoAbandonado,
@@ -58,6 +59,7 @@ const FILTROS_PADRAO: OpcoesFiltrosAbandonados = { consoles: [] }
 
 export function AbandonadosProvider({ children, token }: { children: ReactNode; token?: string }) {
   const auth = useContext(AuthContext)
+  const jogando = useContext(JogandoContext)
   const effectiveToken = token ?? auth?.sessao?.access_token
   const [jogos, setJogos] = useState<JogoAbandonado[]>([])
   const [meta, setMeta] = useState<AbandonadosListagemMeta>(META_PADRAO)
@@ -146,6 +148,7 @@ export function AbandonadosProvider({ children, token }: { children: ReactNode; 
       try {
         const criado = await abandonadosService.criar(payload, effectiveToken)
         await recarregarAposMutacao()
+        try { await jogando?.carregar() } catch {}
         return criado
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Erro ao criar abandono')

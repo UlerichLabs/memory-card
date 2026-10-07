@@ -37,7 +37,7 @@ export function AbandonarJogoForm({
     iniciadoEm,
     plataformas, setPlataformas,
     errors, isSubmitting, handleSubmit,
-  } = useAbandonarJogoForm({ initialData, onSubmit })
+  } = useAbandonarJogoForm({ initialData, onSubmit, isEditing })
 
   const selecaoAtual = useRef(0)
 

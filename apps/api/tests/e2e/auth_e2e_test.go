@@ -65,7 +65,7 @@ func TestE2E_RecuperacaoSenha(t *testing.T) {
 	email := &emailCapturado{}
 	reset := service.NewRecuperacaoSenhaService("https://app.memorycard.test/redefinir-senha", usuarios, resetRepo, revogados, email)
 	router := gin.New()
-	router.POST("/api/v1/auth/register", handler.NewAuthHandler(service.NewCadastroService(usuarios)).Register)
+	router.POST("/api/v1/auth/register", handler.NewAuthHandler(service.NewCadastroService(usuarios), true).Register)
 	loginHandler := handler.NewLoginHandler(login)
 	router.POST("/api/v1/auth/login", loginHandler.Login)
 	router.POST("/api/v1/auth/refresh", loginHandler.Refresh)
@@ -179,7 +179,7 @@ func TestE2E_TrocaSenha(t *testing.T) {
 	}
 	troca := service.NewTrocaSenhaService(usuarios, resetRepo, revogados)
 	router := gin.New()
-	router.POST("/api/v1/auth/register", handler.NewAuthHandler(service.NewCadastroService(usuarios)).Register)
+	router.POST("/api/v1/auth/register", handler.NewAuthHandler(service.NewCadastroService(usuarios), true).Register)
 	loginHandler := handler.NewLoginHandler(login)
 	router.POST("/api/v1/auth/login", loginHandler.Login)
 	router.POST("/api/v1/auth/refresh", loginHandler.Refresh)
@@ -241,7 +241,7 @@ func TestE2E_LoginSessao(t *testing.T) {
 		t.Fatal(err)
 	}
 	router := gin.New()
-	router.POST("/api/v1/auth/register", handler.NewAuthHandler(service.NewCadastroService(repo)).Register)
+	router.POST("/api/v1/auth/register", handler.NewAuthHandler(service.NewCadastroService(repo), true).Register)
 	loginHandler := handler.NewLoginHandler(login)
 	router.POST("/api/v1/auth/login", loginHandler.Login)
 	router.POST("/api/v1/auth/refresh", loginHandler.Refresh)
@@ -481,7 +481,7 @@ func TestE2E_Cadastro(t *testing.T) {
 	queries := db.New(pg.Pool)
 	usuarioRepo := repository.NewUsuarioRepository(queries)
 	cadastroService := service.NewCadastroService(usuarioRepo)
-	authHandler := handler.NewAuthHandler(cadastroService)
+	authHandler := handler.NewAuthHandler(cadastroService, true)
 
 	router := gin.New()
 	router.POST("/api/v1/auth/register", authHandler.Register)

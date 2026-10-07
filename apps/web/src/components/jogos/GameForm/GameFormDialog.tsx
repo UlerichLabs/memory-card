@@ -1,3 +1,4 @@
+import { useContext, useEffect } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -7,10 +8,18 @@ import {
 } from '@/components/ui/dialog'
 import { GameForm } from './GameForm'
 import { useJogosStore } from '@/stores/jogosStore'
+import { JogandoContext } from '@/stores/jogandoStore'
 import type { SalvarJogoPayload } from '@/lib/services/jogosService'
 
 export function GameFormDialog() {
   const { isModalOpen, fecharModal, jogoEmEdicao, modalRegistroOpcoes, criarJogo, atualizarJogo } = useJogosStore()
+  const jogando = useContext(JogandoContext)
+
+  useEffect(() => {
+    if (isModalOpen && !jogoEmEdicao && jogando && !jogando.carregado && !jogando.isLoading) {
+      jogando.carregar().catch(() => undefined)
+    }
+  }, [isModalOpen, jogoEmEdicao, jogando])
 
   async function handleSubmit(payload: SalvarJogoPayload) {
     if (jogoEmEdicao) {

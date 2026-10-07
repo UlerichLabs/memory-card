@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { JogosContext, type JogosStore } from '@/stores/jogosStore'
+import { JogandoContext, type JogandoStore } from '@/stores/jogandoStore'
 import { GameFormDialog } from './GameFormDialog'
 import type { JogoZeradoDTO } from '@/lib/services/jogosService'
 
@@ -98,5 +99,32 @@ describe('GameFormDialog', () => {
     })
     expect(screen.getByRole('heading', { name: 'Registrar jogo' })).toBeInTheDocument()
     expect(screen.getByLabelText(/Nome do jogo/i)).toHaveValue('Metroid Prime')
+  })
+
+  it('carrega lista de Jogando agora ao abrir no modo de criação se ainda não carregou', () => {
+    const mockCarregar = vi.fn().mockResolvedValue(undefined)
+    const storeJogando: JogandoStore = {
+      jogos: [], isLoading: false, carregado: false, error: null, aviso: null, isModalOpen: false,
+      carregar: mockCarregar, criar: vi.fn(), remover: vi.fn(), abrirModalIniciar: vi.fn(),
+      fecharModal: vi.fn(), definirAviso: vi.fn(), limparAviso: vi.fn(),
+    }
+    const store: JogosStore = {
+      jogos: [], meta: { pagina: 1, por_pagina: 24, total: 0, total_paginas: 0 },
+      filtros: { consoles: [], generos: [], tipos: [], anos: [] },
+      isLoading: false, error: null, isModalOpen: true, jogoEmEdicao: null, modalRegistroOpcoes: null,
+      abrirModalRegistro: vi.fn(), abrirModalEdicao: vi.fn(), fecharModal: vi.fn(),
+      carregarJogos: vi.fn(), carregarFiltros: vi.fn(), limparBiblioteca: vi.fn(),
+      criarJogo: vi.fn(), atualizarJogo: vi.fn(), excluirJogo: vi.fn(),
+      buscarIGDB: vi.fn().mockResolvedValue([]), obterDetalhesIGDB: vi.fn(),
+      obterJogoPorId: vi.fn(), setJogos: vi.fn(), limparErro: vi.fn(),
+    }
+    render(
+      <JogandoContext.Provider value={storeJogando}>
+        <JogosContext.Provider value={store}>
+          <GameFormDialog />
+        </JogosContext.Provider>
+      </JogandoContext.Provider>
+    )
+    expect(mockCarregar).toHaveBeenCalledTimes(1)
   })
 })

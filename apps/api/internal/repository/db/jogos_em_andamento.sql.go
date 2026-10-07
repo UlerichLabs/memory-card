@@ -49,6 +49,48 @@ func (q *Queries) CriarJogoEmAndamento(ctx context.Context, arg CriarJogoEmAndam
 	return i, err
 }
 
+const darBaixaJogoEmAndamento = `-- name: DarBaixaJogoEmAndamento :execrows
+UPDATE jogos_em_andamento
+SET deleted_at = now(), updated_at = now()
+WHERE id = (
+    SELECT candidato.id
+    FROM jogos_em_andamento AS candidato
+    WHERE candidato.usuario_id = $1::int
+      AND candidato.deleted_at IS NULL
+      AND (
+          (candidato.igdb_id IS NOT NULL AND $2::int IS NOT NULL AND candidato.igdb_id = $2::int)
+          OR (
+              unaccent(lower(btrim(candidato.nome))) = unaccent(lower(btrim($3::text)))
+              AND NOT (
+                  candidato.igdb_id IS NOT NULL
+                  AND $2::int IS NOT NULL
+                  AND candidato.igdb_id <> $2::int
+              )
+          )
+      )
+    ORDER BY CASE WHEN candidato.igdb_id = $2::int AND $2::int IS NOT NULL THEN 0 ELSE 1 END,
+             candidato.iniciado_em ASC,
+             candidato.id ASC
+    LIMIT 1
+)
+AND usuario_id = $1::int
+AND deleted_at IS NULL
+`
+
+type DarBaixaJogoEmAndamentoParams struct {
+	UsuarioID int32
+	IgdbID    pgtype.Int4
+	Nome      string
+}
+
+func (q *Queries) DarBaixaJogoEmAndamento(ctx context.Context, arg DarBaixaJogoEmAndamentoParams) (int64, error) {
+	result, err := q.db.Exec(ctx, darBaixaJogoEmAndamento, arg.UsuarioID, arg.IgdbID, arg.Nome)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const excluirJogoEmAndamento = `-- name: ExcluirJogoEmAndamento :execrows
 UPDATE jogos_em_andamento
 SET deleted_at = now(), updated_at = now()

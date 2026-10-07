@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+	_ "time/tzdata"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -22,6 +23,7 @@ import (
 	"github.com/UlerichLabs/memory-card/apps/api/internal/repository"
 	"github.com/UlerichLabs/memory-card/apps/api/internal/repository/db"
 	"github.com/UlerichLabs/memory-card/apps/api/internal/service"
+	"github.com/UlerichLabs/memory-card/apps/api/internal/storage"
 )
 
 func main() {
@@ -36,6 +38,7 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("carregar configuração: %w", err)
 	}
+	slog.Info("cadastro de usuários", "habilitado", cfg.RegistrationEnabled)
 	authCfg, err := config.LoadAuth()
 	if err != nil {
 		return fmt.Errorf("carregar auth: %w", err)
@@ -83,10 +86,10 @@ func run() error {
 	}
 
 	queries := db.New(pool)
-	usuarioRepo := repository.NewUsuarioRepository(queries)
+	usuarioRepo := repository.NewUsuarioRepository(queries, pool)
 	resetRepo := repository.NewRecuperacaoSenhaRepository(queries)
 	cadastroService := service.NewCadastroService(usuarioRepo)
-	authHandler := handler.NewAuthHandler(cadastroService)
+	authHandler := handler.NewAuthHandler(cadastroService, cfg.RegistrationEnabled)
 
 	revogadosRepo := repository.NewTokenRevogadoRepository(queries)
 	loginService, err := service.NewLoginService(usuarioRepo, tokens, revogadosRepo, resetRepo)
@@ -113,9 +116,30 @@ func run() error {
 	publicas.POST("/solicitar-reset", resetHandler.SolicitarReset)
 	publicas.GET("/validar-token-reset", resetHandler.ValidarTokenReset)
 	publicas.POST("/redefinir-senha", resetHandler.RedefinirSenha)
-	meHandler := handler.NewMeHandler(service.NewPerfilService(usuarioRepo))
+	perfilService := service.NewPerfilService(usuarioRepo)
+	meHandler := handler.NewMeHandler(perfilService)
+	perfilHandler := handler.NewPerfilHandler(perfilService)
+	avatarStorage, err := storage.NewAvatarFS(cfg.AvatarDir)
+	if err != nil {
+		return fmt.Errorf("configurar armazenamento de avatares: %w", err)
+	}
+	fotoService := service.NewFotoPerfilService(usuarioRepo, avatarStorage)
+	fotoHandler := handler.NewFotoPerfilHandler(fotoService)
+	router.GET("/api/v1/avatares/:arquivo", fotoHandler.ServirArquivo)
+	router.HEAD("/api/v1/avatares/:arquivo", fotoHandler.ServirArquivo)
+	preferenciasRepo := repository.NewPreferenciasRepository(queries, pool)
+	preferenciasService := service.NewPreferenciasService(preferenciasRepo)
+	preferenciasHandler := handler.NewPreferenciasHandler(preferenciasService)
+
 	privadas := middleware.GrupoPrivado(router, tokens)
 	privadas.GET("/me", meHandler.Me)
+	privadas.GET("/me/perfil", perfilHandler.ObterPerfil)
+	privadas.PUT("/me/perfil", perfilHandler.AtualizarPerfil)
+	privadas.GET("/me/preferencias", preferenciasHandler.ObterPreferencias)
+	privadas.PUT("/me/preferencias", preferenciasHandler.AtualizarPreferencias)
+	privadas.PUT("/me/foto", fotoHandler.Upload)
+	privadas.PUT("/me/foto/capa", fotoHandler.DefinirCapa)
+	privadas.DELETE("/me/foto", fotoHandler.RemoverFoto)
 	logoutHandler := handler.NewLogoutHandler(service.NewLogoutService(tokens, revogadosRepo))
 	privadas.POST("/auth/logout", logoutHandler.Logout)
 	trocaSenhaHandler := handler.NewTrocaSenhaHandler(service.NewTrocaSenhaService(usuarioRepo, resetRepo, revogadosRepo))
@@ -144,7 +168,7 @@ func run() error {
 	privadas.PUT("/jogos/:id/game-do-ano", jogosHandler.DefinirGameDoAno)
 	privadas.DELETE("/jogos/:id", jogosHandler.ExcluirJogo)
 	privadas.DELETE("/jogos/:id/game-do-ano", jogosHandler.RemoverGameDoAno)
-	abandonadosRepo := repository.NewJogosAbandonadosRepository(queries)
+	abandonadosRepo := repository.NewJogosAbandonadosRepository(pool, queries)
 	abandonadosService := service.NewJogosAbandonadosService(abandonadosRepo)
 	abandonadosHandler := handler.NewJogosAbandonadosHandler(abandonadosService)
 	privadas.GET("/jogos-abandonados", abandonadosHandler.Listar)

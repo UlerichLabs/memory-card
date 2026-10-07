@@ -42,7 +42,7 @@ func TestAuthHandler_Register_Sucesso(t *testing.T) {
 		},
 	}
 
-	h := NewAuthHandler(mockSvc)
+	h := NewAuthHandler(mockSvc, true)
 	router := gin.New()
 	router.POST("/api/v1/auth/register", h.Register)
 
@@ -129,7 +129,7 @@ func TestAuthHandler_Register_ErrosDeValidacao(t *testing.T) {
 				},
 			}
 
-			h := NewAuthHandler(mockSvc)
+			h := NewAuthHandler(mockSvc, true)
 			router := gin.New()
 			router.POST("/api/v1/auth/register", h.Register)
 
@@ -192,7 +192,7 @@ func TestAuthHandler_Register_CorpoInvalido(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			mockSvc := &mockCadastroService{}
-			h := NewAuthHandler(mockSvc)
+			h := NewAuthHandler(mockSvc, true)
 			router := gin.New()
 			router.POST("/api/v1/auth/register", h.Register)
 
@@ -223,6 +223,80 @@ func TestAuthHandler_Register_CorpoInvalido(t *testing.T) {
 			}
 			if errResp.Error.Mensagem != tc.wantMensagem {
 				t.Errorf("mensagem = %q, esperado %q", errResp.Error.Mensagem, tc.wantMensagem)
+			}
+		})
+	}
+}
+
+func TestAuthHandler_Register_Desabilitado(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	tests := []struct {
+		name           string
+		acceptLanguage string
+		body           string
+		wantMensagem   string
+	}{
+		{
+			name:           "pt-BR com corpo valido",
+			acceptLanguage: "pt-BR",
+			body:           `{"nome":"Lucas","email":"lucas@example.com","senha":"SenhaForte@123"}`,
+			wantMensagem:   "O cadastro de novos usuários está desativado.",
+		},
+		{
+			name:           "en com corpo valido",
+			acceptLanguage: "en",
+			body:           `{"nome":"Lucas","email":"lucas@example.com","senha":"SenhaForte@123"}`,
+			wantMensagem:   "New user registration is disabled.",
+		},
+		{
+			name:           "corpo invalido continua bloqueado",
+			acceptLanguage: "pt-BR",
+			body:           `{invalido`,
+			wantMensagem:   "O cadastro de novos usuários está desativado.",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			called := false
+			mockSvc := &mockCadastroService{
+				cadastrarFn: func(ctx context.Context, nome, email, senha string) (*repository.Usuario, error) {
+					called = true
+					return nil, errors.New("service não deveria ser chamado")
+				},
+			}
+
+			h := NewAuthHandler(mockSvc, false)
+			router := gin.New()
+			router.POST("/api/v1/auth/register", h.Register)
+			req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/register", bytes.NewBufferString(tc.body))
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("Accept-Language", tc.acceptLanguage)
+			w := httptest.NewRecorder()
+
+			router.ServeHTTP(w, req)
+
+			if w.Code != http.StatusForbidden {
+				t.Fatalf("status = %d, esperado %d", w.Code, http.StatusForbidden)
+			}
+			var errResp struct {
+				Error struct {
+					Codigo   string `json:"codigo"`
+					Mensagem string `json:"mensagem"`
+				} `json:"error"`
+			}
+			if err := json.Unmarshal(w.Body.Bytes(), &errResp); err != nil {
+				t.Fatalf("falha ao decodificar JSON: %v", err)
+			}
+			if errResp.Error.Codigo != "auth.register.disabled" {
+				t.Errorf("codigo = %q, esperado %q", errResp.Error.Codigo, "auth.register.disabled")
+			}
+			if errResp.Error.Mensagem != tc.wantMensagem {
+				t.Errorf("mensagem = %q, esperado %q", errResp.Error.Mensagem, tc.wantMensagem)
+			}
+			if called {
+				t.Error("service de cadastro foi chamado com registro desabilitado")
 			}
 		})
 	}

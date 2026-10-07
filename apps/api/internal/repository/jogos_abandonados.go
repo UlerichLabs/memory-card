@@ -74,17 +74,22 @@ type JogosAbandonadosRepository interface {
 }
 
 type SQLJogosAbandonadosRepository struct {
+	pool    DBTXPool
 	queries *db.Queries
 }
 
-func NewJogosAbandonadosRepository(queries *db.Queries) *SQLJogosAbandonadosRepository {
-	return &SQLJogosAbandonadosRepository{queries: queries}
+func NewJogosAbandonadosRepository(pool DBTXPool, queries *db.Queries) *SQLJogosAbandonadosRepository {
+	return &SQLJogosAbandonadosRepository{pool: pool, queries: queries}
 }
 
 func (r *SQLJogosAbandonadosRepository) Criar(
 	ctx context.Context,
 	params CriarJogoAbandonadoParams,
 ) (*JogoAbandonado, error) {
+	if r.pool == nil {
+		return nil, errors.New("pool nao configurado")
+	}
+
 	var igdbID pgtype.Int4
 	if params.IgdbID != nil {
 		igdbID = pgtype.Int4{Int32: *params.IgdbID, Valid: true}
@@ -105,7 +110,16 @@ func (r *SQLJogosAbandonadosRepository) Criar(
 		iniciadoEm = pgtype.Timestamp{Time: *params.IniciadoEm, Valid: true}
 	}
 
-	row, err := r.queries.CriarJogoAbandonado(ctx, db.CriarJogoAbandonadoParams{
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("iniciar transacao para criar jogo abandonado: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	qtx := r.queries.WithTx(tx)
+	row, err := qtx.CriarJogoAbandonado(ctx, db.CriarJogoAbandonadoParams{
 		UsuarioID:    params.UsuarioID,
 		IgdbID:       igdbID,
 		IgdbCapaUrl:  capaURL,
@@ -118,6 +132,18 @@ func (r *SQLJogosAbandonadosRepository) Criar(
 	})
 	if err != nil {
 		return nil, fmt.Errorf("criar jogo abandonado: %w", err)
+	}
+
+	if _, err := qtx.DarBaixaJogoEmAndamento(ctx, db.DarBaixaJogoEmAndamentoParams{
+		UsuarioID: params.UsuarioID,
+		IgdbID:    igdbID,
+		Nome:      params.Nome,
+	}); err != nil {
+		return nil, fmt.Errorf("dar baixa em jogo em andamento: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("commit transacao de criacao do jogo abandonado: %w", err)
 	}
 
 	return mapearJogoAbandonado(row), nil

@@ -11,6 +11,84 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const atualizarAvatarCapa = `-- name: AtualizarAvatarCapa :execrows
+UPDATE usuarios
+SET avatar_url = NULL,
+    avatar_jogo_id = $2
+WHERE id = $1
+`
+
+type AtualizarAvatarCapaParams struct {
+	ID           int32
+	AvatarJogoID pgtype.Int4
+}
+
+func (q *Queries) AtualizarAvatarCapa(ctx context.Context, arg AtualizarAvatarCapaParams) (int64, error) {
+	result, err := q.db.Exec(ctx, atualizarAvatarCapa, arg.ID, arg.AvatarJogoID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const atualizarAvatarUpload = `-- name: AtualizarAvatarUpload :execrows
+UPDATE usuarios
+SET avatar_url = $2,
+    avatar_jogo_id = NULL
+WHERE id = $1
+`
+
+type AtualizarAvatarUploadParams struct {
+	ID        int32
+	AvatarUrl pgtype.Text
+}
+
+func (q *Queries) AtualizarAvatarUpload(ctx context.Context, arg AtualizarAvatarUploadParams) (int64, error) {
+	result, err := q.db.Exec(ctx, atualizarAvatarUpload, arg.ID, arg.AvatarUrl)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const atualizarPerfilUsuario = `-- name: AtualizarPerfilUsuario :execrows
+UPDATE usuarios
+SET
+    nome = $2,
+    username = $3,
+    bio = $4,
+    jogo_favorito_id = $5,
+    console_favorito = $6,
+    jogando_desde = $7
+WHERE id = $1
+`
+
+type AtualizarPerfilUsuarioParams struct {
+	ID              int32
+	Nome            string
+	Username        pgtype.Text
+	Bio             pgtype.Text
+	JogoFavoritoID  pgtype.Int4
+	ConsoleFavorito pgtype.Text
+	JogandoDesde    pgtype.Int2
+}
+
+func (q *Queries) AtualizarPerfilUsuario(ctx context.Context, arg AtualizarPerfilUsuarioParams) (int64, error) {
+	result, err := q.db.Exec(ctx, atualizarPerfilUsuario,
+		arg.ID,
+		arg.Nome,
+		arg.Username,
+		arg.Bio,
+		arg.JogoFavoritoID,
+		arg.ConsoleFavorito,
+		arg.JogandoDesde,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const atualizarSenhaUsuario = `-- name: AtualizarSenhaUsuario :exec
 UPDATE usuarios
 SET senha_hash = $2
@@ -25,6 +103,24 @@ type AtualizarSenhaUsuarioParams struct {
 func (q *Queries) AtualizarSenhaUsuario(ctx context.Context, arg AtualizarSenhaUsuarioParams) error {
 	_, err := q.db.Exec(ctx, atualizarSenhaUsuario, arg.ID, arg.SenhaHash)
 	return err
+}
+
+const buscarAvatarUsuario = `-- name: BuscarAvatarUsuario :one
+SELECT avatar_url, avatar_jogo_id
+FROM usuarios
+WHERE id = $1
+`
+
+type BuscarAvatarUsuarioRow struct {
+	AvatarUrl    pgtype.Text
+	AvatarJogoID pgtype.Int4
+}
+
+func (q *Queries) BuscarAvatarUsuario(ctx context.Context, id int32) (BuscarAvatarUsuarioRow, error) {
+	row := q.db.QueryRow(ctx, buscarAvatarUsuario, id)
+	var i BuscarAvatarUsuarioRow
+	err := row.Scan(&i.AvatarUrl, &i.AvatarJogoID)
+	return i, err
 }
 
 const buscarCredenciaisUsuarioPorID = `-- name: BuscarCredenciaisUsuarioPorID :one
@@ -58,6 +154,97 @@ func (q *Queries) BuscarCredenciaisUsuarioPorID(ctx context.Context, id int32) (
 		&i.Bio,
 		&i.Idioma,
 		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const buscarJogoZeradoParaCapa = `-- name: BuscarJogoZeradoParaCapa :one
+SELECT id, igdb_capa_url
+FROM jogos_zerados
+WHERE id = $1 AND usuario_id = $2 AND deleted_at IS NULL
+`
+
+type BuscarJogoZeradoParaCapaParams struct {
+	ID        int32
+	UsuarioID int32
+}
+
+type BuscarJogoZeradoParaCapaRow struct {
+	ID          int32
+	IgdbCapaUrl pgtype.Text
+}
+
+func (q *Queries) BuscarJogoZeradoParaCapa(ctx context.Context, arg BuscarJogoZeradoParaCapaParams) (BuscarJogoZeradoParaCapaRow, error) {
+	row := q.db.QueryRow(ctx, buscarJogoZeradoParaCapa, arg.ID, arg.UsuarioID)
+	var i BuscarJogoZeradoParaCapaRow
+	err := row.Scan(&i.ID, &i.IgdbCapaUrl)
+	return i, err
+}
+
+const buscarPerfilCompletoPorID = `-- name: BuscarPerfilCompletoPorID :one
+SELECT
+    u.id,
+    u.nome,
+    u.email,
+    u.username,
+    u.avatar_url,
+    u.avatar_jogo_id,
+    aj.igdb_capa_url AS avatar_jogo_capa_url,
+    u.bio,
+    u.jogo_favorito_id,
+    u.console_favorito,
+    u.jogando_desde,
+    j.id AS fav_id,
+    j.nome AS fav_nome,
+    j.igdb_capa_url AS fav_capa_url,
+    COALESCE((
+        SELECT EXTRACT(YEAR FROM MIN(finalizado_em))::int
+        FROM jogos_zerados
+        WHERE usuario_id = u.id AND deleted_at IS NULL
+    ), 0)::int AS primeiro_ano_zerado
+FROM usuarios u
+LEFT JOIN jogos_zerados j ON j.id = u.jogo_favorito_id AND j.usuario_id = u.id AND j.deleted_at IS NULL
+LEFT JOIN jogos_zerados aj ON aj.id = u.avatar_jogo_id AND aj.usuario_id = u.id AND aj.deleted_at IS NULL
+WHERE u.id = $1
+`
+
+type BuscarPerfilCompletoPorIDRow struct {
+	ID                int32
+	Nome              string
+	Email             string
+	Username          pgtype.Text
+	AvatarUrl         pgtype.Text
+	AvatarJogoID      pgtype.Int4
+	AvatarJogoCapaUrl pgtype.Text
+	Bio               pgtype.Text
+	JogoFavoritoID    pgtype.Int4
+	ConsoleFavorito   pgtype.Text
+	JogandoDesde      pgtype.Int2
+	FavID             pgtype.Int4
+	FavNome           pgtype.Text
+	FavCapaUrl        pgtype.Text
+	PrimeiroAnoZerado int32
+}
+
+func (q *Queries) BuscarPerfilCompletoPorID(ctx context.Context, id int32) (BuscarPerfilCompletoPorIDRow, error) {
+	row := q.db.QueryRow(ctx, buscarPerfilCompletoPorID, id)
+	var i BuscarPerfilCompletoPorIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.Nome,
+		&i.Email,
+		&i.Username,
+		&i.AvatarUrl,
+		&i.AvatarJogoID,
+		&i.AvatarJogoCapaUrl,
+		&i.Bio,
+		&i.JogoFavoritoID,
+		&i.ConsoleFavorito,
+		&i.JogandoDesde,
+		&i.FavID,
+		&i.FavNome,
+		&i.FavCapaUrl,
+		&i.PrimeiroAnoZerado,
 	)
 	return i, err
 }
@@ -168,6 +355,25 @@ func (q *Queries) CriarUsuario(ctx context.Context, arg CriarUsuarioParams) (Cri
 	return i, err
 }
 
+const existeJogoZeradoDoUsuario = `-- name: ExisteJogoZeradoDoUsuario :one
+SELECT EXISTS(
+    SELECT 1 FROM jogos_zerados
+    WHERE id = $1 AND usuario_id = $2 AND deleted_at IS NULL
+)
+`
+
+type ExisteJogoZeradoDoUsuarioParams struct {
+	ID        int32
+	UsuarioID int32
+}
+
+func (q *Queries) ExisteJogoZeradoDoUsuario(ctx context.Context, arg ExisteJogoZeradoDoUsuarioParams) (bool, error) {
+	row := q.db.QueryRow(ctx, existeJogoZeradoDoUsuario, arg.ID, arg.UsuarioID)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const existeUsuarioComEmail = `-- name: ExisteUsuarioComEmail :one
 SELECT EXISTS(
     SELECT 1 FROM usuarios WHERE email = $1
@@ -179,4 +385,19 @@ func (q *Queries) ExisteUsuarioComEmail(ctx context.Context, email string) (bool
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
+}
+
+const removerAvatar = `-- name: RemoverAvatar :execrows
+UPDATE usuarios
+SET avatar_url = NULL,
+    avatar_jogo_id = NULL
+WHERE id = $1
+`
+
+func (q *Queries) RemoverAvatar(ctx context.Context, id int32) (int64, error) {
+	result, err := q.db.Exec(ctx, removerAvatar, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }

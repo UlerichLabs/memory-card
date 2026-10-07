@@ -134,6 +134,10 @@ func NewJogosRepository(pool DBTXPool, queries *db.Queries) *SQLJogosRepository 
 }
 
 func (r *SQLJogosRepository) Criar(ctx context.Context, params CriarJogoZeradoParams) (*JogoZerado, error) {
+	if r.pool == nil {
+		return nil, errors.New("pool nao configurado")
+	}
+
 	var igdbID pgtype.Int4
 	if params.IgdbID != nil {
 		igdbID = pgtype.Int4{Int32: *params.IgdbID, Valid: true}
@@ -169,7 +173,16 @@ func (r *SQLJogosRepository) Criar(ctx context.Context, params CriarJogoZeradoPa
 		descricao = pgtype.Text{String: params.IgdbDescricao, Valid: true}
 	}
 
-	row, err := r.queries.CriarJogoZerado(ctx, db.CriarJogoZeradoParams{
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("iniciar transacao para criar jogo zerado: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	qtx := r.queries.WithTx(tx)
+	row, err := qtx.CriarJogoZerado(ctx, db.CriarJogoZeradoParams{
 		UsuarioID:     params.UsuarioID,
 		IgdbID:        igdbID,
 		Nome:          params.Nome,
@@ -188,6 +201,18 @@ func (r *SQLJogosRepository) Criar(ctx context.Context, params CriarJogoZeradoPa
 	})
 	if err != nil {
 		return nil, fmt.Errorf("criar jogo zerado: %w", err)
+	}
+
+	if _, err := qtx.DarBaixaJogoEmAndamento(ctx, db.DarBaixaJogoEmAndamentoParams{
+		UsuarioID: params.UsuarioID,
+		IgdbID:    igdbID,
+		Nome:      params.Nome,
+	}); err != nil {
+		return nil, fmt.Errorf("dar baixa em jogo em andamento: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("commit transacao de criacao do jogo zerado: %w", err)
 	}
 
 	return mapearJogoZerado(row), nil
@@ -703,4 +728,3 @@ func (r *SQLJogosRepository) RemoverGameDoAno(ctx context.Context, id int32, usu
 	}
 	return nil
 }
-

@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
+import { createElement, type ReactNode } from 'react'
 import { abandonadosService } from '@/lib/services/abandonadosService'
 import { AbandonadosProvider, useAbandonadosStore } from './abandonadosStore'
+import { JogandoContext, type JogandoStore } from './jogandoStore'
 import type { JogoAbandonado } from '@/types/abandonados'
 
 const abandonadoMock: JogoAbandonado = {
@@ -139,5 +141,48 @@ describe('abandonadosStore', () => {
       await result.current.excluirJogo(1)
     })
     expect(abandonadosService.excluir).toHaveBeenCalledWith(1, undefined)
+  })
+
+  it('criarJogo recarrega Jogando agora após sucesso', async () => {
+    vi.spyOn(abandonadosService, 'criar').mockResolvedValue(abandonadoMock)
+    vi.spyOn(abandonadosService, 'listar').mockResolvedValue({ data: [], meta: { pagina: 1, por_pagina: 12, total: 0, total_paginas: 0 } })
+    vi.spyOn(abandonadosService, 'obterFiltros').mockResolvedValue({ consoles: [] })
+    vi.spyOn(abandonadosService, 'obterTotal').mockResolvedValue({ total: 0 })
+    const carregarJogando = vi.fn().mockResolvedValue(undefined)
+    const jogando = { carregar: carregarJogando } as unknown as JogandoStore
+    const wrapper = ({ children }: { children: ReactNode }) => createElement(JogandoContext.Provider, { value: jogando }, createElement(AbandonadosProvider, null, children))
+    const { result } = renderHook(() => useAbandonadosStore(), { wrapper })
+
+    await act(async () => { await result.current.criarJogo({ nome: 'Chrono Trigger', console: 'SNES', abandonado_em: '2026-01-15', tempo_jogado_horas: 10 }) })
+
+    expect(carregarJogando).toHaveBeenCalledTimes(1)
+  })
+
+  it('criarJogo não recarrega Jogando agora quando a criação falha', async () => {
+    vi.spyOn(abandonadosService, 'criar').mockRejectedValue(new Error('Erro de conexão'))
+    const carregarJogando = vi.fn()
+    const jogando = { carregar: carregarJogando } as unknown as JogandoStore
+    const wrapper = ({ children }: { children: ReactNode }) => createElement(JogandoContext.Provider, { value: jogando }, createElement(AbandonadosProvider, null, children))
+    const { result } = renderHook(() => useAbandonadosStore(), { wrapper })
+
+    await act(async () => { await expect(result.current.criarJogo({ nome: 'Chrono Trigger', console: 'SNES', abandonado_em: '2026-01-15', tempo_jogado_horas: 10 })).rejects.toThrow() })
+
+    expect(carregarJogando).not.toHaveBeenCalled()
+  })
+
+  it('ignora falha ao recarregar Jogando agora após criar', async () => {
+    vi.spyOn(abandonadosService, 'criar').mockResolvedValue(abandonadoMock)
+    vi.spyOn(abandonadosService, 'listar').mockResolvedValue({ data: [], meta: { pagina: 1, por_pagina: 12, total: 0, total_paginas: 0 } })
+    vi.spyOn(abandonadosService, 'obterFiltros').mockResolvedValue({ consoles: [] })
+    vi.spyOn(abandonadosService, 'obterTotal').mockResolvedValue({ total: 0 })
+    const carregarJogando = vi.fn().mockRejectedValue(new Error('Falha ao carregar'))
+    const jogando = { carregar: carregarJogando } as unknown as JogandoStore
+    const wrapper = ({ children }: { children: ReactNode }) => createElement(JogandoContext.Provider, { value: jogando }, createElement(AbandonadosProvider, null, children))
+    const { result } = renderHook(() => useAbandonadosStore(), { wrapper })
+
+    await act(async () => { await expect(result.current.criarJogo({ nome: 'Chrono Trigger', console: 'SNES', abandonado_em: '2026-01-15', tempo_jogado_horas: 10 })).resolves.toEqual(abandonadoMock) })
+
+    expect(result.current.error).toBeNull()
+    expect(carregarJogando).toHaveBeenCalledTimes(1)
   })
 })

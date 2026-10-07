@@ -375,6 +375,18 @@ type ListaIten struct {
 	CreatedAt     pgtype.Timestamptz
 }
 
+type PreferenciasUsuario struct {
+	UsuarioID        int32
+	FormatoData      string
+	FusoHorario      string
+	VisualBiblioteca string
+	ItensPorPagina   int32
+	ReduzirAnimacoes bool
+	ModoTema         string
+	EstiloTema       string
+	UpdatedAt        pgtype.Timestamptz
+}
+
 type TokensRefreshAtivo struct {
 	Jti       string
 	UsuarioID int32
@@ -395,14 +407,18 @@ type TokensRevogado struct {
 }
 
 type Usuario struct {
-	ID           int32
-	Nome         string
-	Email        string
-	SenhaHash    string
-	Username     pgtype.Text
-	AvatarUrl    pgtype.Text
-	Bio          pgtype.Text
-	RedesSociais []byte
-	CreatedAt    pgtype.Timestamp
-	Idioma       string
+	ID              int32
+	Nome            string
+	Email           string
+	SenhaHash       string
+	Username        pgtype.Text
+	AvatarUrl       pgtype.Text
+	Bio             pgtype.Text
+	RedesSociais    []byte
+	CreatedAt       pgtype.Timestamp
+	Idioma          string
+	JogoFavoritoID  pgtype.Int4
+	ConsoleFavorito pgtype.Text
+	JogandoDesde    pgtype.Int2
+	AvatarJogoID    pgtype.Int4
 }
