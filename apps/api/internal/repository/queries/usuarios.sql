@@ -40,6 +40,8 @@ SELECT
     u.email,
     u.username,
     u.avatar_url,
+    u.avatar_jogo_id,
+    aj.igdb_capa_url AS avatar_jogo_capa_url,
     u.bio,
     u.jogo_favorito_id,
     u.console_favorito,
@@ -54,6 +56,7 @@ SELECT
     ), 0)::int AS primeiro_ano_zerado
 FROM usuarios u
 LEFT JOIN jogos_zerados j ON j.id = u.jogo_favorito_id AND j.usuario_id = u.id AND j.deleted_at IS NULL
+LEFT JOIN jogos_zerados aj ON aj.id = u.avatar_jogo_id AND aj.usuario_id = u.id AND aj.deleted_at IS NULL
 WHERE u.id = $1;
 
 -- name: ExisteJogoZeradoDoUsuario :one
@@ -72,3 +75,32 @@ SET
     console_favorito = $6,
     jogando_desde = $7
 WHERE id = $1;
+
+-- name: BuscarAvatarUsuario :one
+SELECT avatar_url, avatar_jogo_id
+FROM usuarios
+WHERE id = $1;
+
+-- name: AtualizarAvatarUpload :execrows
+UPDATE usuarios
+SET avatar_url = $2,
+    avatar_jogo_id = NULL
+WHERE id = $1;
+
+-- name: BuscarJogoZeradoParaCapa :one
+SELECT id, igdb_capa_url
+FROM jogos_zerados
+WHERE id = $1 AND usuario_id = $2 AND deleted_at IS NULL;
+
+-- name: AtualizarAvatarCapa :execrows
+UPDATE usuarios
+SET avatar_url = NULL,
+    avatar_jogo_id = $2
+WHERE id = $1;
+
+-- name: RemoverAvatar :execrows
+UPDATE usuarios
+SET avatar_url = NULL,
+    avatar_jogo_id = NULL
+WHERE id = $1;
+

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgerrcode"
@@ -18,6 +19,8 @@ import (
 var (
 	ErrUsernameEmUso             = errors.New("perfil.username_em_uso")
 	ErrJogoFavoritoNaoEncontrado = errors.New("perfil.jogo_favorito_nao_encontrado")
+	ErrJogoParaCapaNaoEncontrado = errors.New("foto.jogo_nao_encontrado")
+	ErrJogoSemCapa               = errors.New("foto.jogo_sem_capa")
 )
 
 type Usuario struct {
@@ -40,6 +43,7 @@ type PerfilUsuario struct {
 	Username            *string             `json:"username"`
 	Bio                 *string             `json:"bio"`
 	AvatarURL           *string             `json:"avatar_url"`
+	AvatarTipo          *string             `json:"avatar_tipo"`
 	JogoFavorito        *JogoFavoritoResumo `json:"jogo_favorito"`
 	ConsoleFavorito     *string             `json:"console_favorito"`
 	JogandoDesde        *int16              `json:"jogando_desde"`
@@ -65,6 +69,10 @@ type UsuarioRepository interface {
 	BuscarPorID(ctx context.Context, id int32) (*Usuario, error)
 	BuscarPerfil(ctx context.Context, id int32) (*PerfilUsuario, error)
 	AtualizarPerfil(ctx context.Context, params AtualizarPerfilParams) (*PerfilUsuario, error)
+	BuscarAvatar(ctx context.Context, id int32) (*string, error)
+	AtualizarAvatarUpload(ctx context.Context, id int32, nomeArquivo string) (*PerfilUsuario, error)
+	AtualizarAvatarCapa(ctx context.Context, id int32, jogoID int32) (*PerfilUsuario, error)
+	RemoverAvatar(ctx context.Context, id int32) (*PerfilUsuario, error)
 }
 
 type SQLUsuarioRepository struct {
@@ -250,6 +258,64 @@ func (r *SQLUsuarioRepository) AtualizarPerfil(ctx context.Context, params Atual
 	return mapearPerfilUsuario(row), nil
 }
 
+func (r *SQLUsuarioRepository) BuscarAvatar(ctx context.Context, id int32) (*string, error) {
+	row, err := r.queries.BuscarAvatarUsuario(ctx, id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("buscar avatar usuario: %w", err)
+	}
+	if row.AvatarUrl.Valid && row.AvatarUrl.String != "" {
+		return &row.AvatarUrl.String, nil
+	}
+	return nil, nil
+}
+
+func (r *SQLUsuarioRepository) AtualizarAvatarUpload(ctx context.Context, id int32, nomeArquivo string) (*PerfilUsuario, error) {
+	_, err := r.queries.AtualizarAvatarUpload(ctx, db.AtualizarAvatarUploadParams{
+		ID:        id,
+		AvatarUrl: pgtype.Text{String: nomeArquivo, Valid: true},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("atualizar avatar upload: %w", err)
+	}
+	return r.BuscarPerfil(ctx, id)
+}
+
+func (r *SQLUsuarioRepository) AtualizarAvatarCapa(ctx context.Context, id int32, jogoID int32) (*PerfilUsuario, error) {
+	row, err := r.queries.BuscarJogoZeradoParaCapa(ctx, db.BuscarJogoZeradoParaCapaParams{
+		ID:        jogoID,
+		UsuarioID: id,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrJogoParaCapaNaoEncontrado
+	}
+	if err != nil {
+		return nil, fmt.Errorf("buscar jogo para capa: %w", err)
+	}
+	if !row.IgdbCapaUrl.Valid || strings.TrimSpace(row.IgdbCapaUrl.String) == "" {
+		return nil, ErrJogoSemCapa
+	}
+
+	_, err = r.queries.AtualizarAvatarCapa(ctx, db.AtualizarAvatarCapaParams{
+		ID:           id,
+		AvatarJogoID: pgtype.Int4{Int32: jogoID, Valid: true},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("atualizar avatar capa: %w", err)
+	}
+	return r.BuscarPerfil(ctx, id)
+}
+
+func (r *SQLUsuarioRepository) RemoverAvatar(ctx context.Context, id int32) (*PerfilUsuario, error) {
+	_, err := r.queries.RemoverAvatar(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("remover avatar: %w", err)
+	}
+	return r.BuscarPerfil(ctx, id)
+}
+
 func mapearPerfilUsuario(row db.BuscarPerfilCompletoPorIDRow) *PerfilUsuario {
 	perfil := &PerfilUsuario{
 		Nome:  row.Nome,
@@ -262,7 +328,15 @@ func mapearPerfilUsuario(row db.BuscarPerfilCompletoPorIDRow) *PerfilUsuario {
 		perfil.Bio = &row.Bio.String
 	}
 	if row.AvatarUrl.Valid && row.AvatarUrl.String != "" {
-		perfil.AvatarURL = &row.AvatarUrl.String
+		tipo := "upload"
+		url := "/api/v1/avatares/" + row.AvatarUrl.String
+		perfil.AvatarTipo = &tipo
+		perfil.AvatarURL = &url
+	} else if row.AvatarJogoID.Valid && row.AvatarJogoCapaUrl.Valid && strings.TrimSpace(row.AvatarJogoCapaUrl.String) != "" {
+		tipo := "jogo"
+		url := row.AvatarJogoCapaUrl.String
+		perfil.AvatarTipo = &tipo
+		perfil.AvatarURL = &url
 	}
 	if row.ConsoleFavorito.Valid && row.ConsoleFavorito.String != "" {
 		perfil.ConsoleFavorito = &row.ConsoleFavorito.String

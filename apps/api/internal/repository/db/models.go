@@ -408,4 +408,5 @@ type Usuario struct {
 	JogoFavoritoID  pgtype.Int4
 	ConsoleFavorito pgtype.Text
 	JogandoDesde    pgtype.Int2
+	AvatarJogoID    pgtype.Int4
 }

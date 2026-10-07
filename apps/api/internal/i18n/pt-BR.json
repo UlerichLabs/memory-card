@@ -103,5 +103,14 @@
   "perfil.jogo_favorito_nao_encontrado": "Jogo favorito não encontrado.",
   "perfil.console_invalido": "O console favorito deve ter no máximo 100 caracteres.",
   "perfil.jogando_desde_invalido": "O ano informado em jogando desde é inválido.",
-  "perfil.entrada_invalida": "Dados de entrada inválidos."
+  "perfil.entrada_invalida": "Dados de entrada inválidos.",
+  "foto.arquivo_obrigatorio": "O envio do arquivo é obrigatório.",
+  "foto.tipo_nao_suportado": "Tipo de arquivo não suportado. Envie uma imagem JPEG, PNG ou WebP.",
+  "foto.arquivo_muito_grande": "O arquivo excede o tamanho máximo permitido de 2 MB.",
+  "foto.imagem_invalida": "A imagem enviada é inválida ou está corrompida.",
+  "foto.dimensoes_excessivas": "As dimensões da imagem excedem o limite permitido.",
+  "foto.jogo_nao_encontrado": "Jogo não encontrado.",
+  "foto.jogo_sem_capa": "O jogo selecionado não possui capa.",
+  "foto.arquivo_nao_encontrado": "Arquivo não encontrado.",
+  "foto.jogo_id_invalido": "Identificador de jogo inválido."
 }

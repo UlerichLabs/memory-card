@@ -103,5 +103,14 @@
   "perfil.jogo_favorito_nao_encontrado": "Favorite game not found.",
   "perfil.console_invalido": "Favorite console must be 100 characters or fewer.",
   "perfil.jogando_desde_invalido": "Invalid year provided for playing since.",
-  "perfil.entrada_invalida": "Invalid input data."
+  "perfil.entrada_invalida": "Invalid input data.",
+  "foto.arquivo_obrigatorio": "The file is required.",
+  "foto.tipo_nao_suportado": "Unsupported file type. Please upload a JPEG, PNG, or WebP image.",
+  "foto.arquivo_muito_grande": "The file exceeds the maximum allowed size of 2 MB.",
+  "foto.imagem_invalida": "The uploaded image is invalid or corrupted.",
+  "foto.dimensoes_excessivas": "Image dimensions exceed the allowed limit.",
+  "foto.jogo_nao_encontrado": "Game not found.",
+  "foto.jogo_sem_capa": "The selected game does not have a cover.",
+  "foto.arquivo_nao_encontrado": "File not found.",
+  "foto.jogo_id_invalido": "Invalid game identifier."
 }

@@ -27,6 +27,7 @@ func TestLoad_ValoresValidos(t *testing.T) {
 				IGDBClientID:        "",
 				IGDBClientSecret:    "",
 				RegistrationEnabled: true,
+				AvatarDir:           "./data/avatares",
 			},
 		},
 		{
@@ -37,6 +38,7 @@ func TestLoad_ValoresValidos(t *testing.T) {
 				"JWT_SECRET":         "supersecretkey123",
 				"IGDB_CLIENT_ID":     "client_123",
 				"IGDB_CLIENT_SECRET": "secret_456",
+				"AVATAR_DIR":         "/custom/avatares",
 			},
 			wantConfig: Config{
 				DatabaseURL:         "postgres://user:pass@localhost:5432/memorycard?sslmode=disable",
@@ -45,6 +47,7 @@ func TestLoad_ValoresValidos(t *testing.T) {
 				IGDBClientID:        "client_123",
 				IGDBClientSecret:    "secret_456",
 				RegistrationEnabled: true,
+				AvatarDir:           "/custom/avatares",
 			},
 		},
 		{
@@ -57,6 +60,7 @@ func TestLoad_ValoresValidos(t *testing.T) {
 				DatabaseURL:         "postgres://user:pass@localhost:5432/memorycard",
 				Port:                "1",
 				RegistrationEnabled: true,
+				AvatarDir:           "./data/avatares",
 			},
 		},
 		{
@@ -69,6 +73,7 @@ func TestLoad_ValoresValidos(t *testing.T) {
 				DatabaseURL:         "postgres://user:pass@localhost:5432/memorycard",
 				Port:                "65535",
 				RegistrationEnabled: true,
+				AvatarDir:           "./data/avatares",
 			},
 		},
 	}

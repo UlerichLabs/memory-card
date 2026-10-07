@@ -220,7 +220,7 @@ func TestIntegration_JogosAbandonados(t *testing.T) {
 			t.Fatalf("esperava que a tabela jogos_abandonados existisse apos migrate up, err=%v", err)
 		}
 
-		if err := m.Steps(-1); err != nil {
+		if err := m.Migrate(11); err != nil {
 			t.Fatalf("falha ao reverter migration 0012: %v", err)
 		}
 

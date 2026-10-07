@@ -246,7 +246,7 @@ func TestIntegration_Perfil(t *testing.T) {
 			t.Fatalf("esperava coluna jogo_favorito_id apos migrate up, err=%v", err)
 		}
 
-		if err := m.Steps(-1); err != nil {
+		if err := m.Migrate(15); err != nil {
 			t.Fatalf("falha ao reverter migration 0016: %v", err)
 		}
 
