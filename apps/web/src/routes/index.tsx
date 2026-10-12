@@ -4,6 +4,7 @@ import { JogosProvider } from '@/stores/jogosStore'
 import { AbandonadosProvider } from '@/stores/abandonadosStore'
 import { JogandoProvider } from '@/stores/jogandoStore'
 import { DashboardProvider } from '@/stores/dashboardStore'
+import { PerfilProvider } from '@/stores/perfilStore'
 import { PrivateRoute } from '@/components/auth/PrivateRoute'
 import { LoginPage } from '@/pages/auth/LoginPage'
 import { DashboardPage } from '@/pages/DashboardPage'
@@ -38,7 +39,7 @@ export function AppRoutes() {
               <AbandonarJogoDialog />
               <IniciarJogoDialog />
               <Routes>
-              <Route element={<PrivateRoute />}>
+              <Route element={<PerfilProvider><PrivateRoute /></PerfilProvider>}>
                 <Route path="/" element={<DashboardProvider><DashboardPage /></DashboardProvider>} />
                 <Route path="/conta/trocar-senha" element={<ContaTrocarSenhaPage />} />
                 <Route path="/configuracoes" element={<ConfiguracoesLayout />}>

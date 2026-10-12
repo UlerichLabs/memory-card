@@ -8,6 +8,7 @@ import { JogandoProvider } from '@/stores/jogandoStore'
 import { GameFormDialog } from '@/components/jogos/GameForm/GameFormDialog'
 import { IniciarJogoDialog } from '@/components/jogando/IniciarJogoDialog'
 import { authService, type SessaoDTO } from '@/services/authService'
+import { PerfilContext } from '@/stores/perfilStore'
 import { Topbar } from './Topbar'
 
 const mockSessao: SessaoDTO = {
@@ -167,4 +168,57 @@ describe('Topbar - Menu de usuário', () => {
     expect(screen.queryByRole('link', { name: /^Desafios$/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /^Listas$/ })).not.toBeInTheDocument()
   })
+
+  it('exibe nome e foto atualizados quando PerfilProvider fornece perfil customizado', () => {
+    const mockPerfilCustom = {
+      id: 1,
+      email: 'lucas@example.com',
+      nome: 'Lucas Customizado',
+      username: 'lucascustom',
+      bio: null,
+      avatar_url: 'https://cdn.example.com/custom-avatar.png',
+      foto_url: 'https://cdn.example.com/custom-avatar.png',
+      avatar_tipo: 'upload' as const,
+      jogo_favorito: null,
+      console_favorito: null,
+      jogando_desde: null,
+      jogando_desde_ano: null,
+      jogando_desde_efetivo: null,
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-01T00:00:00Z',
+    }
+
+
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <AuthProvider>
+          <PerfilContext.Provider
+            value={{
+              perfil: mockPerfilCustom,
+              isLoading: false,
+              isSalvando: false,
+              error: null,
+              carregar: vi.fn().mockResolvedValue(mockPerfilCustom),
+              salvar: vi.fn(),
+              enviarFoto: vi.fn(),
+              usarCapa: vi.fn(),
+              removerFoto: vi.fn(),
+              limparErro: vi.fn(),
+            }}
+          >
+            <JogosProvider>
+              <JogandoProvider>
+                <Topbar />
+              </JogandoProvider>
+            </JogosProvider>
+          </PerfilContext.Provider>
+        </AuthProvider>
+      </MemoryRouter>
+    )
+
+    expect(screen.getByText('Lucas Customizado')).toBeInTheDocument()
+    const avatarImg = screen.getByAltText('Foto de perfil de Lucas Customizado')
+    expect(avatarImg).toHaveAttribute('src', 'https://cdn.example.com/custom-avatar.png')
+  })
 })
+

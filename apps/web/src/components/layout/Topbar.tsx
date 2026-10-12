@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Disc3, Search, Bell, Settings, LogOut } from 'lucide-react'
 import { Menu } from '@base-ui/react/menu'
 import { useAuthStore } from '@/store/authStore'
+import { usePerfilStore } from '@/stores/perfilStore'
 import { NovoMenu } from './NovoMenu'
 import { UserAvatar } from './UserAvatar'
 
@@ -26,7 +27,9 @@ export function Topbar() {
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const { sessao, logout } = useAuthStore()
-  const nomeUsuario = sessao?.usuario?.nome ?? 'Jogador'
+  const { perfil } = usePerfilStore()
+  const nomeUsuario = perfil?.nome ?? sessao?.usuario?.nome ?? 'Jogador'
+  const fotoUsuario = perfil?.avatar_url ?? perfil?.foto_url ?? null
 
   async function handleLogout() {
     await logout()
@@ -87,7 +90,7 @@ export function Topbar() {
               className="flex h-9 cursor-pointer items-center gap-2 rounded-full border border-[var(--border-subtle)] pl-1.5 pr-3 text-[13px] text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
               aria-label="Perfil do usuário"
             >
-              <UserAvatar nome={nomeUsuario} size="sm" />
+              <UserAvatar nome={nomeUsuario} src={fotoUsuario} size="sm" />
               <span className="hidden font-medium text-[var(--text-primary)] sm:inline">
                 {nomeUsuario}
               </span>
@@ -106,11 +109,9 @@ export function Topbar() {
                   className="z-50 w-60 rounded-[10px] border border-[var(--border)] bg-[var(--bg-surface)] p-1.5 shadow-2xl shadow-black/60 outline-none"
                 >
                   <div className="flex items-center gap-2.5 border-b border-[var(--border)] px-3 py-2.5">
-                    <UserAvatar nome={nomeUsuario} size="md" />
+                    <UserAvatar nome={nomeUsuario} src={fotoUsuario} size="md" />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-[13px] font-semibold text-[var(--text-primary)]">
-                        {nomeUsuario}
-                      </p>
+                      <p className="truncate text-[13px] font-semibold text-[var(--text-primary)]">{nomeUsuario}</p>
                     </div>
                   </div>
                   <div className="pt-1">
