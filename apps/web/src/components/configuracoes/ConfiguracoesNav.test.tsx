@@ -49,7 +49,7 @@ describe('ConfiguracoesNav', () => {
     expect(linkPerfil).not.toHaveClass('text-[var(--accent)]')
   })
 
-  it('renderiza fileira de chips mobile com itens esperados', () => {
+  it('renderiza chips mobile sem overflow-x-auto, com flex-wrap e com os 5 links', () => {
     render(
       <MemoryRouter initialEntries={['/configuracoes/dados']}>
         <ConfiguracoesNav />
@@ -57,14 +57,19 @@ describe('ConfiguracoesNav', () => {
     )
 
     const navMobile = screen.getByRole('navigation', { name: 'Navegação mobile de configurações' })
-    expect(navMobile).toHaveClass('md:hidden')
+    expect(navMobile).toHaveClass('md:hidden', 'flex', 'flex-wrap')
+    expect(navMobile).not.toHaveClass('overflow-x-auto')
 
+    const links = within(navMobile).getAllByRole('link')
+    expect(links).toHaveLength(5)
     expect(within(navMobile).getByRole('link', { name: 'Perfil' })).toHaveAttribute('href', '/configuracoes/perfil')
     expect(within(navMobile).getByRole('link', { name: 'Conta' })).toHaveAttribute('href', '/configuracoes/conta')
     expect(within(navMobile).getByRole('link', { name: 'Aparência' })).toHaveAttribute('href', '/configuracoes/aparencia')
     expect(within(navMobile).getByRole('link', { name: 'Dados' })).toHaveAttribute('href', '/configuracoes/dados')
     expect(within(navMobile).getByRole('link', { name: 'Sobre' })).toHaveAttribute('href', '/configuracoes/sobre')
 
-    expect(within(navMobile).getByRole('link', { name: 'Dados' })).toHaveClass('text-[var(--accent)]')
+    const chipDados = within(navMobile).getByRole('link', { name: 'Dados' })
+    expect(chipDados).toHaveClass('text-[var(--accent)]')
+    expect(chipDados).toHaveClass('min-h-11')
   })
 })

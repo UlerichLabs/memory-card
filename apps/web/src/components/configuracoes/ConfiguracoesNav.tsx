@@ -21,13 +21,13 @@ const itensMobile = [
 export function ConfiguracoesNav() {
   return (
     <>
-      <nav aria-label="Navegação mobile de configurações" className="flex items-center gap-2 overflow-x-auto pb-2 md:hidden">
+      <nav aria-label="Navegação mobile de configurações" className="flex flex-wrap gap-2 md:hidden">
         {itensMobile.map(({ label, href }) => (
           <NavLink
             key={href}
             to={href}
             className={({ isActive }) =>
-              `inline-flex shrink-0 items-center rounded-full px-3.5 py-1.5 text-xs transition-colors ${
+              `inline-flex min-h-11 items-center justify-center rounded-full px-4 text-xs transition-colors ${
                 isActive
                   ? 'border border-[var(--accent)] bg-[var(--accent)]/15 font-semibold text-[var(--accent)]'
                   : 'border border-[var(--border-subtle)] bg-[var(--bg-surface-alt)] font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
