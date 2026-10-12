@@ -1,22 +1,27 @@
-import { Hammer } from 'lucide-react'
+import { usePerfilStore } from '@/stores/perfilStore'
+import { FotoPerfilCard } from '@/components/configuracoes/FotoPerfilCard'
+import { PerfilForm } from '@/components/configuracoes/PerfilForm'
 
 export function PerfilSecao() {
-  return (
-    <section className="space-y-6 rounded-[12px] border border-[var(--border)] bg-[var(--bg-surface)] p-5 sm:p-6">
-      <header>
-        <h2 className="text-base font-bold text-[var(--text-primary)]">Perfil</h2>
-      </header>
-      <div className="space-y-3 rounded-[10px] border border-[var(--border)] bg-[var(--bg-surface-alt)] p-8 text-center">
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--accent)]">
-          <Hammer className="h-6 w-6" aria-hidden="true" />
-        </div>
-        <div className="space-y-1">
-          <p className="text-sm font-semibold text-[var(--text-primary)]">Em construção</p>
-          <p className="text-[13px] text-[var(--text-secondary)]">
-            Este módulo faz parte das próximas etapas do roadmap e estará disponível em breve.
-          </p>
-        </div>
+  const { isLoading, perfil } = usePerfilStore()
+
+  if (isLoading && !perfil) {
+    return (
+      <div
+        role="status"
+        aria-label="Carregando perfil"
+        className="flex min-h-[300px] items-center justify-center rounded-[12px] border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--text-secondary)]"
+      >
+        <div className="h-7 w-7 animate-spin rounded-full border-2 border-[var(--border)] border-t-[var(--accent)]" />
       </div>
-    </section>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      <FotoPerfilCard />
+      <PerfilForm key={`${perfil?.nome}-${perfil?.avatar_url}-${perfil?.updated_at ?? 'init'}`} />
+    </div>
   )
 }
+

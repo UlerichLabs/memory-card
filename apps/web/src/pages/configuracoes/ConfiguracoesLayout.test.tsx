@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { AuthProvider } from '@/store/authStore'
 import { JogosProvider } from '@/stores/jogosStore'
 import { JogandoProvider } from '@/stores/jogandoStore'
+import { PerfilProvider } from '@/stores/perfilStore'
 import { ConfiguracoesLayout } from './ConfiguracoesLayout'
 import { PerfilSecao } from './PerfilSecao'
 import { ContaSecao } from './ContaSecao'
@@ -21,23 +22,25 @@ function renderConfiguracoes(initialPath: string) {
   return render(
     <MemoryRouter initialEntries={[initialPath]}>
       <AuthProvider>
-        <JogosProvider>
-          <JogandoProvider>
-            <LocationEcho />
-            <Routes>
-              <Route path="/conta/trocar-senha" element={<ContaTrocarSenhaPage />} />
-              <Route path="/configuracoes" element={<ConfiguracoesLayout />}>
-                <Route index element={<Navigate to="/configuracoes/perfil" replace />} />
-                <Route path="perfil" element={<PerfilSecao />} />
-                <Route path="conta" element={<ContaSecao />} />
-                <Route path="aparencia" element={<AparenciaSecao />} />
-                <Route path="dados" element={<DadosSecao />} />
-                <Route path="sobre" element={<SobreSecao />} />
-                <Route path="*" element={<Navigate to="/configuracoes/perfil" replace />} />
-              </Route>
-            </Routes>
-          </JogandoProvider>
-        </JogosProvider>
+        <PerfilProvider>
+          <JogosProvider>
+            <JogandoProvider>
+              <LocationEcho />
+              <Routes>
+                <Route path="/conta/trocar-senha" element={<ContaTrocarSenhaPage />} />
+                <Route path="/configuracoes" element={<ConfiguracoesLayout />}>
+                  <Route index element={<Navigate to="/configuracoes/perfil" replace />} />
+                  <Route path="perfil" element={<PerfilSecao />} />
+                  <Route path="conta" element={<ContaSecao />} />
+                  <Route path="aparencia" element={<AparenciaSecao />} />
+                  <Route path="dados" element={<DadosSecao />} />
+                  <Route path="sobre" element={<SobreSecao />} />
+                  <Route path="*" element={<Navigate to="/configuracoes/perfil" replace />} />
+                </Route>
+              </Routes>
+            </JogandoProvider>
+          </JogosProvider>
+        </PerfilProvider>
       </AuthProvider>
     </MemoryRouter>
   )
@@ -47,13 +50,13 @@ describe('ConfiguracoesLayout e seções', () => {
   it('redireciona /configuracoes para /configuracoes/perfil', () => {
     renderConfiguracoes('/configuracoes')
     expect(screen.getByTestId('location')).toHaveTextContent('/configuracoes/perfil')
-    expect(screen.getByRole('heading', { level: 2, name: 'Perfil' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Foto de perfil' })).toBeInTheDocument()
   })
 
   it('redireciona rota desconhecida dentro de /configuracoes para /configuracoes/perfil', () => {
     renderConfiguracoes('/configuracoes/rota-inexistente')
     expect(screen.getByTestId('location')).toHaveTextContent('/configuracoes/perfil')
-    expect(screen.getByRole('heading', { level: 2, name: 'Perfil' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Foto de perfil' })).toBeInTheDocument()
   })
 
   it('redireciona /conta/trocar-senha para /configuracoes/conta', () => {
@@ -62,12 +65,13 @@ describe('ConfiguracoesLayout e seções', () => {
     expect(screen.getByRole('heading', { level: 2, name: 'Trocar senha' })).toBeInTheDocument()
   })
 
-  it('renderiza título e estado da seção Perfil', () => {
+  it('renderiza os cards da seção Perfil', () => {
     renderConfiguracoes('/configuracoes/perfil')
-    const secao = screen.getByRole('heading', { level: 2, name: 'Perfil' }).closest('section')!
-    expect(secao).toBeInTheDocument()
-    expect(within(secao).getByText('Em construção')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Foto de perfil' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Informações' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Em destaque no perfil' })).toBeInTheDocument()
   })
+
 
   it('renderiza título e TrocarSenhaForm na seção Conta', () => {
     renderConfiguracoes('/configuracoes/conta')

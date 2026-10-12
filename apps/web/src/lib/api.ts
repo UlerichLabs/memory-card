@@ -50,7 +50,9 @@ export async function apiRequestRaw<T>(
   if (!headers.has('Accept')) headers.set('Accept', 'application/json')
   const token = tokenOverride ?? currentAccessToken
   if (token && !headers.has('Authorization')) headers.set('Authorization', `Bearer ${token}`)
-  if (options.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
+  if (options.body && !(options.body instanceof FormData) && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json')
+  }
   const res = await globalThis.fetch(path.startsWith('http') ? path : `${baseUrl}/api/v1${path}`, { ...options, headers })
   if (res.status === 401 && !isRetry && !path.includes('/auth/refresh') && !path.includes('/auth/login')) {
     try {
@@ -85,7 +87,9 @@ export function setupFetchInterceptor() {
     const headers = new Headers(init.headers || (typeof input === 'object' && 'headers' in input ? input.headers : undefined))
     if (!headers.has('Accept')) headers.set('Accept', 'application/json')
     if (currentAccessToken && !headers.has('Authorization')) headers.set('Authorization', `Bearer ${currentAccessToken}`)
-    if (init.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
+    if (init.body && !(init.body instanceof FormData) && !headers.has('Content-Type')) {
+      headers.set('Content-Type', 'application/json')
+    }
     const res = await original(input, { ...init, headers, _internal: true } as RequestInit)
     if (res.status === 401 && !(init as { _retry?: boolean })._retry) {
       try {

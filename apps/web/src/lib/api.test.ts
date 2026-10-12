@@ -116,4 +116,17 @@ describe('lib/api', () => {
     expect(getStoredRefreshToken()).toBeNull()
     expect(onAuthFailure).toHaveBeenCalledTimes(1)
   })
+
+  it('não define Content-Type application/json quando o corpo for FormData', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ data: { ok: true } }), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const formData = new FormData()
+    formData.append('arquivo', new Blob(['fake']), 'foto.jpg')
+
+    await apiRequest('/me/foto', { method: 'PUT', body: formData })
+
+    const headers = fetchMock.mock.calls[0][1].headers as Headers
+    expect(headers.get('Content-Type')).toBeNull()
+  })
 })
