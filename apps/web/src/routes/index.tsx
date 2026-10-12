@@ -11,6 +11,12 @@ import { CadastroPage } from '@/pages/auth/CadastroPage'
 import { EsqueciSenhaPage } from '@/pages/auth/EsqueciSenhaPage'
 import { RedefinirSenhaPage } from '@/pages/auth/RedefinirSenhaPage'
 import { ContaTrocarSenhaPage } from '@/pages/ContaTrocarSenhaPage'
+import { ConfiguracoesLayout } from '@/pages/configuracoes/ConfiguracoesLayout'
+import { PerfilSecao } from '@/pages/configuracoes/PerfilSecao'
+import { ContaSecao } from '@/pages/configuracoes/ContaSecao'
+import { AparenciaSecao } from '@/pages/configuracoes/AparenciaSecao'
+import { DadosSecao } from '@/pages/configuracoes/DadosSecao'
+import { SobreSecao } from '@/pages/configuracoes/SobreSecao'
 import { BibliotecaPage } from '@/pages/BibliotecaPage'
 import { JogoDetalhePage } from '@/pages/JogoDetalhePage'
 import { HallDaFamaPage } from '@/pages/HallDaFamaPage'
@@ -35,6 +41,15 @@ export function AppRoutes() {
               <Route element={<PrivateRoute />}>
                 <Route path="/" element={<DashboardProvider><DashboardPage /></DashboardProvider>} />
                 <Route path="/conta/trocar-senha" element={<ContaTrocarSenhaPage />} />
+                <Route path="/configuracoes" element={<ConfiguracoesLayout />}>
+                  <Route index element={<Navigate to="/configuracoes/perfil" replace />} />
+                  <Route path="perfil" element={<PerfilSecao />} />
+                  <Route path="conta" element={<ContaSecao />} />
+                  <Route path="aparencia" element={<AparenciaSecao />} />
+                  <Route path="dados" element={<DadosSecao />} />
+                  <Route path="sobre" element={<SobreSecao />} />
+                  <Route path="*" element={<Navigate to="/configuracoes/perfil" replace />} />
+                </Route>
                 <Route path="/biblioteca" element={<BibliotecaPage />} />
                 <Route path="/biblioteca/:id" element={<JogoDetalhePage />} />
                 <Route path="/hall-da-fama" element={<HallDaFamaPage />} />

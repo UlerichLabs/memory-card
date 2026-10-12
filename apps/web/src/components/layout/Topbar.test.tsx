@@ -55,7 +55,7 @@ function renderTopbar(initialPath = '/') {
           <IniciarJogoDialog />
           <Routes>
             <Route path="/login" element={<h1>Tela de Login</h1>} />
-            <Route path="/conta" element={<h1>Tela de Conta</h1>} />
+            <Route path="/configuracoes" element={<h1>Tela de Configurações</h1>} />
             <Route path="*" element={<TopbarWrapper />} />
           </Routes>
           </JogandoProvider>
@@ -71,7 +71,7 @@ describe('Topbar - Menu de usuário', () => {
     vi.unstubAllGlobals()
   })
 
-  it('abre dropdown com as opcoes Conta e Sair ao clicar no perfil', async () => {
+  it('exibe iniciais no gatilho e abre dropdown com Configurações e Sair sem item Conta', async () => {
     vi.spyOn(authService, 'login').mockResolvedValue(mockSessao)
     const user = userEvent.setup()
     renderTopbar()
@@ -80,10 +80,17 @@ describe('Topbar - Menu de usuário', () => {
     expect(await screen.findByText('Lucas Tester')).toBeInTheDocument()
 
     const trigger = screen.getByRole('button', { name: 'Perfil do usuário' })
+    expect(trigger).toHaveTextContent('LT')
+
     await user.click(trigger)
 
-    expect(await screen.findByRole('menuitem', { name: /conta/i })).toBeVisible()
+    const configuracoesItem = await screen.findByRole('menuitem', { name: /configurações/i })
+    expect(configuracoesItem).toBeVisible()
     expect(screen.getByRole('menuitem', { name: /sair/i })).toBeVisible()
+    expect(screen.queryByRole('menuitem', { name: /^conta$/i })).not.toBeInTheDocument()
+
+    await user.click(configuracoesItem)
+    expect(await screen.findByRole('heading', { name: 'Tela de Configurações' })).toBeVisible()
   })
 
   it('redireciona para /login ao clicar em Sair', async () => {

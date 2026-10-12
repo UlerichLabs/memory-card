@@ -18,12 +18,21 @@ describe('BottomNav', () => {
     await user.click(screen.getByRole('button', { name: 'Mais' }))
     expect(screen.getByRole('link', { name: /Abandonados/ })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Explorador/ })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /Meu perfil/ })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Configurações/ })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /AbandonadosJogos que você largou/ })).toHaveAttribute('href', '/abandonados')
     expect(screen.getByRole('link', { name: /ExploradorDescobrir novos jogos/ })).toHaveAttribute('href', '/explorador')
-    expect(screen.getByRole('link', { name: /Meu perfilConta e senha/ })).toHaveAttribute('href', '/conta/trocar-senha')
+    expect(screen.getByRole('link', { name: /ConfiguraçõesPerfil, conta e aparência/ })).toHaveAttribute('href', '/configuracoes')
     expect(document.querySelector('nav[aria-label="Navegação inferior"]')).toBeInTheDocument()
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(screen.queryByRole('link', { name: /Abandonados/ })).not.toBeInTheDocument()
+  })
+
+  it('mantém o botão Mais ativo quando na rota /configuracoes/*', () => {
+    render(
+      <MemoryRouter initialEntries={['/configuracoes/perfil']}>
+        <BottomNav />
+      </MemoryRouter>
+    )
+    expect(screen.getByRole('button', { name: 'Mais' })).toHaveClass('text-[var(--accent)]')
   })
 })

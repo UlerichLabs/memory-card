@@ -1,9 +1,10 @@
 import { type CSSProperties } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { Disc3, Search, Bell, User, LogOut } from 'lucide-react'
+import { Disc3, Search, Bell, Settings, LogOut } from 'lucide-react'
 import { Menu } from '@base-ui/react/menu'
 import { useAuthStore } from '@/store/authStore'
 import { NovoMenu } from './NovoMenu'
+import { UserAvatar } from './UserAvatar'
 
 const navLinks = [
   { label: 'Dashboard', href: '/' },
@@ -86,9 +87,7 @@ export function Topbar() {
               className="flex h-9 cursor-pointer items-center gap-2 rounded-full border border-[var(--border-subtle)] pl-1.5 pr-3 text-[13px] text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
               aria-label="Perfil do usuário"
             >
-              <div className="flex h-6 w-6 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface-alt)]">
-                <User className="h-3.5 w-3.5 text-[var(--text-secondary)]" aria-hidden="true" />
-              </div>
+              <UserAvatar nome={nomeUsuario} size="sm" />
               <span className="hidden font-medium text-[var(--text-primary)] sm:inline">
                 {nomeUsuario}
               </span>
@@ -104,22 +103,35 @@ export function Topbar() {
               >
                 <Menu.Popup
                   style={dropdownTheme}
-                  className="z-50 w-[190px] rounded-[10px] border border-[#24262C] bg-[#1A1B20] p-1.5 shadow-2xl shadow-black/60 outline-none"
+                  className="z-50 w-60 rounded-[10px] border border-[var(--border)] bg-[var(--bg-surface)] p-1.5 shadow-2xl shadow-black/60 outline-none"
                 >
-                  <Menu.Item
-                    className="flex w-full cursor-pointer select-none items-center gap-2.5 rounded-[6px] px-3.5 py-2.5 text-[13px] font-medium text-[#EDEDED] outline-none transition-colors hover:bg-[#1D1F25] focus:bg-[#1D1F25] data-highlighted:bg-[#1D1F25]"
-                    onClick={() => navigate('/conta/trocar-senha')}
-                  >
-                    <User className="h-4 w-4 text-[#9A9CA5]" aria-hidden="true" />
-                    <span>Conta</span>
-                  </Menu.Item>
-                  <Menu.Item
-                    className="flex w-full cursor-pointer select-none items-center gap-2.5 rounded-[6px] px-3.5 py-2.5 text-[13px] font-medium text-[#E05A4E] outline-none transition-colors hover:bg-[#1D1F25] focus:bg-[#1D1F25] data-highlighted:bg-[#1D1F25]"
-                    onClick={handleLogout}
-                  >
-                    <LogOut className="h-4 w-4 text-[#E05A4E]" aria-hidden="true" />
-                    <span>Sair</span>
-                  </Menu.Item>
+                  <div className="flex items-center gap-2.5 border-b border-[var(--border)] px-3 py-2.5">
+                    <UserAvatar nome={nomeUsuario} size="md" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[13px] font-semibold text-[var(--text-primary)]">
+                        {nomeUsuario}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="pt-1">
+                    <Menu.Item
+                      className="flex w-full cursor-pointer select-none items-center gap-2.5 rounded-[6px] px-3 py-2 text-left outline-none transition-colors hover:bg-[var(--bg-surface-alt)] focus:bg-[var(--bg-surface-alt)] data-highlighted:bg-[var(--bg-surface-alt)]"
+                      onClick={() => navigate('/configuracoes')}
+                    >
+                      <Settings className="h-4 w-4 shrink-0 text-[var(--text-secondary)]" aria-hidden="true" />
+                      <div className="flex flex-col">
+                        <span className="text-[13px] font-medium text-[var(--text-primary)]">Configurações</span>
+                        <span className="text-[11px] text-[var(--text-secondary)]">Perfil, conta e aparência</span>
+                      </div>
+                    </Menu.Item>
+                    <Menu.Item
+                      className="flex w-full cursor-pointer select-none items-center gap-2.5 rounded-[6px] px-3 py-2 text-left text-[13px] font-medium text-[var(--danger)] outline-none transition-colors hover:bg-[var(--bg-surface-alt)] focus:bg-[var(--bg-surface-alt)] data-highlighted:bg-[var(--bg-surface-alt)]"
+                      onClick={handleLogout}
+                    >
+                      <LogOut className="h-4 w-4 shrink-0 text-[var(--danger)]" aria-hidden="true" />
+                      <span>Sair</span>
+                    </Menu.Item>
+                  </div>
                 </Menu.Popup>
               </Menu.Positioner>
             </Menu.Portal>
