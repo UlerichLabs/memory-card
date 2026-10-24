@@ -3,6 +3,7 @@ import { Gamepad2 } from 'lucide-react'
 import type { JogoZeradoDTO } from '@/types/jogos'
 import { formatarCapaIGDB, isoParaDataPt } from '@/lib/utils'
 import { NotaBadge } from '@/components/jogos/NotaBadge'
+import { ConsoleBadge } from '@/components/jogos/ConsoleBadge'
 
 export interface GameDoAnoRadioItemProps {
   jogo: JogoZeradoDTO
@@ -23,7 +24,6 @@ export function GameDoAnoRadioItem({
 }: GameDoAnoRadioItemProps) {
   const capaUrl = formatarCapaIGDB(jogo.igdb_capa_url, 't_cover_big')
   const dataPt = isoParaDataPt(jogo.finalizado_em)
-  const metaTexto = dataPt ? `${jogo.console} · finalizado em ${dataPt}` : jogo.console
 
   return (
     <div
@@ -68,16 +68,21 @@ export function GameDoAnoRadioItem({
           )}
         </div>
 
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
           <span
             className="truncate text-[14px] font-semibold text-[var(--text-primary)]"
             title={jogo.nome}
           >
             {jogo.nome}
           </span>
-          <span className="truncate text-[12px] text-[var(--hall-muted)]">
-            {metaTexto}
-          </span>
+          <div className="flex min-w-0 items-center gap-2">
+            <ConsoleBadge nome={jogo.console} tamanho="sm" />
+            {dataPt && (
+              <span className="truncate text-[12px] text-[var(--hall-muted)]">
+                finalizado em {dataPt}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 

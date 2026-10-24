@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { Crown, Gamepad2 } from 'lucide-react'
 import type { JogoZeradoDTO } from '@/types/jogos'
 import { formatarCapaIGDB } from '@/lib/utils'
+import { ConsoleBadge } from '@/components/jogos/ConsoleBadge'
 
 export interface GamesDaVidaGradeProps {
   jogos: JogoZeradoDTO[]
@@ -52,7 +53,6 @@ export function GamesDaVidaGrade({ jogos }: GamesDaVidaGradeProps) {
           {jogos.map((jogo) => {
             const capaUrl = formatarCapaIGDB(jogo.igdb_capa_url, 't_cover_big')
             const anoZerado = jogo.finalizado_em ? new Date(jogo.finalizado_em).getUTCFullYear() : null
-            const metaTexto = anoZerado ? `${jogo.console} · ${anoZerado}` : jogo.console
 
             return (
               <Link
@@ -90,16 +90,19 @@ export function GamesDaVidaGrade({ jogos }: GamesDaVidaGradeProps) {
                   )}
                 </div>
 
-                <div className="flex flex-col gap-0.5 pt-2.5">
+                <div className="flex flex-col gap-1 pt-2.5">
                   <h3
                     className="line-clamp-2 min-h-[32px] text-[12px] font-semibold leading-[1.35] text-[var(--biblioteca-text-primary)] transition-colors group-hover:text-[var(--hall-ano-ouro)]"
                     title={jogo.nome}
                   >
                     {jogo.nome}
                   </h3>
-                  <p className="truncate text-[10px] text-[var(--hall-plataforma)]">
-                    {metaTexto}
-                  </p>
+                  <ConsoleBadge nome={jogo.console} tamanho="sm" />
+                  {anoZerado && (
+                    <p className="truncate text-[10px] text-[var(--hall-plataforma)]">
+                      Zerado em {anoZerado}
+                    </p>
+                  )}
                 </div>
               </Link>
             )

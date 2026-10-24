@@ -3,6 +3,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { GripVertical, Pause, Trophy, X } from 'lucide-react'
 import { formatarCapaIGDB } from '@/lib/utils'
 import { obterIniciaisJogo } from './listas.utils'
+import { ConsoleBadge } from '@/components/jogos/ConsoleBadge'
 import type { ListaItem } from '@/types/listas'
 
 export interface FilaItemProps {
@@ -15,14 +16,7 @@ export interface FilaItemProps {
 }
 
 export function FilaItem({ item, posicaoExibicao, isFirst, onZerei, onAbandonei, onRemover }: FilaItemProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: item.id })
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id })
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -33,7 +27,6 @@ export function FilaItem({ item, posicaoExibicao, isFirst, onZerei, onAbandonei,
 
   const capaUrl = formatarCapaIGDB(item.igdb_capa_url ?? undefined, 't_cover_big')
   const iniciais = obterIniciaisJogo(item.nome)
-  const metaTexto = [item.console, item.ano_lancamento].filter(Boolean).join(' · ')
 
   return (
     <li
@@ -69,7 +62,7 @@ export function FilaItem({ item, posicaoExibicao, isFirst, onZerei, onAbandonei,
         )}
       </div>
 
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex items-center gap-2">
           <span className="truncate text-[14px] font-semibold text-[var(--text-primary)]">
             {item.nome}
@@ -80,11 +73,14 @@ export function FilaItem({ item, posicaoExibicao, isFirst, onZerei, onAbandonei,
             </span>
           )}
         </div>
-        {metaTexto && (
-          <span className="truncate text-[12px] text-[var(--lista-text-muted)]">
-            {metaTexto}
-          </span>
-        )}
+        <div className="flex min-w-0 items-center gap-2">
+          {item.console && <ConsoleBadge nome={item.console} tamanho="sm" />}
+          {item.ano_lancamento && (
+            <span className="truncate text-[12px] text-[var(--lista-text-muted)]">
+              {item.ano_lancamento}
+            </span>
+          )}
+        </div>
       </div>
 
       <button
