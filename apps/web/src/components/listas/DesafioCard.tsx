@@ -3,6 +3,7 @@ import { Trophy } from "lucide-react";
 import { formatarCapaIGDB } from "@/lib/utils";
 import { obterIniciaisJogo } from "./listas.utils";
 import { DesafioCardCapa } from "./DesafioCardCapa";
+import { ConsoleBadge } from "@/components/jogos/ConsoleBadge";
 import type { ListaItem } from "@/types/listas";
 
 export interface DesafioCardProps {
@@ -20,9 +21,9 @@ export function DesafioCard({ item, onRemover, onZerei }: DesafioCardProps) {
   let metaTexto = "";
   if (item.origem === "regra" && jogo_zerado?.finalizado_em) {
     const anoZerado = jogo_zerado.finalizado_em.slice(0, 4);
-    metaTexto = [consoleName, `zerado em ${anoZerado}`].filter(Boolean).join(" · ");
-  } else {
-    metaTexto = [ano_lancamento, consoleName].filter(Boolean).join(" · ");
+    metaTexto = `zerado em ${anoZerado}`;
+  } else if (ano_lancamento) {
+    metaTexto = String(ano_lancamento);
   }
 
   const cardContent = (
@@ -57,7 +58,7 @@ export function DesafioCard({ item, onRemover, onZerei }: DesafioCardProps) {
       )}
 
       <div
-        className={`flex flex-col gap-0.5 ${!zerado ? "opacity-55" : ""}`}
+        className={`flex min-w-0 flex-col gap-1 ${!zerado ? "opacity-55" : ""}`}
       >
         <span
           title={nome}
@@ -67,6 +68,9 @@ export function DesafioCard({ item, onRemover, onZerei }: DesafioCardProps) {
         >
           {nome}
         </span>
+        {consoleName && (
+          <ConsoleBadge nome={consoleName} tamanho="sm" />
+        )}
         {metaTexto && (
           <span className="truncate text-[11px] text-[var(--lista-text-dim)]">
             {metaTexto}

@@ -18,22 +18,37 @@ describe('ConsoleBadge', () => {
   })
 
   it('renderiza o path real de Xbox e mantém Nintendo universal', () => {
-    const { container, rerender } = render(<ConsoleBadge nome="Xbox One" variante="solido" />)
+    const { container, rerender } = render(<ConsoleBadge nome="Xbox One" />)
     const path = container.querySelector('path')
     const xboxPath = Array.isArray(faXbox.icon[4]) ? faXbox.icon[4].join(' ') : faXbox.icon[4]
     expect(path).toHaveAttribute('d', xboxPath)
 
-    rerender(<ConsoleBadge nome="Nintendo Switch" variante="solido" />)
+    rerender(<ConsoleBadge nome="Nintendo Switch" />)
     const nintendoPath = container.querySelector('svg')?.innerHTML
-    rerender(<ConsoleBadge nome="Game Boy Color" variante="solido" />)
+    rerender(<ConsoleBadge nome="Game Boy Color" />)
     expect(container.querySelector('svg')?.innerHTML).toBe(nintendoPath)
   })
 
-  it('usa cor sólida e texto adequado na variante da Biblioteca', () => {
-    render(<ConsoleBadge nome="Atari 2600" variante="solido" />)
+  it('renderiza sempre no visual sólido com cor sólida e texto adequado', () => {
+    render(<ConsoleBadge nome="Atari 2600" />)
     const badge = screen.getByTitle('Atari 2600')
     expect(badge).toHaveStyle({ backgroundColor: '#F28C28', borderColor: '#F28C28', color: '#1A1B20' })
     expect(badge).toHaveClass('text-xs', 'font-semibold')
   })
 
+  it('aplica classes de tamanho sm e md', () => {
+    const { rerender } = render(<ConsoleBadge nome="PC" tamanho="sm" />)
+    expect(screen.getByTitle('PC')).toHaveClass('h-6', 'px-2')
+
+    rerender(<ConsoleBadge nome="PC" tamanho="md" />)
+    expect(screen.getByTitle('PC')).toHaveClass('h-7', 'px-3')
+  })
+
+  it('renderiza nome longo truncado com title e max-w-full', () => {
+    const nomeLongo = 'Super Nintendo Entertainment System Classic'
+    render(<ConsoleBadge nome={nomeLongo} />)
+    const badge = screen.getByTitle(nomeLongo)
+    expect(badge).toHaveClass('max-w-full')
+    expect(screen.getByText(nomeLongo)).toHaveClass('truncate')
+  })
 })

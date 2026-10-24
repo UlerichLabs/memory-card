@@ -61,7 +61,7 @@ export function GameDoAnoCard({ ano, totalJogos, jogo, onTrocar }: GameDoAnoCard
         >
           {jogo.nome}
         </h3>
-        <ConsoleBadge nome={jogo.console} variante="solido" />
+        <ConsoleBadge nome={jogo.console} />
       </Link>
 
       <div className="mt-auto flex items-center justify-between border-t border-[var(--hall-divider)] pt-2">
