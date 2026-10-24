@@ -7,6 +7,7 @@ export interface JogoDetalheCabecalhoProps {
   onVoltar: () => void
   onEditar: () => void
   onExcluir: () => void
+  rotuloVoltar?: string
 }
 
 export function JogoDetalheCabecalho({
@@ -14,6 +15,7 @@ export function JogoDetalheCabecalho({
   onVoltar,
   onEditar,
   onExcluir,
+  rotuloVoltar = 'Voltar para a Biblioteca',
 }: JogoDetalheCabecalhoProps) {
   const anoFinalizado = jogo.finalizado_em ? jogo.finalizado_em.slice(0, 4) : ''
   const generos = jogo.genero
@@ -29,7 +31,7 @@ export function JogoDetalheCabecalho({
           className="flex h-[40px] items-center gap-1.5 rounded-[10px] px-3 pl-2 text-[14px] font-medium text-[var(--detalhe-link-voltar)] transition-colors hover:text-[var(--text-primary)]"
         >
           <ArrowLeft className="h-[18px] w-[18px]" aria-hidden="true" />
-          <span>Voltar para a Biblioteca</span>
+          <span>{rotuloVoltar}</span>
         </button>
 
         <div className="flex items-center gap-2.5">

@@ -28,8 +28,10 @@ export function JogoDetalhePage() {
   const [isExcluindo, setIsExcluindo] = useState(false)
   useDocumentTitle(jogo?.nome ?? 'Jogo')
 
-  const fromSearch = (location.state as { from?: string } | null)?.from || ''
-  const handleVoltar = () => navigate(`/biblioteca${fromSearch}`)
+  const state = location.state as { from?: string; voltarPara?: string } | null
+  const voltarPara = state?.voltarPara, fromSearch = state?.from || ''
+  const handleVoltar = () => (voltarPara ? navigate(voltarPara) : navigate(`/biblioteca${fromSearch}`))
+  const rotuloVoltar = voltarPara ? 'Voltar para o desafio' : 'Voltar para a Biblioteca'
 
   const carregarDetalhe = useCallback(async (signal?: AbortSignal) => {
     const numId = Number(id)
@@ -93,12 +95,14 @@ export function JogoDetalhePage() {
           <button
             type="button"
             onClick={handleVoltar}
-            aria-label="Voltar para a Biblioteca"
+            aria-label={rotuloVoltar}
             className="flex h-[44px] w-[44px] items-center justify-center rounded-[8px] text-[var(--detalhe-link-voltar)] hover:text-[var(--text-primary)]"
           >
             <ArrowLeft className="h-5 w-5" aria-hidden="true" />
           </button>
-          <span className="text-[15px] font-semibold text-[var(--text-primary)]">Biblioteca</span>
+          <span className="text-[15px] font-semibold text-[var(--text-primary)]">
+            {voltarPara ? 'Desafio' : 'Biblioteca'}
+          </span>
         </div>
         {jogo && (
           <div className="flex items-center gap-1">
@@ -134,7 +138,7 @@ export function JogoDetalhePage() {
               onClick={handleVoltar}
               className="btn-primario px-4 py-2 text-sm"
             >
-              Voltar para a Biblioteca
+              {rotuloVoltar}
             </button>
           </div>
         ) : erroStatus === 'network' ? (
@@ -159,6 +163,7 @@ export function JogoDetalhePage() {
                 onVoltar={handleVoltar}
                 onEditar={() => abrirModalEdicao(jogo)}
                 onExcluir={() => setExcluindoAberto(true)}
+                rotuloVoltar={rotuloVoltar}
               />
 
               <JogoDetalheStats jogo={jogo} />

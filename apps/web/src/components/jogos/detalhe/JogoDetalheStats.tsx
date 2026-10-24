@@ -48,8 +48,12 @@ export function JogoDetalheStats({ jogo }: JogoDetalheStatsProps) {
           Nota
         </span>
         <div className="mt-3 flex items-center gap-3 sm:gap-3.5">
-          <NotaBadge nota={jogo.nota} tamanho="md" pulsar={jogo.nota === 11} className="sm:hidden" />
-          <NotaBadge nota={jogo.nota} tamanho="lg" pulsar={jogo.nota === 11} className="hidden sm:inline-flex" />
+          <span className="sm:hidden">
+            <NotaBadge nota={jogo.nota} tamanho="md" pulsar={jogo.nota === 11} />
+          </span>
+          <span className="hidden sm:inline-flex">
+            <NotaBadge nota={jogo.nota} tamanho="lg" pulsar={jogo.nota === 11} />
+          </span>
           <div className="flex flex-col">
             <span
               style={{ color: `var(--nota-${jogo.nota}-text)` }}

@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Trophy } from "lucide-react";
 import { formatarCapaIGDB } from "@/lib/utils";
 import { obterIniciaisJogo } from "./listas.utils";
@@ -13,10 +13,13 @@ export interface DesafioCardProps {
 }
 
 export function DesafioCard({ item, onRemover, onZerei }: DesafioCardProps) {
+  const location = useLocation();
+  const voltarPara = `${location.pathname}${location.search}`;
   const { zerado, jogo_zerado, nome, console: consoleName, ano_lancamento } = item;
   const capaUrl = formatarCapaIGDB(item.igdb_capa_url ?? undefined, "t_cover_big");
   const capaUrl2x = formatarCapaIGDB(item.igdb_capa_url ?? undefined, "t_cover_big_2x");
   const iniciais = obterIniciaisJogo(nome);
+  const temLinkCatalogo = !zerado && Boolean(item.igdb_id);
 
   let metaTexto = "";
   if (item.origem === "regra" && jogo_zerado?.finalizado_em) {
@@ -26,27 +29,46 @@ export function DesafioCard({ item, onRemover, onZerei }: DesafioCardProps) {
     metaTexto = String(ano_lancamento);
   }
 
+  const capaElement = (
+    <DesafioCardCapa
+      item={item}
+      zerado={zerado}
+      capaUrl={capaUrl}
+      capaUrl2x={capaUrl2x}
+      iniciais={iniciais}
+      onRemover={onRemover}
+      onZerei={onZerei}
+    />
+  );
+
   const cardContent = (
     <div
       className={`group relative flex flex-col gap-2 rounded-[10px] ${
-        zerado ? "cursor-pointer" : "cursor-default"
+        zerado || temLinkCatalogo ? "cursor-pointer" : "cursor-default"
       }`}
     >
-      <DesafioCardCapa
-        item={item}
-        zerado={zerado}
-        capaUrl={capaUrl}
-        capaUrl2x={capaUrl2x}
-        iniciais={iniciais}
-        onRemover={onRemover}
-        onZerei={onZerei}
-      />
+      {temLinkCatalogo ? (
+        <Link
+          to={`/catalogo/${item.igdb_id}`}
+          state={{ voltarPara }}
+          aria-label={`Ver detalhes de ${nome}`}
+          className="block min-h-[44px] min-w-[44px] rounded-[10px] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+        >
+          {capaElement}
+        </Link>
+      ) : (
+        capaElement
+      )}
 
       {!zerado && (
         <button
           type="button"
           aria-label="Zerei!"
-          onClick={() => onZerei(item)}
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onZerei(item);
+          }}
           className="hidden h-8 w-full items-center justify-center gap-1.5 rounded-lg
             border border-[var(--lista-btn-zerei-border)] bg-[var(--lista-btn-zerei-bg)]
             text-[13px] font-bold text-[var(--lista-btn-zerei-text)] opacity-0
@@ -60,14 +82,29 @@ export function DesafioCard({ item, onRemover, onZerei }: DesafioCardProps) {
       <div
         className={`flex min-w-0 flex-col gap-1 ${!zerado ? "opacity-55" : ""}`}
       >
-        <span
-          title={nome}
-          className={`line-clamp-2 text-[13px] font-semibold leading-tight ${
-            zerado ? "text-[var(--lista-text-bright)]" : "text-[var(--lista-text-muted)]"
-          }`}
-        >
-          {nome}
-        </span>
+        {temLinkCatalogo ? (
+          <Link
+            to={`/catalogo/${item.igdb_id}`}
+            state={{ voltarPara }}
+            className="rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+          >
+            <span
+              title={nome}
+              className="line-clamp-2 text-[13px] font-semibold leading-tight text-[var(--lista-text-muted)] hover:text-[var(--lista-text-bright)]"
+            >
+              {nome}
+            </span>
+          </Link>
+        ) : (
+          <span
+            title={nome}
+            className={`line-clamp-2 text-[13px] font-semibold leading-tight ${
+              zerado ? "text-[var(--lista-text-bright)]" : "text-[var(--lista-text-muted)]"
+            }`}
+          >
+            {nome}
+          </span>
+        )}
         {consoleName && (
           <ConsoleBadge nome={consoleName} tamanho="sm" />
         )}
@@ -82,7 +119,11 @@ export function DesafioCard({ item, onRemover, onZerei }: DesafioCardProps) {
 
   if (zerado && jogo_zerado) {
     return (
-      <Link to={`/biblioteca/${jogo_zerado.id}`} className="block focus:outline-none">
+      <Link
+        to={`/biblioteca/${jogo_zerado.id}`}
+        state={{ voltarPara }}
+        className="block rounded-[10px] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+      >
         {cardContent}
       </Link>
     );
