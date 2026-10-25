@@ -29,7 +29,8 @@ export function JogoDetalhePage() {
   useDocumentTitle(jogo?.nome ?? 'Jogo')
 
   const state = location.state as { from?: string; voltarPara?: string } | null
-  const voltarPara = state?.voltarPara, fromSearch = state?.from || ''
+  const voltarPara = state?.voltarPara
+  const fromSearch = state?.from || ''
   const handleVoltar = () => (voltarPara ? navigate(voltarPara) : navigate(`/biblioteca${fromSearch}`))
   const rotuloVoltar = voltarPara ? 'Voltar para o desafio' : 'Voltar para a Biblioteca'
 

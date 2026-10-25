@@ -57,4 +57,12 @@ describe('NotaBadge', () => {
     expect(badge.className).toContain('w-[56px]')
     expect(badge.style.borderColor).toBe('var(--nota-8-fill-border)')
   })
+
+  it('renderiza nota no tamanho responsivo com aria-label correspondente', () => {
+    render(<NotaBadge nota={9} tamanho="responsivo" />)
+    const badge = screen.getByLabelText('Nota 9')
+    expect(badge).toBeInTheDocument()
+    expect(badge.textContent).toBe('9')
+    expect(badge.style.borderColor).toBe('var(--nota-9-fill-border)')
+  })
 })

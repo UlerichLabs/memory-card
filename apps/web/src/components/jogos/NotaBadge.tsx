@@ -2,7 +2,7 @@ import type { CSSProperties } from 'react'
 
 export interface NotaBadgeProps {
   nota: number
-  tamanho: 'sm' | 'md' | 'lg'
+  tamanho: 'sm' | 'md' | 'lg' | 'responsivo'
   pulsar?: boolean
   className?: string
 }
@@ -14,6 +14,8 @@ export function NotaBadge({ nota, tamanho, pulsar = false, className = '' }: Not
     sm: 'min-w-[32px] min-h-[32px] h-8 px-1.5 rounded-[8px] text-[14px] font-bold',
     md: 'w-[44px] h-[44px] rounded-[10px] text-[20px] font-extrabold',
     lg: 'w-[56px] h-[56px] rounded-[12px] text-[26px] font-extrabold border',
+    responsivo:
+      'w-[44px] h-[44px] rounded-[10px] text-[20px] font-extrabold sm:w-[56px] sm:h-[56px] sm:rounded-[12px] sm:text-[26px] sm:border',
   }[tamanho]
 
   const style: CSSProperties = {
@@ -21,7 +23,7 @@ export function NotaBadge({ nota, tamanho, pulsar = false, className = '' }: Not
     color: 'var(--nota-badge-text)',
   }
 
-  if (tamanho === 'lg') {
+  if (tamanho === 'lg' || tamanho === 'responsivo') {
     style.borderColor = `var(--nota-${nota}-fill-border)`
   }
 

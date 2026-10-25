@@ -16,33 +16,22 @@ const jogoMock: JogoZeradoDTO = {
 }
 
 describe('JogoDetalheStats', () => {
-  it('renderiza exatamente dois badges de nota envolvidos pelos wrappers de visibilidade mobile e desktop', () => {
+  it('renderiza exatamente um badge com label da nota', () => {
     render(<JogoDetalheStats jogo={jogoMock} />)
 
     const badges = screen.getAllByLabelText('Nota 10')
-    expect(badges).toHaveLength(2)
-
-    const wrapperMobile = badges[0].parentElement
-    const wrapperDesktop = badges[1].parentElement
-
-    expect(wrapperMobile).toHaveClass('sm:hidden')
-    expect(badges[0]).not.toHaveClass('sm:hidden')
-
-    expect(wrapperDesktop).toHaveClass('hidden', 'sm:inline-flex')
-    expect(badges[1]).not.toHaveClass('hidden')
+    expect(badges).toHaveLength(1)
+    expect(badges[0]).toBeInTheDocument()
+    expect(screen.getByText('Incrível')).toBeInTheDocument()
   })
 
-  it('renderiza corretamente nota 11 com os mesmos wrappers responsivos e efeito de pulso', () => {
+  it('renderiza exatamente um badge para nota 11 com o rotulo Jogo da Vida', () => {
     const jogoNota11: JogoZeradoDTO = { ...jogoMock, nota: 11 }
     render(<JogoDetalheStats jogo={jogoNota11} />)
 
     const badges = screen.getAllByLabelText('Nota 11')
-    expect(badges).toHaveLength(2)
-
-    expect(badges[0].parentElement).toHaveClass('sm:hidden')
-    expect(badges[1].parentElement).toHaveClass('hidden', 'sm:inline-flex')
-    expect(badges[0]).toHaveClass('animate-pulso-ouro')
-    expect(badges[1]).toHaveClass('animate-pulso-ouro')
+    expect(badges).toHaveLength(1)
+    expect(badges[0]).toBeInTheDocument()
     expect(screen.getByText('Jogo da Vida')).toBeInTheDocument()
   })
 })
