@@ -40,7 +40,10 @@ function BibliotecaMock() {
   );
 }
 
-function renderDetalhe(initialRoute = "/biblioteca/42", state?: { from?: string }) {
+function renderDetalhe(
+  initialRoute = "/biblioteca/42",
+  state?: { from?: string; voltarPara?: string },
+) {
   return render(
     <MemoryRouter initialEntries={[{ pathname: initialRoute, state }]}>
       <AuthProvider>
@@ -49,6 +52,10 @@ function renderDetalhe(initialRoute = "/biblioteca/42", state?: { from?: string 
           <Routes>
             <Route
               path="/biblioteca"
+              element={<BibliotecaMock />}
+            />
+            <Route
+              path="/listas/:id"
               element={<BibliotecaMock />}
             />
             <Route
@@ -176,6 +183,26 @@ describe("JogoDetalhePage", () => {
 
     expect(await screen.findByTestId("pagina-biblioteca")).toHaveTextContent(
       "/biblioteca?busca=Zelda&modo=list",
+    );
+  });
+
+  it("botão Voltar exibe rótulo e navega para state.voltarPara quando informado", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(jogosService, "obterPorId").mockResolvedValue(jogoCompletoMock);
+    renderDetalhe("/biblioteca/42", { voltarPara: "/listas/10" });
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "The Legend of Zelda: Ocarina of Time",
+      }),
+    ).toBeInTheDocument();
+    const btnVoltar = screen.getAllByRole("button", {
+      name: "Voltar para o desafio",
+    })[0];
+    await user.click(btnVoltar);
+
+    expect(await screen.findByTestId("pagina-biblioteca")).toHaveTextContent(
+      "/listas/10",
     );
   });
 

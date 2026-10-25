@@ -20,6 +20,7 @@ import { DadosSecao } from '@/pages/configuracoes/DadosSecao'
 import { SobreSecao } from '@/pages/configuracoes/SobreSecao'
 import { BibliotecaPage } from '@/pages/BibliotecaPage'
 import { JogoDetalhePage } from '@/pages/JogoDetalhePage'
+import { JogoCatalogoPage } from '@/pages/JogoCatalogoPage'
 import { HallDaFamaPage } from '@/pages/HallDaFamaPage'
 import { ListasPage } from '@/pages/ListasPage'
 import { AbandonadosPage } from '@/pages/AbandonadosPage'
@@ -53,6 +54,7 @@ export function AppRoutes() {
                 </Route>
                 <Route path="/biblioteca" element={<BibliotecaPage />} />
                 <Route path="/biblioteca/:id" element={<JogoDetalhePage />} />
+                <Route path="/catalogo/:igdbId" element={<JogoCatalogoPage />} />
                 <Route path="/hall-da-fama" element={<HallDaFamaPage />} />
                 <Route path="/jogos/novo" element={<Navigate to="/biblioteca" replace />} />
                 <Route path="/jogos/:id/editar" element={<Navigate to="/biblioteca" replace />} />
